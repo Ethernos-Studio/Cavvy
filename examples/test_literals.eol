@@ -1,0 +1,134 @@
+public class TestLiterals {
+    public static void main() {
+        // 整数字面量默认 int
+        int a = 42;
+        long b = 42L;
+        // 隐式转换 int -> long
+        long c = 100;
+        // 十六进制、二进制、八进制
+        int hex = 0x1F;
+        int bin = 0b1010;
+        int oct = 0o77;
+        // 下划线分隔符
+        int big = 1_000_000;
+        long bigLong = 1_000_000_000L;
+        
+        // 浮点字面量默认 double
+        double d = 3.14;
+        float f = 3.14f;
+        double scientific = 1.23e-4;
+        float scientificF = 1.23e-4f;
+        // 下划线浮点
+        double underscored = 1_000.5_0;
+        
+        // 字符字面量
+        char ch = 'A';
+        
+        // 布尔字面量
+        bool flag = true;
+        
+        // 字符串字面量
+        string s = "Hello";
+        
+        // 打印测试
+        print("int a = ");
+        print(a);
+        println();
+        print("long b = ");
+        print(b);
+        println();
+        print("long c = ");
+        print(c);
+        println();
+        print("hex = ");
+        print(hex);
+        println();
+        print("bin = ");
+        print(bin);
+        println();
+        print("oct = ");
+        print(oct);
+        println();
+        print("big = ");
+        print(big);
+        println();
+        print("bigLong = ");
+        print(bigLong);
+        println();
+        print("double d = ");
+        print(d);
+        println();
+        print("float f = ");
+        print(f);
+        println();
+        print("scientific = ");
+        print(scientific);
+        println();
+        print("scientificF = ");
+        print(scientificF);
+        println();
+        print("underscored = ");
+        print(underscored);
+        println();
+        print("char ch = ");
+        print(ch);
+        println();
+        print("bool flag = ");
+        print(flag);
+        println();
+        print("string s = ");
+        print(s);
+        println();
+        
+        // 类型转换测试
+        int x = 10;
+        long y = x;  // 隐式 int -> long
+        float z = x; // 隐式 int -> float
+        double w = y; // 隐式 long -> double
+        print("x = ");
+        print(x);
+        println();
+        print("y = ");
+        print(y);
+        println();
+        print("z = ");
+        print(z);
+        println();
+        print("w = ");
+        print(w);
+        println();
+        
+        // 算术运算中的类型提升
+        int i1 = 5;
+        long i2 = 10L;
+        long sum = i1 + i2; // int 提升为 long
+        print("i1 + i2 = ");
+        print(sum);
+        println();
+        
+        float f1 = 2.5f;
+        double d1 = 3.5;
+        double product = f1 * d1; // float 提升为 double
+        print("f1 * d1 = ");
+        print(product);
+        println();
+        
+        // 后缀测试
+        long l1 = 100L;
+        long l2 = 100l; // 小写 L
+        float f2 = 2.0F;
+        double d2 = 2.0D;
+        print("l1 = ");
+        print(l1);
+        println();
+        print("l2 = ");
+        print(l2);
+        println();
+        print("f2 = ");
+        print(f2);
+        println();
+        print("d2 = ");
+        print(d2);
+        println();
+    }
+}

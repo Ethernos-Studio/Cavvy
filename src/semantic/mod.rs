@@ -311,8 +311,10 @@ impl SemanticAnalyzer {
     fn infer_expr_type(&self, expr: &Expr) -> EolResult<Type> {
         match expr {
             Expr::Literal(lit) => match lit {
-                LiteralValue::Int(_) => Ok(Type::Int64),
-                LiteralValue::Float(_) => Ok(Type::Float64),
+                LiteralValue::Int32(_) => Ok(Type::Int32),
+                LiteralValue::Int64(_) => Ok(Type::Int64),
+                LiteralValue::Float32(_) => Ok(Type::Float32),
+                LiteralValue::Float64(_) => Ok(Type::Float64),
                 LiteralValue::String(_) => Ok(Type::String),
                 LiteralValue::Bool(_) => Ok(Type::Bool),
                 LiteralValue::Char(_) => Ok(Type::Char),

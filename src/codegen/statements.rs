@@ -27,8 +27,47 @@ impl IRGenerator {
 
                 if let Some(init) = var.initializer.as_ref() {
                     let value = self.generate_expression(init)?;
-                    self.emit_line(&format!("  store {}, {}* %{}",
-                        value, var_type, var.name));
+                    let (value_type, val) = self.parse_typed_value(&value);
+                    
+                    // 如果值类型与变量类型不匹配，需要转换
+                    if value_type != var_type {
+                        let temp = self.new_temp();
+                        
+                        // 浮点类型转换
+                        if value_type == "double" && var_type == "float" {
+                            // double -> float 转换
+                            self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
+                            self.emit_line(&format!("  store float {}, float* %{}", temp, var.name));
+                        } else if value_type == "float" && var_type == "double" {
+                            // float -> double 转换
+                            self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
+                            self.emit_line(&format!("  store double {}, double* %{}", temp, var.name));
+                        }
+                        // 整数类型转换
+                        else if value_type.starts_with("i") && var_type.starts_with("i") {
+                            let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
+                            let to_bits: u32 = var_type.trim_start_matches('i').parse().unwrap_or(64);
+                            
+                            if to_bits > from_bits {
+                                // 符号扩展
+                                self.emit_line(&format!("  {} = sext {} {} to {}",
+                                    temp, value_type, val, var_type));
+                            } else {
+                                // 截断
+                                self.emit_line(&format!("  {} = trunc {} {} to {}",
+                                    temp, value_type, val, var_type));
+                            }
+                            self.emit_line(&format!("  store {} {}, {}* %{}", var_type, temp, var_type, var.name));
+                        } else {
+                            // 类型不兼容，直接存储（可能会出错）
+                            self.emit_line(&format!("  store {}, {}* %{}",
+                                value, var_type, var.name));
+                        }
+                    } else {
+                        // 类型匹配，直接存储
+                        self.emit_line(&format!("  store {}, {}* %{}",
+                            value, var_type, var.name));
+                    }
                 }
             }
             Stmt::Return(expr) => {

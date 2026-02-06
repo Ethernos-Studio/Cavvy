@@ -198,9 +198,9 @@ pub fn parse_switch_statement(parser: &mut Parser) -> EolResult<Stmt> {
     while !parser.check(&crate::lexer::Token::RBrace) && !parser.is_at_end() {
         if parser.match_token(&crate::lexer::Token::Case) {
             // 解析 case 值
-            let value = match parser.current_token() {
-                crate::lexer::Token::IntegerLiteral(Some(v)) => {
-                    let val = *v;  // 解引用获取值
+            let value = match *parser.current_token() {
+                crate::lexer::Token::IntegerLiteral(Some((v, _))) => {
+                    let val = v;  // v 是 i64
                     parser.advance();
                     val
                 }

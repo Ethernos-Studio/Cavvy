@@ -144,8 +144,10 @@ pub enum Expr {
 
 #[derive(Debug, Clone)]
 pub enum LiteralValue {
-    Int(i64),
-    Float(f64),
+    Int32(i32),
+    Int64(i64),
+    Float32(f32),
+    Float64(f64),
     String(String),
     Bool(bool),
     Char(char),

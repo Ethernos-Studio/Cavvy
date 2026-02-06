@@ -413,24 +413,38 @@ pub fn parse_postfix(parser: &mut Parser) -> EolResult<Expr> {
 pub fn parse_primary(parser: &mut Parser) -> EolResult<Expr> {
     let loc = parser.current_loc();
     
-    match parser.current_token() {
-        crate::lexer::Token::IntegerLiteral(Some(val)) => {
-            let val = *val;
+    let token = parser.current_token().clone();
+    match token {
+        crate::lexer::Token::IntegerLiteral(Some((val, suffix))) => {
             parser.advance();
-            Ok(Expr::Literal(LiteralValue::Int(val)))
+            let lit = match suffix {
+                Some('L') | Some('l') => LiteralValue::Int64(val),
+                None => {
+                    // 默认整数字面量类型为 int32，但如果值超出范围，则视为 int64？
+                    if val >= i32::MIN as i64 && val <= i32::MAX as i64 {
+                        LiteralValue::Int32(val as i32)
+                    } else {
+                        LiteralValue::Int64(val)
+                    }
+                }
+                _ => unreachable!(),
+            };
+            Ok(Expr::Literal(lit))
         }
-        crate::lexer::Token::FloatLiteral(Some(val)) => {
-            let val = *val;
+        crate::lexer::Token::FloatLiteral(Some((val, suffix))) => {
             parser.advance();
-            Ok(Expr::Literal(LiteralValue::Float(val)))
+            let lit = match suffix {
+                Some('f') | Some('F') => LiteralValue::Float32(val as f32),
+                Some('d') | Some('D') | None => LiteralValue::Float64(val),
+                _ => unreachable!(),
+            };
+            Ok(Expr::Literal(lit))
         }
         crate::lexer::Token::StringLiteral(s) => {
-            let s = s.clone();
             parser.advance();
             Ok(Expr::Literal(LiteralValue::String(s)))
         }
         crate::lexer::Token::CharLiteral(Some(c)) => {
-            let c = *c;
             parser.advance();
             Ok(Expr::Literal(LiteralValue::Char(c)))
         }

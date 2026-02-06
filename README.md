@@ -1,5 +1,7 @@
 # EOL 编译器
 
+[English](README_EN.md) | 简体中文
+
 ![License](https://img.shields.io/badge/license-GPL3-blue.svg)
 ![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
@@ -9,7 +11,9 @@ EOL (Ethernos Object Language) 是一个简单的面向对象编程语言，支�
 EOL是整个Ethernos编程语言工具链中的里程碑，它是Ethernos发布的所有编程语言中，第一个编译型编程语言。
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.3.2.0-blue.svg)
+
+> **注意**: 当前版本主要针对 Windows 平台。如果您熟悉 Linux 开发环境，欢迎帮助我们移植到 Linux 平台！
 
 ## 特性
 

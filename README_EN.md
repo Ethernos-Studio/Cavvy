@@ -1,5 +1,7 @@
 # EOL Compiler
 
+English | [简体中文](README.md)
+
 ![License](https://img.shields.io/badge/license-GPL3-blue.svg)
 ![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)
@@ -9,7 +11,9 @@ EOL (Ethernos Object Language) is a simple object-oriented programming language 
 EOL is a milestone in the Ethernos programming language toolchain, being the first compiled programming language released by Ethernos.
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)
+![Version](https://img.shields.io/badge/version-0.3.2.0-blue.svg)
+
+> **Note**: The current version is primarily targeted at the Windows platform. If you are familiar with the Linux development environment, you are welcome to help us port it to Linux!
 
 ## Features
 
@@ -31,7 +35,6 @@ EOL is a milestone in the Ethernos programming language toolchain, being the fir
 # Clone the repository
 git clone https://github.com/dhjs0000/eol.git
 cd eol
-
 # Build the compiler
 cargo build --release
 ```

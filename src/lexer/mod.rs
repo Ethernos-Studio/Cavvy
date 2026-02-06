@@ -80,11 +80,52 @@ pub enum Token {
     Identifier(String),
     
     // 字面量
-    #[regex(r"-?\d+", |lex| lex.slice().parse::<i64>().ok())]
-    IntegerLiteral(Option<i64>),
+    #[regex(r"-?(?:0[xX][0-9a-fA-F][0-9a-fA-F_]*|0[bB][01][01_]*|0[oO]?[0-7][0-7_]*|[0-9][0-9_]*)[Ll]?", |lex| {
+        let slice = lex.slice();
+        // 分离后缀
+        let (num_str, suffix) = if slice.ends_with('L') || slice.ends_with('l') {
+            (&slice[..slice.len()-1], Some(slice.chars().last().unwrap()))
+        } else {
+            (slice, None)
+        };
+        // 移除下划线
+        let cleaned: String = num_str.chars().filter(|c| *c != '_').collect();
+        // 解析数字
+        let radix = if cleaned.starts_with("0x") || cleaned.starts_with("0X") {
+            16
+        } else if cleaned.starts_with("0b") || cleaned.starts_with("0B") {
+            2
+        } else if cleaned.starts_with("0o") || cleaned.starts_with("0O") {
+            8
+        } else if cleaned.starts_with("0") && cleaned.len() > 1 && cleaned.chars().nth(1).map(|c| c.is_digit(10)).unwrap_or(false) {
+            // 以0开头但不含字母的十进制数字？实际上，前导零的十进制数字，但我们将视为十进制（如Java中，前导零表示八进制？在Java中，前导零表示八进制，但为了兼容性，我们将其视为八进制？我们已匹配八进制模式，所以这里应该是十进制）
+            10
+        } else {
+            10
+        };
+        let num = if radix == 10 {
+            cleaned.parse::<i64>().ok()
+        } else {
+            i64::from_str_radix(&cleaned[2..], radix).ok()
+        };
+        num.map(|val| (val, suffix))
+    })]
+    IntegerLiteral(Option<(i64, Option<char>)>),
     
-    #[regex(r"-?\d+\.\d+([eE][+-]?\d+)?", |lex| lex.slice().parse::<f64>().ok())]
-    FloatLiteral(Option<f64>),
+    #[regex(r"-?(?:[0-9][0-9_]*\.[0-9][0-9_]*|\.[0-9][0-9_]*|[0-9][0-9_]*\.)(?:[eE][+-]?[0-9][0-9_]*)?[FfDd]?", |lex| {
+        let slice = lex.slice();
+        let (num_str, suffix) = if slice.ends_with('F') || slice.ends_with('f') {
+            (&slice[..slice.len()-1], Some('f'))
+        } else if slice.ends_with('D') || slice.ends_with('d') {
+            (&slice[..slice.len()-1], Some('d'))
+        } else {
+            (slice, None)
+        };
+        // 移除下划线
+        let cleaned: String = num_str.chars().filter(|c| *c != '_').collect();
+        cleaned.parse::<f64>().ok().map(|val| (val, suffix))
+    })]
+    FloatLiteral(Option<(f64, Option<char>)>),
     
     #[regex(r#""[^"]*""#, |lex| {
         let s = lex.slice();

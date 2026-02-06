@@ -29,14 +29,35 @@ impl IRGenerator {
     /// 生成字面量代码
     fn generate_literal(&mut self, lit: &LiteralValue) -> EolResult<String> {
         match lit {
-            LiteralValue::Int(val) => Ok(format!("i64 {}", val)),
-            LiteralValue::Float(val) => Ok(format!("double {}", val)),
+            LiteralValue::Int32(val) => Ok(format!("i32 {}", val)),
+            LiteralValue::Int64(val) => Ok(format!("i64 {}", val)),
+            LiteralValue::Float32(val) => {
+                // 对于float字面量，生成double常量
+                // 类型转换逻辑会将其转换为float
+                // 确保浮点数常量有小数点
+                let formatted = if val.fract() == 0.0 {
+                    format!("double {}.0", val)
+                } else {
+                    format!("double {}", val)
+                };
+                Ok(formatted)
+            }
+            LiteralValue::Float64(val) => {
+                // 对于double，使用十进制表示
+                // 确保浮点数常量有小数点
+                let formatted = if val.fract() == 0.0 {
+                    format!("double {}.0", val)
+                } else {
+                    format!("double {}", val)
+                };
+                Ok(formatted)
+            }
             LiteralValue::Bool(val) => Ok(format!("i1 {}", if *val { 1 } else { 0 })),
             LiteralValue::String(s) => {
                 let global_name = self.get_or_create_string_constant(s);
                 let temp = self.new_temp();
                 let len = s.len() + 1;
-                self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0", 
+                self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
                     temp, len, len, global_name));
                 Ok(format!("i8* {}", temp))
             }
@@ -45,6 +66,60 @@ impl IRGenerator {
         }
     }
 
+    /// 提升整数操作数到相同类型
+    fn promote_integer_operands(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str) -> (String, String, String) {
+        if left_type == right_type {
+            return (left_type.to_string(), left_val.to_string(), right_val.to_string());
+        }
+        
+        // 确定提升后的类型（选择位数更大的类型）
+        let left_bits: u32 = left_type.trim_start_matches('i').parse().unwrap_or(64);
+        let right_bits: u32 = right_type.trim_start_matches('i').parse().unwrap_or(64);
+        
+        if left_bits >= right_bits {
+            // 提升右操作数到左操作数的类型
+            let temp = self.new_temp();
+            self.emit_line(&format!("  {} = sext {} {} to {}", temp, right_type, right_val, left_type));
+            (left_type.to_string(), left_val.to_string(), temp)
+        } else {
+            // 提升左操作数到右操作数的类型
+            let temp = self.new_temp();
+            self.emit_line(&format!("  {} = sext {} {} to {}", temp, left_type, left_val, right_type));
+            (right_type.to_string(), temp, right_val.to_string())
+        }
+    }
+    
+    /// 提升浮点操作数到相同类型
+    fn promote_float_operands(&mut self, left_type: &str, left_val: &str, right_type: &str, right_val: &str) -> (String, String, String) {
+        if left_type == right_type {
+            return (left_type.to_string(), left_val.to_string(), right_val.to_string());
+        }
+        
+        // 确定提升后的类型（选择精度更高的类型：double > float）
+        if left_type == "double" || right_type == "double" {
+            let promoted_type = "double".to_string();
+            let mut promoted_left = left_val.to_string();
+            let mut promoted_right = right_val.to_string();
+            
+            if left_type == "float" {
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = fpext float {} to double", temp, left_val));
+                promoted_left = temp;
+            }
+            
+            if right_type == "float" {
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = fpext float {} to double", temp, right_val));
+                promoted_right = temp;
+            }
+            
+            (promoted_type, promoted_left, promoted_right)
+        } else {
+            // 两者都是float，无需提升
+            (left_type.to_string(), left_val.to_string(), right_val.to_string())
+        }
+    }
+    
     /// 生成二元表达式代码
     fn generate_binary_expression(&mut self, bin: &BinaryExpr) -> EolResult<String> {
         let left = self.generate_expression(&bin.left)?;
@@ -63,107 +138,184 @@ impl IRGenerator {
                     // 调用内建的字符串拼接函数
                     self.emit_line(&format!("  {} = call i8* @__eol_string_concat(i8* {}, i8* {})",
                         temp, left_val, right_val));
-                } else if left_type.starts_with("i") {
+                    return Ok(format!("i8* {}", temp));
+                } else if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数加法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = add {} {}, {}",
-                        temp, left_type, left_val, right_val));
-                } else {
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数加法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = fadd {} {}, {}",
-                        temp, left_type, left_val, right_val));
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Unsupported addition types: {} and {}", left_type, right_type)));
                 }
             }
             BinaryOp::Sub => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = sub {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数减法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = sub {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数减法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fsub {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
                 } else {
-                    self.emit_line(&format!("  {} = fsub {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported subtraction types: {} and {}", left_type, right_type)));
                 }
             }
             BinaryOp::Mul => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = mul {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数乘法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = mul {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数乘法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fmul {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
                 } else {
-                    self.emit_line(&format!("  {} = fmul {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported multiplication types: {} and {}", left_type, right_type)));
                 }
             }
             BinaryOp::Div => {
-                if left_type.starts_with("i") {
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数除法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = sdiv {} {}, {}",
-                        temp, left_type, left_val, right_val));
-                } else {
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数除法，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = fdiv {} {}, {}",
-                        temp, left_type, left_val, right_val));
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Unsupported division types: {} and {}", left_type, right_type)));
                 }
             }
             BinaryOp::Mod => {
-                if left_type.starts_with("i") {
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数取模，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = srem {} {}, {}",
-                        temp, left_type, left_val, right_val));
-                } else {
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数取模，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
                     self.emit_line(&format!("  {} = frem {} {}, {}",
-                        temp, left_type, left_val, right_val));
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Unsupported modulo types: {} and {}", left_type, right_type)));
                 }
             }
             BinaryOp::Eq => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp eq {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数相等比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp eq {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数相等比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp oeq {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp oeq {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported equality comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::Ne => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp ne {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数不相等比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp ne {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数不相等比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp one {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp one {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported inequality comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::Lt => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp slt {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数小于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp slt {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数小于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp olt {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp olt {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported less-than comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::Le => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp sle {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数小于等于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp sle {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数小于等于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp ole {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp ole {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported less-than-or-equal comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::Gt => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp sgt {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数大于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp sgt {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数大于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp ogt {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp ogt {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported greater-than comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::Ge => {
-                if left_type.starts_with("i") {
-                    self.emit_line(&format!("  {} = icmp sge {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 整数大于等于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = icmp sge {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                } else if (left_type == "float" || left_type == "double") && (right_type == "float" || right_type == "double") {
+                    // 浮点数大于等于比较，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_float_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = fcmp oge {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
                 } else {
-                    self.emit_line(&format!("  {} = fcmp oge {} {}, {}", 
-                        temp, left_type, left_val, right_val));
+                    return Err(codegen_error(format!("Unsupported greater-than-or-equal comparison types: {} and {}", left_type, right_type)));
                 }
                 return Ok(format!("i1 {}", temp));
             }
@@ -178,32 +330,72 @@ impl IRGenerator {
                 return Ok(format!("i1 {}", temp));
             }
             BinaryOp::BitAnd => {
-                self.emit_line(&format!("  {} = and {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 位与，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = and {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Bitwise AND requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
             BinaryOp::BitOr => {
-                self.emit_line(&format!("  {} = or {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 位或，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = or {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Bitwise OR requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
             BinaryOp::BitXor => {
-                self.emit_line(&format!("  {} = xor {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 位异或，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = xor {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Bitwise XOR requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
             BinaryOp::Shl => {
-                self.emit_line(&format!("  {} = shl {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 左移，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = shl {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Shift left requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
             BinaryOp::Shr => {
-                self.emit_line(&format!("  {} = ashr {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 算术右移，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = ashr {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Arithmetic shift right requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
             BinaryOp::UnsignedShr => {
-                self.emit_line(&format!("  {} = lshr {} {}, {}",
-                    temp, left_type, left_val, right_val));
+                if left_type.starts_with("i") && right_type.starts_with("i") {
+                    // 逻辑右移，需要类型提升
+                    let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
+                    self.emit_line(&format!("  {} = lshr {} {}, {}",
+                        temp, promoted_type, promoted_left, promoted_right));
+                    return Ok(format!("{} {}", promoted_type, temp));
+                } else {
+                    return Err(codegen_error(format!("Unsigned shift right requires integer operands, got {} and {}", left_type, right_type)));
+                }
             }
         }
-        
-        Ok(format!("{} {}", left_type, temp))
     }
 
     /// 生成一元表达式代码
@@ -325,7 +517,19 @@ impl IRGenerator {
     /// 生成 print/println 调用代码
     fn generate_print_call(&mut self, args: &[Expr], newline: bool) -> EolResult<String> {
         if args.is_empty() {
-            return Err(codegen_error("print requires at least one argument".to_string()));
+            // 无参数，仅打印换行符（如果是 println）或什么都不做（如果是 print）
+            if newline {
+                // 打印一个空字符串加上换行符
+                let fmt_str = "\n";
+                let fmt_name = self.get_or_create_string_constant(fmt_str);
+                let fmt_len = fmt_str.len() + 1;
+                let fmt_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+                    fmt_ptr, fmt_len, fmt_len, fmt_name));
+                self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {})", fmt_ptr));
+            }
+            // 对于 print 无参数，什么都不做
+            return Ok("void".to_string());
         }
         
         let first_arg = &args[0];
@@ -349,9 +553,9 @@ impl IRGenerator {
                 self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i8* {})",
                     fmt_ptr, str_ptr));
             }
-            Expr::Literal(LiteralValue::Int(_)) => {
+            Expr::Literal(LiteralValue::Int32(_)) | Expr::Literal(LiteralValue::Int64(_)) => {
                 let value = self.generate_expression(first_arg)?;
-                let (_, val) = self.parse_typed_value(&value);
+                let (type_str, val) = self.parse_typed_value(&value);
                 let fmt_str = if newline { "%ld\n" } else { "%ld" };
                 let fmt_name = self.get_or_create_string_constant(fmt_str);
                 let fmt_len = fmt_str.len() + 1;
@@ -360,8 +564,17 @@ impl IRGenerator {
                 self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
                     fmt_ptr, fmt_len, fmt_len, fmt_name));
                 
+                // 如果类型不是 i64，需要扩展
+                let final_val = if type_str != "i64" {
+                    let ext_temp = self.new_temp();
+                    self.emit_line(&format!("  {} = sext {} {} to i64", ext_temp, type_str, val));
+                    ext_temp
+                } else {
+                    val.to_string()
+                };
+                
                 self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i64 {})",
-                    fmt_ptr, val));
+                    fmt_ptr, final_val));
             }
             _ => {
                 // 根据类型决定格式字符串
@@ -407,8 +620,18 @@ impl IRGenerator {
                     let fmt_ptr = self.new_temp();
                     self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
                         fmt_ptr, fmt_len, fmt_len, fmt_name));
+                    
+                    // 如果类型是float，需要转换为double
+                    let final_val = if type_str == "float" {
+                        let ext_temp = self.new_temp();
+                        self.emit_line(&format!("  {} = fpext float {} to double", ext_temp, val));
+                        ext_temp
+                    } else {
+                        val.to_string()
+                    };
+                    
                     self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, double {})",
-                        fmt_ptr, val));
+                        fmt_ptr, final_val));
                 } else {
                     // 默认作为字符串处理
                     let fmt_str = if newline { "%s\n" } else { "%s" };
@@ -429,12 +652,52 @@ impl IRGenerator {
     /// 生成赋值表达式代码
     fn generate_assignment(&mut self, assign: &AssignmentExpr) -> EolResult<String> {
         let value = self.generate_expression(&assign.value)?;
-        let (_, val) = self.parse_typed_value(&value);
+        let (value_type, val) = self.parse_typed_value(&value);
         
         match assign.target.as_ref() {
             Expr::Identifier(name) => {
-                // 简化处理，假设都是i64类型
-                self.emit_line(&format!("  store i64 {}, i64* %{}", val, name));
+                // 获取变量的实际类型（克隆以避免借用问题）
+                let var_type = self.var_types.get(name)
+                    .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name)))?
+                    .clone();
+                
+                // 如果值类型与变量类型不匹配，需要转换
+                if value_type != var_type {
+                    let temp = self.new_temp();
+                    
+                    // 浮点类型转换
+                    if value_type == "double" && var_type == "float" {
+                        // double -> float 转换
+                        self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
+                        self.emit_line(&format!("  store float {}, float* %{}", temp, name));
+                        return Ok(format!("float {}", temp));
+                    } else if value_type == "float" && var_type == "double" {
+                        // float -> double 转换
+                        self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
+                        self.emit_line(&format!("  store double {}, double* %{}", temp, name));
+                        return Ok(format!("double {}", temp));
+                    }
+                    // 整数类型转换
+                    else if value_type.starts_with("i") && var_type.starts_with("i") {
+                        let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
+                        let to_bits: u32 = var_type.trim_start_matches('i').parse().unwrap_or(64);
+                        
+                        if to_bits > from_bits {
+                            // 符号扩展
+                            self.emit_line(&format!("  {} = sext {} {} to {}",
+                                temp, value_type, val, var_type));
+                        } else {
+                            // 截断
+                            self.emit_line(&format!("  {} = trunc {} {} to {}",
+                                temp, value_type, val, var_type));
+                        }
+                        self.emit_line(&format!("  store {} {}, {}* %{}", var_type, temp, var_type, name));
+                        return Ok(format!("{} {}", var_type, temp));
+                    }
+                }
+                
+                // 类型匹配，直接存储
+                self.emit_line(&format!("  store {} {}, {}* %{}", var_type, val, var_type, name));
                 Ok(value)
             }
             _ => Err(codegen_error("Invalid assignment target".to_string()))
