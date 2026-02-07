@@ -1,0 +1,10 @@
+public class TestFloatCast {
+    public static void main() {
+        float x = 3.0;
+        float y = 4.0;
+        float z = x * y;
+        println(z);
+        println("直接打印乘法结果: " + (String)(x * y));
+        println("先赋值再转换: " + (String)z);
+    }
+}

@@ -21,7 +21,8 @@ impl IRGenerator {
             }
             Stmt::VarDecl(var) => {
                 let var_type = self.type_to_llvm(&var.var_type);
-                self.emit_line(&format!("  %{} = alloca {}", var.name, var_type));
+                let align = self.get_type_align(&var_type);  // 获取对齐
+                self.emit_line(&format!("  %{} = alloca {}, align {}", var.name, var_type, align));
                 // 存储变量类型信息
                 self.var_types.insert(var.name.clone(), var_type.clone());
                 // 如果变量类型是对象，记录其类名以便后续方法调用解析
@@ -41,11 +42,13 @@ impl IRGenerator {
                         if value_type == "double" && var_type == "float" {
                             // double -> float 转换
                             self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
-                            self.emit_line(&format!("  store float {}, float* %{}", temp, var.name));
+                            let align = self.get_type_align("float");
+                            self.emit_line(&format!("  store float {}, float* %{}, align {}", temp, var.name, align));
                         } else if value_type == "float" && var_type == "double" {
                             // float -> double 转换
                             self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
-                            self.emit_line(&format!("  store double {}, double* %{}", temp, var.name));
+                            let align = self.get_type_align("double");
+                            self.emit_line(&format!("  store double {}, double* %{}, align {}", temp, var.name, align));
                         }
                         // 整数类型转换
                         else if value_type.starts_with("i") && var_type.starts_with("i") {
@@ -61,7 +64,7 @@ impl IRGenerator {
                                 self.emit_line(&format!("  {} = trunc {} {} to {}",
                                     temp, value_type, val, var_type));
                             }
-                            self.emit_line(&format!("  store {} {}, {}* %{}", var_type, temp, var_type, var.name));
+                            self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, var.name, align));
                         } else {
                             // 类型不兼容，直接存储（可能会出错）
                             self.emit_line(&format!("  store {}, {}* %{}",
@@ -91,10 +94,12 @@ impl IRGenerator {
                         if value_type == "double" && ret_type == "float" {
                             // double -> float 转换
                             self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
+                            let align = self.get_type_align("float");
                             self.emit_line(&format!("  ret float {}", temp));
                         } else if value_type == "float" && ret_type == "double" {
                             // float -> double 转换
                             self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
+                            let align = self.get_type_align("double");
                             self.emit_line(&format!("  ret double {}", temp));
                         }
                         // 整数类型转换

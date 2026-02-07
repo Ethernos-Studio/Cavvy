@@ -10,11 +10,11 @@ impl IRGenerator {
         match expr {
             Expr::Literal(lit) => self.generate_literal(lit),
             Expr::Identifier(name) => {
-                // 加载变量值
                 let temp = self.new_temp();
-                // 从 var_types 中获取变量类型，默认为 i64（为了向后兼容）
                 let var_type = self.var_types.get(name).cloned().unwrap_or_else(|| "i64".to_string());
-                self.emit_line(&format!("  {} = load {}, {}* %{}, align 8", temp, var_type, var_type, name));
+                let align = self.get_type_align(&var_type);  // 获取正确的对齐
+                self.emit_line(&format!("  {} = load {}, {}* %{}, align {}", 
+                    temp, var_type, var_type, name, align));
                 Ok(format!("{} {}", var_type, temp))
             }
             Expr::Binary(bin) => self.generate_binary_expression(bin),
@@ -794,12 +794,14 @@ impl IRGenerator {
                     if value_type == "double" && var_type == "float" {
                         // double -> float 转换
                         self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
-                        self.emit_line(&format!("  store float {}, float* %{}", temp, name));
+                        let align = self.get_type_align("float");
+                        self.emit_line(&format!("  store float {}, float* %{}, align {}", temp, name, align));
                         return Ok(format!("float {}", temp));
                     } else if value_type == "float" && var_type == "double" {
                         // float -> double 转换
                         self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
-                        self.emit_line(&format!("  store double {}, double* %{}", temp, name));
+                        let align = self.get_type_align("double");
+                        self.emit_line(&format!("  store double {}, double* %{}, align {}", temp, name, align));
                         return Ok(format!("double {}", temp));
                     }
                     // 整数类型转换
@@ -816,13 +818,15 @@ impl IRGenerator {
                             self.emit_line(&format!("  {} = trunc {} {} to {}",
                                 temp, value_type, val, var_type));
                         }
-                        self.emit_line(&format!("  store {} {}, {}* %{}", var_type, temp, var_type, name));
+                        let align = self.get_type_align(&var_type);
+                        self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, name, align));
                         return Ok(format!("{} {}", var_type, temp));
                     }
                 }
                 
                 // 类型匹配，直接存储
-                self.emit_line(&format!("  store {} {}, {}* %{}", var_type, val, var_type, name));
+                let align = self.get_type_align(&var_type);
+                self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, val, var_type, name, align));
                 Ok(value)
             }
             Expr::ArrayAccess(arr_access) => {
@@ -837,12 +841,14 @@ impl IRGenerator {
                     if value_type == "double" && elem_type == "float" {
                         // double -> float 转换
                         self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
-                        self.emit_line(&format!("  store float {}, {}* {}", temp, elem_type, elem_ptr));
+                        let align = self.get_type_align(&elem_type);
+                        self.emit_line(&format!("  store float {}, {}* {}, align {}", temp, elem_type, elem_ptr, align));
                         return Ok(format!("float {}", temp));
                     } else if value_type == "float" && elem_type == "double" {
                         // float -> double 转换
                         self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
-                        self.emit_line(&format!("  store double {}, {}* {}", temp, elem_type, elem_ptr));
+                        let align = self.get_type_align(&elem_type);
+                        self.emit_line(&format!("  store double {}, {}* {}, align {}", temp, elem_type, elem_ptr, align));
                         return Ok(format!("double {}", temp));
                     }
                     // 整数类型转换
@@ -859,13 +865,15 @@ impl IRGenerator {
                             self.emit_line(&format!("  {} = trunc {} {} to {}",
                                 temp, value_type, val, elem_type));
                         }
-                        self.emit_line(&format!("  store {} {}, {}* {}", elem_type, temp, elem_type, elem_ptr));
+                        let align = self.get_type_align(&elem_type);
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}", elem_type, temp, elem_type, elem_ptr, align));
                         return Ok(format!("{} {}", elem_type, temp));
                     }
                 }
                 
                 // 类型匹配，直接存储到数组元素
-                self.emit_line(&format!("  store {} {}, {}* {}", elem_type, val, elem_type, elem_ptr));
+                let align = self.get_type_align(&elem_type);
+                self.emit_line(&format!("  store {} {}, {}* {}, align {}", elem_type, val, elem_type, elem_ptr, align));
                 Ok(value)
             }
             _ => Err(codegen_error("Invalid assignment target".to_string()))
@@ -930,7 +938,25 @@ impl IRGenerator {
             }
             return Ok(format!("{} {}", to_type, temp));
         }
-        
+        // 浮点到字符串（float/double -> String）
+        if (from_type == "float" || from_type == "double") && to_type == "i8*" {
+            // 关键修复：C 的可变参数函数中，float 会被提升为 double
+            // 所以即使原类型是 float，也必须 fpext 到 double 再传参
+            let arg_val = if from_type == "float" {
+                let promoted = self.new_temp();
+                self.emit_line(&format!("  {} = fpext float {} to double", promoted, val));
+                promoted
+            } else {
+                val.to_string()  // 已经是 double
+            };
+
+            // 调用专门的运行时函数来避免调用约定问题
+            let result = self.new_temp();
+            self.emit_line(&format!("  {} = call i8* @__eol_float_to_string(double {})",
+                result, arg_val));
+
+            return Ok(format!("{} {}", to_type, result));
+        }
         Err(codegen_error(format!("Unsupported cast from {} to {}", from_type, to_type)))
     }
 
@@ -1054,8 +1080,8 @@ impl IRGenerator {
         
         // 加载元素值
         let elem_temp = self.new_temp();
-        self.emit_line(&format!("  {} = load {}, {}* {}, align 8",
-            elem_temp, elem_type, elem_type, elem_ptr_temp));
+        let align = self.get_type_align(&elem_type);
+        self.emit_line(&format!("  {} = load {}, {}* {}, align {}", elem_temp, elem_type, elem_type, elem_ptr_temp, align));
         
         Ok(format!("{} {}", elem_type, elem_temp))
     }

@@ -13,5 +13,6 @@ public class TestInput {
         float y = readFloat();
         print("两个浮点数的积是: ");
         println(x * y);
+        println("两个浮点数的积是: " + (string)(x * y));
     }
 }

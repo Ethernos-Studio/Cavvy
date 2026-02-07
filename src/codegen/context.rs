@@ -57,6 +57,19 @@ impl IRGenerator {
         self.output.push('\n');
     }
 
+
+    /// 获取类型的 LLVM 对齐字节数
+    pub fn get_type_align(&self, llvm_type: &str) -> u32 {
+        match llvm_type {
+            "i1" | "i8" => 1,
+            "i16" => 2,
+            "i32" | "float" => 4,  // float 是 4 字节对齐！
+            "i64" | "double" => 8,
+            t if t.ends_with("*") => 8,  // 所有指针都是 8 字节（64位系统）
+            _ => 8, // 默认 8 字节
+        }
+    }
+
     /// 创建新标签
     pub fn new_label(&mut self, prefix: &str) -> String {
         let label = format!("{}.{}", prefix, self.label_counter);

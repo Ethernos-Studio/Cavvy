@@ -5,9 +5,9 @@ impl IRGenerator {
     /// 发射IR头部（外部声明和运行时函数）
     pub fn emit_header(&mut self) {
         self.emit_raw("; EOL (Ethernos Object Language) Generated LLVM IR");
-        self.emit_raw("target triple = \"x86_64-pc-windows-msvc\"");
+        self.emit_raw("target triple = \"x86_64-w64-mingw32\"");
         self.emit_raw("");
-        
+
         // 声明外部函数 (printf 和标准C库函数)
         self.emit_raw("declare i32 @printf(i8*, ...)");
         self.emit_raw("declare i32 @scanf(i8*, ...)");
@@ -15,14 +15,17 @@ impl IRGenerator {
         self.emit_raw("declare i64 @strlen(i8*)");
         self.emit_raw("declare i8* @malloc(i64)");
         self.emit_raw("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)");
+        self.emit_raw("declare i32 @snprintf(i8*, i64, i8*, ...)");
+        self.emit_raw("@.str.float_fmt = private unnamed_addr constant [3 x i8] c\"%f\\00\", align 1");
         self.emit_raw("");
-        
+
         // 空字符串常量（用于 null 安全）
         self.emit_raw("@.eol_empty_str = private unnamed_addr constant [1 x i8] c\"\\00\", align 1");
         self.emit_raw("");
-        
-        // 生成字符串拼接运行时函数
+
+        // 生成运行时函数
         self.emit_string_concat_runtime();
+        self.emit_float_to_string_runtime();
     }
 
     /// 生成字符串拼接运行时函数
@@ -79,6 +82,22 @@ impl IRGenerator {
         self.emit_raw("  store i8 0, i8* %end_ptr");
         self.emit_raw("  ");
         self.emit_raw("  ret i8* %result");
+        self.emit_raw("}");
+        self.emit_raw("");
+    }
+
+    /// 生成浮点数转字符串运行时函数
+    fn emit_float_to_string_runtime(&mut self) {
+        // 使用一个包装函数来确保正确的调用约定
+        // 注意：使用 malloc 分配堆内存，而不是 alloca 分配栈内存
+        self.emit_raw("define i8* @__eol_float_to_string(double %value) {");
+        self.emit_raw("entry:");
+        self.emit_raw("  ; 分配堆内存缓冲区（64字节，8字节对齐）");
+        self.emit_raw("  %buf = call i8* @malloc(i64 64)");
+        self.emit_raw("  %fmt_ptr = getelementptr [3 x i8], [3 x i8]* @.str.float_fmt, i64 0, i64 0");
+        self.emit_raw("  ; 调用 snprintf（指定缓冲区大小）");
+        self.emit_raw("  call i32 (i8*, i64, i8*, ...) @snprintf(i8* %buf, i64 64, i8* %fmt_ptr, double %value)");
+        self.emit_raw("  ret i8* %buf");
         self.emit_raw("}");
         self.emit_raw("");
     }
