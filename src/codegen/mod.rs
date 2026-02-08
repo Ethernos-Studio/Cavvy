@@ -7,7 +7,7 @@ pub mod context;
 mod types;
 mod expressions;
 mod statements;
-mod runtime;
+pub mod runtime;
 mod generator;
 
 // 公开 IRGenerator 作为代码生成器的入口
