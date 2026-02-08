@@ -12,12 +12,25 @@ impl IRGenerator {
     pub fn generate(&mut self, program: &Program) -> EolResult<String> {
         self.emit_header();
 
-        // 找到主类并记录
+        // 找到主类和main方法
         let mut main_class = None;
+        let mut main_method = None;
 
-        // 第一遍：收集所有静态字段
+        // 第一遍：收集所有静态字段，并找到main方法
         for class in &program.classes {
             self.collect_static_fields(class)?;
+
+            // 查找main方法
+            for member in &class.members {
+                if let crate::ast::ClassMember::Method(method) = member {
+                    if method.name == "main" &&
+                       method.modifiers.contains(&crate::ast::Modifier::Public) &&
+                       method.modifiers.contains(&crate::ast::Modifier::Static) {
+                        main_class = Some(class.name.clone());
+                        main_method = Some(method.clone());
+                    }
+                }
+            }
         }
 
         // 生成静态字段的全局变量声明
@@ -25,29 +38,19 @@ impl IRGenerator {
 
         // 第二遍：生成所有类方法
         for class in &program.classes {
-            if class.members.iter().any(|m| {
-                if let crate::ast::ClassMember::Method(method) = m {
-                    method.name == "main" &&
-                    method.modifiers.contains(&crate::ast::Modifier::Public) &&
-                    method.modifiers.contains(&crate::ast::Modifier::Static)
-                } else {
-                    false
-                }
-            }) {
-                main_class = Some(class.name.clone());
-            }
             self.generate_class(class)?;
         }
 
         // 生成C入口点main函数
-        if let Some(class_name) = main_class {
+        if let (Some(class_name), Some(main_method)) = (main_class, main_method) {
             self.emit_raw("; C entry point");
             self.emit_raw(&format!("define i32 @main() {{"));
             self.emit_raw("entry:");
             // 添加这行：强制设置 UTF-8 代码页
             self.emit_raw("  call void @SetConsoleOutputCP(i32 65001)");
-            // main 方法没有参数，使用简单名称
-            self.emit_raw(&format!("  call void @{}.main()", class_name));
+            // 根据main方法的参数生成正确的函数名
+            let main_fn_name = self.generate_method_name(&class_name, &main_method);
+            self.emit_raw(&format!("  call void @{}()", main_fn_name));
             self.emit_raw("  ret i32 0");
             self.emit_raw("}");
             self.emit_raw("");
@@ -151,6 +154,8 @@ impl IRGenerator {
         self.temp_counter = 0;
         // 清除变量类型映射（每个方法都有自己的作用域）
         self.var_types.clear();
+        // 重置作用域管理器
+        self.scope_manager.reset();
         // 清除循环栈
         self.loop_stack.clear();
 
@@ -170,10 +175,12 @@ impl IRGenerator {
         // 为参数分配局部变量
         for param in &method.params {
             let param_type = self.type_to_llvm(&param.param_type);
-            self.emit_line(&format!("  %{} = alloca {}", param.name, param_type));
+            // 使用作用域管理器声明参数变量
+            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+            self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
-                param_type, class_name, param.name, param_type, param.name));
-            // 存储参数类型信息
+                param_type, class_name, param.name, param_type, llvm_name));
+            // 同时存储到旧系统以保持兼容性
             self.var_types.insert(param.name.clone(), param_type);
         }
 

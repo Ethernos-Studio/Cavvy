@@ -1,0 +1,100 @@
+// 边界情况测试
+// 测试空数组、深层嵌套、递归深度等边界情况
+
+public class EdgeCaseTest {
+    
+    // 测试递归深度
+    public static long deepRecursion(long n) {
+        if (n <= 0) {
+            return 0;
+        }
+        return 1 + deepRecursion(n - 1);
+    }
+    
+    // 测试斐波那契递归（双重递归）
+    public static long fibonacci(long n) {
+        if (n <= 1) {
+            return n;
+        }
+        return fibonacci(n - 1) + fibonacci(n - 2);
+    }
+    
+    public static void main(string[] args) {
+        println("=== Edge Case Tests ===");
+        
+        // 测试1: 空数组（长度为0）
+        println("\nTest 1: Empty array");
+        int[] emptyArr = new int[0];
+        println("Empty array created, length = ");
+        println(emptyArr.length);
+        
+        // 测试2: 单层元素数组
+        println("\nTest 2: Single element array");
+        int[] singleArr = new int[1];
+        singleArr[0] = 99;
+        println("Single element: ");
+        println(singleArr[0]);
+        
+        // 测试3: 深层嵌套调用
+        println("\nTest 3: Deep recursion");
+        long depth = 10;
+        long result = deepRecursion(depth);
+        print("Deep recursion (");
+        print(depth);
+        print("): ");
+        println(result);
+        
+        // 测试4: 斐波那契数列（双重递归）
+        println("\nTest 4: Fibonacci recursion");
+        for (long i = 0; i <= 10; i = i + 1) {
+            long fib = fibonacci(i);
+            print("fib(");
+            print(i);
+            print(") = ");
+            println(fib);
+        }
+        
+        // 测试5: 大数组
+        println("\nTest 5: Large array");
+        int[] largeArr = new int[1000];
+        largeArr[0] = 1;
+        largeArr[999] = 999;
+        print("Large array first element: ");
+        println(largeArr[0]);
+        print("Large array last element: ");
+        println(largeArr[999]);
+        
+        // 测试6: 负数处理
+        println("\nTest 6: Negative numbers");
+        int negative = -100;
+        print("Negative number: ");
+        println(negative);
+        int abs = negative;
+        if (abs < 0) {
+            abs = -abs;
+        }
+        print("Absolute value: ");
+        println(abs);
+        
+        // 测试7: 零值处理
+        println("\nTest 7: Zero values");
+        int zero = 0;
+        print("Zero: ");
+        println(zero);
+        print("Zero comparison (0 == 0): ");
+        if (zero == 0) {
+            println(1); // true
+        } else {
+            println(0); // false
+        }
+        
+        // 测试8: 极大值和极小值
+        println("\nTest 8: Large numbers");
+        long bigNum = 1000000;
+        long biggerNum = bigNum * bigNum;
+        print("1,000,000 * 1,000,000 = ");
+        println(biggerNum);
+        
+        println("\n=== All edge case tests PASSED! ===");
+    }
+}

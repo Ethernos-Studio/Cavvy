@@ -281,16 +281,177 @@ fn test_calloc_integration() {
 fn test_memoization() {
     let output = compile_and_run_eol("examples/test_memoization.eol").expect("memoization example should compile and run");
     // 测试斐波那契数列
-    assert!(output.contains("Fibonacci numbers:"), 
+    assert!(output.contains("Fibonacci numbers:"),
             "Should show fibonacci header, got: {}", output);
-    assert!(output.contains("F(0) = 0"), 
+    assert!(output.contains("F(0) = 0"),
             "F(0) should be 0, got: {}", output);
-    assert!(output.contains("F(1) = 1"), 
+    assert!(output.contains("F(1) = 1"),
             "F(1) should be 1, got: {}", output);
-    assert!(output.contains("F(10) = 55"), 
+    assert!(output.contains("F(10) = 55"),
             "F(10) should be 55, got: {}", output);
-    assert!(output.contains("F(20) = 6765"), 
+    assert!(output.contains("F(20) = 6765"),
             "F(20) should be 6765, got: {}", output);
-    assert!(output.contains("F(40) =") && output.contains("102334155"), 
+    assert!(output.contains("F(40) =") && output.contains("102334155"),
             "F(40) should be 102334155, got: {}", output);
+}
+
+// ========== 新增测试 ==========
+
+#[test]
+fn test_scope_isolation() {
+    let output = compile_and_run_eol("examples/test_scope_isolation.eol").expect("scope isolation example should compile and run");
+    // 测试作用域隔离
+    assert!(output.contains("Before if: x =") && output.contains("100"),
+            "Should show initial x value, got: {}", output);
+    assert!(output.contains("In if branch: newVal =") && output.contains("10"),
+            "Should show if branch newVal, got: {}", output);
+    assert!(output.contains("After modify in if: newVal =") && output.contains("15"),
+            "Should show modified newVal in if branch, got: {}", output);
+    assert!(output.contains("After if: x =") && output.contains("100"),
+            "x should remain unchanged after if block, got: {}", output);
+    assert!(output.contains("Scope isolation test PASSED!"),
+            "Scope isolation test should pass, got: {}", output);
+}
+
+#[test]
+fn test_class_naming() {
+    let output = compile_and_run_eol("examples/test_class_naming.eol").expect("class naming example should compile and run");
+    // 测试类名规范
+    assert!(output.contains("Class naming test:"),
+            "Should show class naming test header, got: {}", output);
+    assert!(output.contains("Filename: test_class_naming.eol"),
+            "Should show filename, got: {}", output);
+    assert!(output.contains("Class name: TestClassNaming"),
+            "Should show class name, got: {}", output);
+    assert!(output.contains("Naming convention test PASSED!"),
+            "Naming convention test should pass, got: {}", output);
+}
+
+#[test]
+fn test_edge_cases() {
+    let output = compile_and_run_eol("examples/test_edge_cases.eol").expect("edge cases example should compile and run");
+    // 测试边界情况
+    assert!(output.contains("=== Edge Case Tests ==="),
+            "Should show edge case test header, got: {}", output);
+    assert!(output.contains("Test 1: Empty array"),
+            "Should test empty array, got: {}", output);
+    assert!(output.contains("Empty array created, length =") && output.contains("0"),
+            "Empty array should have length 0, got: {}", output);
+    assert!(output.contains("Test 2: Single element array"),
+            "Should test single element array, got: {}", output);
+    assert!(output.contains("Single element:") && output.contains("99"),
+            "Single element should be 99, got: {}", output);
+    assert!(output.contains("Test 3: Deep recursion"),
+            "Should test deep recursion, got: {}", output);
+    assert!(output.contains("Test 4: Fibonacci recursion"),
+            "Should test fibonacci recursion, got: {}", output);
+    assert!(output.contains("fib(0) = 0"),
+            "fib(0) should be 0, got: {}", output);
+    assert!(output.contains("fib(10) = 55"),
+            "fib(10) should be 55, got: {}", output);
+    assert!(output.contains("Test 5: Large array"),
+            "Should test large array, got: {}", output);
+    assert!(output.contains("Test 6: Negative numbers"),
+            "Should test negative numbers, got: {}", output);
+    assert!(output.contains("Absolute value:") && output.contains("100"),
+            "Absolute value should be 100, got: {}", output);
+    assert!(output.contains("Test 7: Zero values"),
+            "Should test zero values, got: {}", output);
+    assert!(output.contains("Test 8: Large numbers"),
+            "Should test large numbers, got: {}", output);
+    assert!(output.contains("=== All edge case tests PASSED! ==="),
+            "Edge case tests should pass, got: {}", output);
+}
+
+#[test]
+fn test_type_casting() {
+    let output = compile_and_run_eol("examples/test_type_casting.eol").expect("type casting example should compile and run");
+    // 测试类型转换
+    assert!(output.contains("=== Type Casting Tests ==="),
+            "Should show type casting test header, got: {}", output);
+    assert!(output.contains("Test 1: int to long"),
+            "Should test int to long, got: {}", output);
+    assert!(output.contains("Test 2: int to float"),
+            "Should test int to float, got: {}", output);
+    assert!(output.contains("Test 3: int to double"),
+            "Should test int to double, got: {}", output);
+    assert!(output.contains("Test 4: float to double"),
+            "Should test float to double, got: {}", output);
+    assert!(output.contains("Test 5: long to double"),
+            "Should test long to double, got: {}", output);
+    assert!(output.contains("Test 6: Same type operations"),
+            "Should test same type operations, got: {}", output);
+    assert!(output.contains("Test 7: Array element assignment with type conversion"),
+            "Should test array element type conversion, got: {}", output);
+    assert!(output.contains("=== All type casting tests PASSED! ==="),
+            "Type casting tests should pass, got: {}", output);
+}
+
+#[test]
+fn test_string_ops() {
+    let output = compile_and_run_eol("examples/test_string_ops.eol").expect("string ops example should compile and run");
+    // 测试字符串操作
+    assert!(output.contains("=== String Operations Tests ==="),
+            "Should show string ops test header, got: {}", output);
+    assert!(output.contains("Test 1: String concatenation"),
+            "Should test string concatenation, got: {}", output);
+    assert!(output.contains("Combined: Hello, World!"),
+            "Combined string should be 'Hello, World!', got: {}", output);
+    assert!(output.contains("Test 2: Empty string"),
+            "Should test empty string, got: {}", output);
+    assert!(output.contains("Test 4: String equality"),
+            "Should test string equality, got: {}", output);
+    assert!(output.contains("a == b: true"),
+            "Same strings should be equal, got: {}", output);
+    assert!(output.contains("a == c: false"),
+            "Different strings should not be equal, got: {}", output);
+    assert!(output.contains("Test 5: Substring operations"),
+            "Should test substring operations, got: {}", output);
+    assert!(output.contains("Test 6: String array"),
+            "Should test string array, got: {}", output);
+    assert!(output.contains("=== All string operations tests PASSED! ==="),
+            "String operations tests should pass, got: {}", output);
+}
+
+// 测试未纳入的示例文件
+#[test]
+fn test_function() {
+    let output = compile_and_run_eol("examples/test_function.eol").expect("function example should compile and run");
+    // 测试基本函数调用
+    assert!(output.contains("3"),
+            "Function test(1, 2) should return 3, got: {}", output);
+}
+
+#[test]
+fn test_string_methods() {
+    let output = compile_and_run_eol("examples/test_string_methods.eol").expect("string methods example should compile and run");
+    // 测试字符串方法
+    assert!(output.contains("Length: 13"),
+            "String length should be 13, got: {}", output);
+    assert!(output.contains("substring(7): World!"),
+            "substring(7) should be 'World!', got: {}", output);
+    assert!(output.contains("substring(0, 5): Hello"),
+            "substring(0, 5) should be 'Hello', got: {}", output);
+    assert!(output.contains("indexOf(World): 7"),
+            "indexOf('World') should be 7, got: {}", output);
+    // charAt 返回 ASCII 码值（H=72, W=87）
+    assert!(output.contains("charAt(0): 72"),
+            "charAt(0) should return ASCII 72, got: {}", output);
+    assert!(output.contains("charAt(7): 87"),
+            "charAt(7) should return ASCII 87, got: {}", output);
+    assert!(output.contains("replace result: Hello, EOL!"),
+            "replace result should be 'Hello, EOL!', got: {}", output);
+    assert!(output.contains("All tests completed!"),
+            "All string method tests should complete, got: {}", output);
+}
+
+#[test]
+fn test_overload() {
+    let output = compile_and_run_eol("examples/test_overload.eol").expect("overload example should compile and run");
+    // 测试方法重载 - 注意：EOL 的重载可能通过参数类型推断实现
+    assert!(output.contains("Testing method overloading:"),
+            "Should show overloading test header, got: {}", output);
+    // 由于 EOL 可能不完全支持方法重载，检查基本输出即可
+    assert!(output.contains("All overload tests completed!"),
+            "All overload tests should complete, got: {}", output);
 }

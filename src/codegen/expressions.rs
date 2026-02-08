@@ -10,11 +10,28 @@ impl IRGenerator {
         match expr {
             Expr::Literal(lit) => self.generate_literal(lit),
             Expr::Identifier(name) => {
+                // 检查是否是类名（静态成员访问的上下文）
+                if let Some(ref registry) = self.type_registry {
+                    if registry.class_exists(name) {
+                        // 类名不应该单独作为表达式使用
+                        // 返回一个占位符，实际使用应该在 MemberAccess 中处理
+                        return Ok(format!("i64 0"));
+                    }
+                }
+
                 let temp = self.new_temp();
-                let var_type = self.var_types.get(name).cloned().unwrap_or_else(|| "i64".to_string());
+                // 优先使用作用域管理器获取变量类型和 LLVM 名称
+                let (var_type, llvm_name) = if let Some(scope_type) = self.scope_manager.get_var_type(name) {
+                    let llvm_name = self.scope_manager.get_llvm_name(name).unwrap_or_else(|| name.clone());
+                    (scope_type, llvm_name)
+                } else {
+                    // 回退到旧系统
+                    let var_type = self.var_types.get(name).cloned().unwrap_or_else(|| "i64".to_string());
+                    (var_type, name.clone())
+                };
                 let align = self.get_type_align(&var_type);  // 获取正确的对齐
-                self.emit_line(&format!("  {} = load {}, {}* %{}, align {}", 
-                    temp, var_type, var_type, name, align));
+                self.emit_line(&format!("  {} = load {}, {}* %{}, align {}",
+                    temp, var_type, var_type, llvm_name, align));
                 Ok(format!("{} {}", var_type, temp))
             }
             Expr::Binary(bin) => self.generate_binary_expression(bin),
@@ -548,27 +565,8 @@ impl IRGenerator {
             (arg_results, false)
         };
 
-        // 获取参数类型签名
-        let arg_types: Vec<String> = processed_args.iter()
-            .enumerate()
-            .map(|(idx, r)| {
-                let (ty, _) = self.parse_typed_value(r);
-                // 如果是最后一个参数且是可变参数数组，使用特殊签名
-                let is_varargs_array = has_varargs_array && idx == processed_args.len() - 1;
-                self.llvm_type_to_signature_with_varargs(&ty, is_varargs_array)
-            })
-            .collect();
-
-        // 生成函数名
-        // 对于可变参数方法，始终使用带签名的函数名
-        let fn_name = if arg_types.is_empty() && !is_varargs_method {
-            format!("{}.{}", class_name, method_name)
-        } else if is_varargs_method && arg_types.is_empty() {
-            // 可变参数方法但没有传递参数，使用 ai 签名（空数组）
-            format!("{}.__{}_ai", class_name, method_name)
-        } else {
-            format!("{}.__{}_{}", class_name, method_name, arg_types.join("_"))
-        };
+        // 生成函数名 - 使用类型注册表获取方法定义的参数类型
+        let fn_name = self.generate_function_name(&class_name, &method_name, &processed_args, has_varargs_array);
 
         // 转换参数类型
         let mut converted_args = Vec::new();
@@ -590,6 +588,90 @@ impl IRGenerator {
             temp, fn_name, converted_args.join(", ")));
 
         Ok(format!("i64 {}", temp))
+    }
+
+    /// 生成函数名 - 优先使用类型注册表中方法定义的参数类型
+    fn generate_function_name(&self, class_name: &str, method_name: &str, processed_args: &[String], has_varargs_array: bool) -> String {
+        // 尝试从类型注册表获取方法信息
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                // 尝试找到匹配的方法（根据参数数量）
+                if let Some(methods) = class_info.methods.get(method_name) {
+                    // 找到参数数量匹配的方法
+                    for method in methods {
+                        let param_count = method.params.len();
+                        let arg_count = processed_args.len();
+
+                        // 检查是否是可变参数方法
+                        let is_varargs = method.params.last().map(|p| p.is_varargs).unwrap_or(false);
+
+                        if is_varargs {
+                            // 可变参数方法：实际参数数量 >= 固定参数数量
+                            let fixed_count = param_count.saturating_sub(1);
+                            if arg_count >= fixed_count {
+                                return self.build_function_name_from_method(class_name, method_name, &method.params, has_varargs_array);
+                            }
+                        } else if param_count == arg_count {
+                            // 非可变参数方法：参数数量必须完全匹配
+                            return self.build_function_name_from_method(class_name, method_name, &method.params, has_varargs_array);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 回退到使用实际参数类型生成函数名
+        let arg_types: Vec<String> = processed_args.iter()
+            .enumerate()
+            .map(|(idx, r)| {
+                let (ty, _) = self.parse_typed_value(r);
+                let is_varargs_array = has_varargs_array && idx == processed_args.len() - 1;
+                self.llvm_type_to_signature_with_varargs(&ty, is_varargs_array)
+            })
+            .collect();
+
+        if arg_types.is_empty() {
+            format!("{}.{}", class_name, method_name)
+        } else {
+            format!("{}.__{}_{}", class_name, method_name, arg_types.join("_"))
+        }
+    }
+
+    /// 根据方法定义的参数类型构建函数名
+    fn build_function_name_from_method(&self, class_name: &str, method_name: &str, params: &[crate::types::ParameterInfo], has_varargs_array: bool) -> String {
+        if params.is_empty() {
+            return format!("{}.{}", class_name, method_name);
+        }
+
+        let param_types: Vec<String> = params.iter()
+            .enumerate()
+            .map(|(idx, p)| {
+                let is_last_varargs = has_varargs_array && idx == params.len() - 1 && p.is_varargs;
+                self.param_type_to_signature(&p.param_type, is_last_varargs)
+            })
+            .collect();
+
+        format!("{}.__{}_{}", class_name, method_name, param_types.join("_"))
+    }
+
+    /// 将参数类型转换为签名
+    fn param_type_to_signature(&self, ty: &crate::types::Type, is_varargs_array: bool) -> String {
+        if is_varargs_array {
+            return "ai".to_string(); // 可变参数数组签名
+        }
+
+        match ty {
+            crate::types::Type::Int32 => "i".to_string(),
+            crate::types::Type::Int64 => "l".to_string(),
+            crate::types::Type::Float32 => "f".to_string(),
+            crate::types::Type::Float64 => "d".to_string(),
+            crate::types::Type::Bool => "b".to_string(),
+            crate::types::Type::String => "s".to_string(),
+            crate::types::Type::Char => "c".to_string(),
+            crate::types::Type::Object(name) => format!("o{}", name),
+            crate::types::Type::Array(inner) => format!("a{}", self.param_type_to_signature(inner, false)),
+            _ => "x".to_string(),
+        }
     }
 
     /// 检查方法是否是可变参数方法
@@ -1090,34 +1172,41 @@ impl IRGenerator {
                 Err(codegen_error("Invalid member access assignment target".to_string()))
             }
             Expr::Identifier(name) => {
-                // 获取变量的实际类型（克隆以避免借用问题）
-                let var_type = self.var_types.get(name)
-                    .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name)))?
-                    .clone();
-                
+                // 优先使用作用域管理器获取变量类型和 LLVM 名称
+                let (var_type, llvm_name) = if let Some(scope_type) = self.scope_manager.get_var_type(name) {
+                    let llvm_name = self.scope_manager.get_llvm_name(name).unwrap_or_else(|| name.clone());
+                    (scope_type, llvm_name)
+                } else {
+                    // 回退到旧系统
+                    let var_type = self.var_types.get(name)
+                        .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name)))?
+                        .clone();
+                    (var_type, name.clone())
+                };
+
                 // 如果值类型与变量类型不匹配，需要转换
                 if value_type != var_type {
                     let temp = self.new_temp();
-                    
+
                     // 浮点类型转换
                     if value_type == "double" && var_type == "float" {
                         // double -> float 转换
                         self.emit_line(&format!("  {} = fptrunc double {} to float", temp, val));
                         let align = self.get_type_align("float");
-                        self.emit_line(&format!("  store float {}, float* %{}, align {}", temp, name, align));
+                        self.emit_line(&format!("  store float {}, float* %{}, align {}", temp, llvm_name, align));
                         return Ok(format!("float {}", temp));
                     } else if value_type == "float" && var_type == "double" {
                         // float -> double 转换
                         self.emit_line(&format!("  {} = fpext float {} to double", temp, val));
                         let align = self.get_type_align("double");
-                        self.emit_line(&format!("  store double {}, double* %{}, align {}", temp, name, align));
+                        self.emit_line(&format!("  store double {}, double* %{}, align {}", temp, llvm_name, align));
                         return Ok(format!("double {}", temp));
                     }
                     // 整数类型转换
                     else if value_type.starts_with("i") && var_type.starts_with("i") {
                         let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
                         let to_bits: u32 = var_type.trim_start_matches('i').parse().unwrap_or(64);
-                        
+
                         if to_bits > from_bits {
                             // 符号扩展
                             self.emit_line(&format!("  {} = sext {} {} to {}",
@@ -1128,14 +1217,14 @@ impl IRGenerator {
                                 temp, value_type, val, var_type));
                         }
                         let align = self.get_type_align(&var_type);
-                        self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, name, align));
+                        self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
                         return Ok(format!("{} {}", var_type, temp));
                     }
                 }
-                
+
                 // 类型匹配，直接存储
                 let align = self.get_type_align(&var_type);
-                self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, val, var_type, name, align));
+                self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, val, var_type, llvm_name, align));
                 Ok(value)
             }
             Expr::ArrayAccess(arr_access) => {

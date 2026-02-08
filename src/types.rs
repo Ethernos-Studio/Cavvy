@@ -221,6 +221,7 @@ impl fmt::Display for Type {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct TypeRegistry {
     pub classes: HashMap<String, ClassInfo>,
 }

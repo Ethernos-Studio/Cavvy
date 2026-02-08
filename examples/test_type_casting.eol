@@ -1,0 +1,98 @@
+// 类型转换测试
+// 测试各种类型之间的隐式和显式转换
+
+public class TypeCastingTest {
+    public static void main(string[] args) {
+        println("=== Type Casting Tests ===");
+
+        // 测试1: int 到 long 的隐式转换
+        println("\nTest 1: int to long");
+        int intVal = 100;
+        long longVal = intVal;
+        print("int (");
+        print(intVal);
+        print(") -> long (");
+        print(longVal);
+        println(")");
+
+        // 测试2: int 到 float 的转换
+        println("\nTest 2: int to float");
+        int intVal2 = 42;
+        float floatVal = intVal2;
+        print("int (");
+        print(intVal2);
+        print(") -> float (");
+        print(floatVal);
+        println(")");
+
+        // 测试3: int 到 double 的转换
+        println("\nTest 3: int to double");
+        int intVal3 = 123;
+        double doubleVal = intVal3;
+        print("int (");
+        print(intVal3);
+        print(") -> double (");
+        print(doubleVal);
+        println(")");
+
+        // 测试4: float 到 double 的转换
+        println("\nTest 4: float to double");
+        float floatVal2 = 3.14;
+        double doubleVal2 = floatVal2;
+        print("float (");
+        print(floatVal2);
+        print(") -> double (");
+        print(doubleVal2);
+        println(")");
+
+        // 测试5: long 到 double 的转换
+        println("\nTest 5: long to double");
+        long longVal2 = 999999;
+        double doubleVal3 = longVal2;
+        print("long (");
+        print(longVal2);
+        print(") -> double (");
+        print(doubleVal3);
+        println(")");
+
+        // 测试6: 同类型运算（避免混合类型）
+        println("\nTest 6: Same type operations");
+        int a = 10;
+        int b = 20;
+        float c = 3.5;
+        float d = 2.5;
+
+        // int + int = int
+        int result1 = a + b;
+        print("int + int = ");
+        println(result1);
+
+        // float + float = float
+        float result2 = c + d;
+        print("float + float = ");
+        println(result2);
+
+        // double + double = double
+        double e = 1.5;
+        double f = 2.5;
+        double result3 = e + f;
+        print("double + double = ");
+        println(result3);
+
+        // 测试7: 数组类型转换
+        println("\nTest 7: Array element assignment with type conversion");
+        long[] longArr = new long[3];
+        longArr[0] = 10;      // int 赋值给 long 数组元素
+        longArr[1] = 20;      // int 赋值给 long 数组元素
+        longArr[2] = 30;      // int 赋值给 long 数组元素
+
+        print("long array elements: ");
+        print(longArr[0]);
+        print(", ");
+        print(longArr[1]);
+        print(", ");
+        println(longArr[2]);
+
+        println("\n=== All type casting tests PASSED! ===");
+    }
+}

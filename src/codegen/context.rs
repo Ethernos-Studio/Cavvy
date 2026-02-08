@@ -1,5 +1,6 @@
 //! IR生成上下文和状态管理
 use std::collections::HashMap;
+use crate::types::TypeRegistry;
 
 /// 循环上下文，用于支持 break/continue
 #[derive(Debug, Clone)]
@@ -16,6 +17,97 @@ pub struct StaticFieldInfo {
     pub size: usize,            // 大小（字节）
 }
 
+/// 变量作用域信息
+#[derive(Debug, Clone)]
+pub struct VarScope {
+    pub name: String,           // 原始变量名
+    pub llvm_name: String,      // LLVM 中的唯一名称（带作用域后缀）
+    pub var_type: String,       // 变量类型
+}
+
+/// 作用域栈管理
+pub struct ScopeManager {
+    scopes: Vec<HashMap<String, VarScope>>,  // 作用域栈
+    scope_counter: usize,                     // 作用域计数器（用于生成唯一名称）
+}
+
+impl ScopeManager {
+    pub fn new() -> Self {
+        Self {
+            scopes: vec![HashMap::new()],  // 全局作用域
+            scope_counter: 0,
+        }
+    }
+
+    /// 进入新作用域
+    pub fn enter_scope(&mut self) {
+        self.scopes.push(HashMap::new());
+        self.scope_counter += 1;
+    }
+
+    /// 退出当前作用域
+    pub fn exit_scope(&mut self) {
+        if self.scopes.len() > 1 {
+            self.scopes.pop();
+        }
+    }
+
+    /// 声明变量（在当前作用域）
+    pub fn declare_var(&mut self, name: &str, var_type: &str) -> String {
+        let llvm_name = if self.scopes.len() == 1 {
+            // 全局作用域，使用原始名称
+            name.to_string()
+        } else {
+            // 局部作用域，添加作用域后缀
+            format!("{}_s{}", name, self.scope_counter)
+        };
+
+        let var_scope = VarScope {
+            name: name.to_string(),
+            llvm_name: llvm_name.clone(),
+            var_type: var_type.to_string(),
+        };
+
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.insert(name.to_string(), var_scope);
+        }
+
+        llvm_name
+    }
+
+    /// 查找变量（从内层作用域到外层）
+    pub fn lookup_var(&self, name: &str) -> Option<&VarScope> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(var) = scope.get(name) {
+                return Some(var);
+            }
+        }
+        None
+    }
+
+    /// 获取变量类型
+    pub fn get_var_type(&self, name: &str) -> Option<String> {
+        self.lookup_var(name).map(|v| v.var_type.clone())
+    }
+
+    /// 获取变量的 LLVM 名称
+    pub fn get_llvm_name(&self, name: &str) -> Option<String> {
+        self.lookup_var(name).map(|v| v.llvm_name.clone())
+    }
+
+    /// 检查变量是否在当前作用域中声明
+    pub fn is_declared_in_current_scope(&self, name: &str) -> bool {
+        self.scopes.last().map_or(false, |s| s.contains_key(name))
+    }
+
+    /// 重置（用于新函数）
+    pub fn reset(&mut self) {
+        self.scopes.clear();
+        self.scopes.push(HashMap::new());
+        self.scope_counter = 0;
+    }
+}
+
 /// IR生成器核心上下文
 pub struct IRGenerator {
     pub output: String,
@@ -27,12 +119,14 @@ pub struct IRGenerator {
     pub current_function: String,
     pub current_class: String,
     pub current_return_type: String,   // 当前函数的返回类型
-    pub var_types: HashMap<String, String>,
+    pub var_types: HashMap<String, String>,  // 保留用于兼容性
     pub var_class_map: HashMap<String, String>,
     pub loop_stack: Vec<LoopContext>,  // 循环上下文栈
     pub target_triple: String,         // 目标平台三元组
     pub static_fields: Vec<StaticFieldInfo>, // 静态字段列表
     pub static_field_map: HashMap<String, StaticFieldInfo>, // 静态字段映射（按类名.字段名）
+    pub type_registry: Option<TypeRegistry>, // 类型注册表（可选，用于方法查找）
+    pub scope_manager: ScopeManager,   // 作用域管理器
 }
 
 impl IRGenerator {
@@ -57,7 +151,14 @@ impl IRGenerator {
             target_triple,
             static_fields: Vec::new(),
             static_field_map: HashMap::new(),
+            type_registry: None,
+            scope_manager: ScopeManager::new(),
         }
+    }
+
+    /// 设置类型注册表
+    pub fn set_type_registry(&mut self, registry: TypeRegistry) {
+        self.type_registry = Some(registry);
     }
 
     /// 检查是否是 Windows 目标平台

@@ -1,0 +1,53 @@
+// 测试作用域隔离 - if/else分支中同名变量
+// 验证编译器是否正确处理作用域隔离
+
+public class ScopeTest {
+    public static void main(string[] args) {
+        int x = 100;
+        println("Before if: x = ");
+        println(x);
+        
+        if (x > 50) {
+            // 在if分支中定义同名变量
+            int newVal = 10;
+            println("In if branch: newVal = ");
+            println(newVal);
+            
+            // 修改newVal
+            newVal = newVal + 5;
+            println("After modify in if: newVal = ");
+            println(newVal);
+        } else {
+            // 在else分支中定义同名变量（不同的值）
+            int newVal = 20;
+            println("In else branch: newVal = ");
+            println(newVal);
+        }
+        
+        // 外部作用域的x应该保持不变
+        println("After if: x = ");
+        println(x);
+        
+        // 嵌套作用域测试
+        for (int i = 0; i < 3; i = i + 1) {
+            int loopVar = i * 10;
+            println("Loop iteration ");
+            print(i);
+            print(": loopVar = ");
+            println(loopVar);
+            
+            // 在循环内部再定义一个同名变量（不同作用域）
+            if (i == 1) {
+                int innerVar = 100;
+                println("  Inner (i=1): innerVar = ");
+                println(innerVar);
+            } else {
+                int innerVar = 200;
+                println("  Inner (i!=1): innerVar = ");
+                println(innerVar);
+            }
+        }
+        
+        println("Scope isolation test PASSED!");
+    }
+}

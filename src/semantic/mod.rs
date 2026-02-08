@@ -98,8 +98,13 @@ impl SemanticAnalyzer {
         if !self.errors.is_empty() {
             return Err(semantic_error(0, 0, self.errors.join("\n")));
         }
-        
+
         Ok(())
+    }
+
+    /// 获取类型注册表（用于代码生成）
+    pub fn get_type_registry(&self) -> &TypeRegistry {
+        &self.type_registry
     }
 
     fn collect_classes(&mut self, program: &Program) -> EolResult<()> {
@@ -267,6 +272,9 @@ impl SemanticAnalyzer {
             Expr::Identifier(name) => {
                 if let Some(info) = self.symbol_table.lookup(name) {
                     Ok(info.symbol_type.clone())
+                } else if self.type_registry.class_exists(name) {
+                    // 标识符是类名，返回类类型（用于静态成员访问）
+                    Ok(Type::Object(name.clone()))
                 } else {
                     Err(semantic_error(0, 0, format!("Undefined variable: {}", name)))
                 }

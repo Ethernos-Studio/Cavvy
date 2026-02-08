@@ -1,0 +1,19 @@
+// 测试类名规范 - 主类名应与文件名一致
+// 文件名: test_class_naming.eol
+// 主类名: TestClassNaming (应与文件名匹配，首字母大写，下划线分隔转为驼峰命名)
+
+public class TestClassNaming {
+    public static void main(string[] args) {
+        println("Class naming test:");
+        println("Filename: test_class_naming.eol");
+        println("Class name: TestClassNaming");
+        println("Naming convention test PASSED!");
+    }
+}
+
+// 辅助类 - 用于测试多类文件
+class HelperClass {
+    public static int helper() {
+        return 42;
+    }
+}

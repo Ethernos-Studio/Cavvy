@@ -35,9 +35,11 @@ impl Compiler {
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::new();
         analyzer.analyze(&ast)?;
-        
+
         // 4. 代码生成 - 生成LLVM IR（字符串常量已在生成器内处理）
         let mut ir_gen = codegen::IRGenerator::new();
+        // 传递类型注册表以支持正确的方法名生成
+        ir_gen.set_type_registry(analyzer.get_type_registry().clone());
         let ir = ir_gen.generate(&ast)?;
         
         // 输出到文件

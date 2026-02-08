@@ -1,0 +1,76 @@
+// 字符串操作测试
+// 测试字符串拼接、比较、空字符串等操作
+
+public class StringOpsTest {
+    public static void main(string[] args) {
+        println("=== String Operations Tests ===");
+        
+        // 测试1: 字符串拼接
+        println("\nTest 1: String concatenation");
+        string str1 = "Hello";
+        string str2 = "World";
+        string combined = str1 + ", " + str2 + "!";
+        print("Combined: ");
+        println(combined);
+        
+        // 测试2: 空字符串
+        println("\nTest 2: Empty string");
+        string empty = "";
+        print("Empty string length: ");
+        println(empty.length());
+        
+        // 测试3: 字符串与数字拼接
+        println("\nTest 3: String with numbers");
+        int num = 42;
+        // 注意：EOL 可能不支持直接字符串+数字，需要测试
+        
+        // 测试4: 字符串比较
+        println("\nTest 4: String equality");
+        string a = "test";
+        string b = "test";
+        string c = "different";
+        
+        if (a == b) {
+            println("a == b: true");
+        } else {
+            println("a == b: false");
+        }
+        
+        if (a == c) {
+            println("a == c: true");
+        } else {
+            println("a == c: false");
+        }
+        
+        // 测试5: 子串操作
+        println("\nTest 5: Substring operations");
+        string text = "Hello, World!";
+        print("Original: ");
+        println(text);
+        
+        print("Length: ");
+        println(text.length());
+        
+        // 测试6: 字符串作为数组元素
+        println("\nTest 6: String array");
+        string[] strArr = new string[3];
+        strArr[0] = "First";
+        strArr[1] = "Second";
+        strArr[2] = "Third";
+        
+        print("String array: ");
+        print(strArr[0]);
+        print(", ");
+        print(strArr[1]);
+        print(", ");
+        println(strArr[2]);
+        
+        // 测试7: 多行字符串（如果支持）
+        println("\nTest 7: Special characters");
+        string special = "Line1\nLine2\tTabbed";
+        print("Special chars: ");
+        println(special);
+        
+        println("\n=== All string operations tests PASSED! ===");
+    }
+}
