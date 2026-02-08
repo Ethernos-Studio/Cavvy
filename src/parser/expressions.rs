@@ -508,9 +508,14 @@ fn parse_new_expression(parser: &mut Parser, loc: crate::error::SourceLocation) 
                 element_type = Type::Array(Box::new(element_type));
             }
             
+            // 检查是否有 () 零初始化后缀
+            let zero_init = parser.match_token(&crate::lexer::Token::LParen) 
+                && parser.match_token(&crate::lexer::Token::RParen);
+            
             return Ok(Expr::ArrayCreation(ArrayCreationExpr {
                 element_type,
                 sizes,
+                zero_init,
                 loc,
             }));
         }

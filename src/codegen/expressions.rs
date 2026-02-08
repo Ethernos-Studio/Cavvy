@@ -582,14 +582,15 @@ impl IRGenerator {
             Expr::Literal(LiteralValue::Int32(_)) | Expr::Literal(LiteralValue::Int64(_)) => {
                 let value = self.generate_expression(first_arg)?;
                 let (type_str, val) = self.parse_typed_value(&value);
-                let fmt_str = if newline { "%ld\n" } else { "%ld" };
-                let fmt_name = self.get_or_create_string_constant(fmt_str);
+                let i64_fmt = self.get_i64_format_specifier();
+                let fmt_str = if newline { format!("{}\n", i64_fmt) } else { i64_fmt.to_string() };
+                let fmt_name = self.get_or_create_string_constant(&fmt_str);
                 let fmt_len = fmt_str.len() + 1;
-                
+
                 let fmt_ptr = self.new_temp();
                 self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
                     fmt_ptr, fmt_len, fmt_len, fmt_name));
-                
+
                 // 如果类型不是 i64，需要扩展
                 let final_val = if type_str != "i64" {
                     let ext_temp = self.new_temp();
@@ -598,7 +599,7 @@ impl IRGenerator {
                 } else {
                     val.to_string()
                 };
-                
+
                 self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i64 {})",
                     fmt_ptr, final_val));
             }
@@ -619,14 +620,15 @@ impl IRGenerator {
                         fmt_ptr, val));
                 } else if type_str.starts_with("i") && type_str != "i8*" {
                     // 整数类型（排除i8*）
-                    // 需要将整数扩展为 i64 以匹配 %ld 格式
-                    let fmt_str = if newline { "%ld\n" } else { "%ld" };
-                    let fmt_name = self.get_or_create_string_constant(fmt_str);
+                    // 需要将整数扩展为 i64 以匹配格式
+                    let i64_fmt = self.get_i64_format_specifier();
+                    let fmt_str = if newline { format!("{}\n", i64_fmt) } else { i64_fmt.to_string() };
+                    let fmt_name = self.get_or_create_string_constant(&fmt_str);
                     let fmt_len = fmt_str.len() + 1;
                     let fmt_ptr = self.new_temp();
                     self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
                         fmt_ptr, fmt_len, fmt_len, fmt_name));
-                    
+
                     // 如果类型不是 i64，需要扩展
                     let final_val = if type_str != "i64" {
                         let ext_temp = self.new_temp();
@@ -635,7 +637,7 @@ impl IRGenerator {
                     } else {
                         val.to_string()
                     };
-                    
+
                     self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i64 {})",
                         fmt_ptr, final_val));
                 } else if type_str == "double" || type_str == "float" {
@@ -693,7 +695,7 @@ impl IRGenerator {
             buffer_ptr, buffer_size, buffer_size, buffer_temp));
         
         // 调用 scanf 读取整数
-        let fmt_str = "%ld";
+        let fmt_str = self.get_i64_format_specifier();
         let fmt_name = self.get_or_create_string_constant(fmt_str);
         let fmt_len = fmt_str.len() + 1;
         let fmt_ptr = self.new_temp();
@@ -781,6 +783,42 @@ impl IRGenerator {
         let (value_type, val) = self.parse_typed_value(&value);
         
         match assign.target.as_ref() {
+            Expr::MemberAccess(member) => {
+                // 检查是否是静态字段赋值: ClassName.fieldName = value
+                if let Expr::Identifier(class_name) = &*member.object {
+                    let static_key = format!("{}.{}", class_name, member.member);
+                    if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
+                        // 静态字段赋值
+                        let align = self.get_type_align(&field_info.llvm_type);
+                        
+                        // 如果值类型与字段类型不匹配，需要转换
+                        if value_type != field_info.llvm_type {
+                            let temp = self.new_temp();
+                            // 类型转换逻辑（简化版）
+                            if value_type.starts_with("i") && field_info.llvm_type.starts_with("i") {
+                                let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
+                                let to_bits: u32 = field_info.llvm_type.trim_start_matches('i').parse().unwrap_or(64);
+                                if to_bits > from_bits {
+                                    self.emit_line(&format!("  {} = sext {} {} to {}",
+                                        temp, value_type, val, field_info.llvm_type));
+                                } else {
+                                    self.emit_line(&format!("  {} = trunc {} {} to {}",
+                                        temp, value_type, val, field_info.llvm_type));
+                                }
+                                self.emit_line(&format!("  store {} {}, {}* {}, align {}", 
+                                    field_info.llvm_type, temp, field_info.llvm_type, field_info.name, align));
+                                return Ok(format!("{} {}", field_info.llvm_type, temp));
+                            }
+                        }
+                        
+                        // 类型匹配，直接存储
+                        self.emit_line(&format!("  store {} {}, {}* {}, align {}", 
+                            value_type, val, field_info.llvm_type, field_info.name, align));
+                        return Ok(value);
+                    }
+                }
+                Err(codegen_error("Invalid member access assignment target".to_string()))
+            }
             Expr::Identifier(name) => {
                 // 获取变量的实际类型（克隆以避免借用问题）
                 let var_type = self.var_types.get(name)
@@ -970,6 +1008,19 @@ impl IRGenerator {
 
     /// 生成成员访问表达式代码
     fn generate_member_access(&mut self, member: &MemberAccessExpr) -> EolResult<String> {
+        // 检查是否是静态字段访问: ClassName.fieldName
+        if let Expr::Identifier(class_name) = &*member.object {
+            let static_key = format!("{}.{}", class_name, member.member);
+            if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
+                // 静态字段访问 - 返回全局变量的指针
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = load {}, {}* {}, align {}", 
+                    temp, field_info.llvm_type, field_info.llvm_type, field_info.name, 
+                    self.get_type_align(&field_info.llvm_type)));
+                return Ok(format!("{} {}", field_info.llvm_type, temp));
+            }
+        }
+        
         // 特殊处理数组的 .length 属性
         if member.member == "length" {
             let obj = self.generate_expression(&member.object)?;
@@ -1006,14 +1057,14 @@ impl IRGenerator {
     }
 
     /// 生成 new 表达式代码
-    fn generate_new_expression(&mut self, new_expr: &NewExpr) -> EolResult<String> {
+    fn generate_new_expression(&mut self, _new_expr: &NewExpr) -> EolResult<String> {
         // 简化实现：为对象分配一块固定大小的内存（8字节），返回 i8* 指针
         // 这对不依赖对象字段的示例（如 NestedCalls）是足够的
         let size = 8i64;
-        let malloc_temp = self.new_temp();
-        self.emit_line(&format!("  {} = call i8* @malloc(i64 {})", malloc_temp, size));
+        let calloc_temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, size));
         let cast_temp = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i8*", cast_temp, malloc_temp));
+        self.emit_line(&format!("  {} = bitcast i8* {} to i8*", cast_temp, calloc_temp));
         Ok(format!("i8* {}", cast_temp))
     }
 
@@ -1084,18 +1135,18 @@ impl IRGenerator {
         let total_bytes_temp = self.new_temp();
         self.emit_line(&format!("  {} = add i64 {}, 8", total_bytes_temp, data_bytes_temp));
         
-        // 调用 malloc 分配内存
-        let malloc_temp = self.new_temp();
-        self.emit_line(&format!("  {} = call i8* @malloc(i64 {})", malloc_temp, total_bytes_temp));
+        // 调用 calloc 分配内存（自动零初始化）
+        let calloc_temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, total_bytes_temp));
         
-        // 存储长度（前4字节）
+        // 存储长度（前4字节）- calloc 已零初始化，只需设置长度
         let len_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", len_ptr, malloc_temp));
+        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", len_ptr, calloc_temp));
         self.emit_line(&format!("  store i32 {}, i32* {}, align 4", size_i32, len_ptr));
         
         // 计算数据起始地址（跳过8字节长度头）
         let data_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 8", data_ptr, malloc_temp));
+        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 8", data_ptr, calloc_temp));
         
         // 将 i8* 转换为元素类型指针
         let cast_temp = self.new_temp();
@@ -1108,19 +1159,22 @@ impl IRGenerator {
     /// 生成多维数组创建: new Type[size1][size2]...[sizeN]
     fn generate_md_array_creation(&mut self, element_type: &Type, sizes: &[Expr]) -> EolResult<String> {
         // 多维数组实现：分配一个指针数组，每个指针指向子数组
-        // 例如 new int[3][4]:
+        // 例如 new int[3][4][5]:
         // 1. 分配 3 个指针的数组 (int**)
-        // 2. 循环 3 次，每次分配 4 个 int 的数组
+        // 2. 循环 3 次，每次递归分配 [4][5] 的子数组
         // 3. 将子数组指针存入父数组
-        
+
         if sizes.len() < 2 {
             return Err(codegen_error("Multidimensional array needs at least 2 dimensions".to_string()));
         }
-        
+
+        // 递归创建子数组类型（去掉第一维）
+        let sub_sizes = &sizes[1..];
+
         // 生成第一维大小
         let first_size_expr = self.generate_expression(&sizes[0])?;
         let (first_size_type, first_size_val) = self.parse_typed_value(&first_size_expr);
-        
+
         let first_size_i64 = if first_size_type != "i64" {
             let temp = self.new_temp();
             self.emit_line(&format!("  {} = sext {} {} to i64", temp, first_size_type, first_size_val));
@@ -1128,34 +1182,44 @@ impl IRGenerator {
         } else {
             first_size_val.to_string()
         };
-        
+
         // 获取元素类型的 LLVM 表示
         let elem_llvm_type = self.type_to_llvm(element_type);
-        
+
+        // 确定子数组的 LLVM 类型
+        // 如果还有多个维度，子数组是指向更低维度的指针
+        // 如果只剩一个维度，子数组是元素指针
+        let sub_array_llvm_type = if sub_sizes.len() == 1 {
+            format!("{}*", elem_llvm_type)
+        } else {
+            // 递归获取子数组类型
+            format!("{}*", self.get_md_array_type(element_type, sub_sizes.len()))
+        };
+
         // 分配指针数组 (elem_type** 用于存储子数组指针)
         let ptr_array_bytes = self.new_temp();
         self.emit_line(&format!("  {} = mul i64 {}, 8", ptr_array_bytes, first_size_i64));
-        
-        let malloc_ptr_array = self.new_temp();
-        self.emit_line(&format!("  {} = call i8* @malloc(i64 {})", malloc_ptr_array, ptr_array_bytes));
-        
-        // 转换为正确的指针类型 (elem_type**)
+
+        let calloc_ptr_array = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_ptr_array, ptr_array_bytes));
+
+        // 转换为正确的指针类型
         let ptr_array = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to {}**", ptr_array, malloc_ptr_array, elem_llvm_type));
-        
+        self.emit_line(&format!("  {} = bitcast i8* {} to {}*", ptr_array, calloc_ptr_array, sub_array_llvm_type));
+
         // 生成循环来分配每个子数组
-        let loop_label = self.new_label("md_array_loop");
-        let body_label = self.new_label("md_array_body");
-        let end_label = self.new_label("md_array_end");
-        
-        // 循环变量
+        let loop_label = self.new_label("md_loop");
+        let body_label = self.new_label("md_body");
+        let end_label = self.new_label("md_end");
+
+        // 循环变量 - 使用临时变量名避免冲突
         let loop_var = self.new_temp();
         self.emit_line(&format!("  {} = alloca i64", loop_var));
         self.emit_line(&format!("  store i64 0, i64* {}", loop_var));
-        
+
         // 跳转到循环条件
         self.emit_line(&format!("  br label %{}", loop_label));
-        
+
         // 循环条件
         self.emit_line(&format!("\n{}:", loop_label));
         let current_idx = self.new_temp();
@@ -1163,34 +1227,46 @@ impl IRGenerator {
         let cond = self.new_temp();
         self.emit_line(&format!("  {} = icmp slt i64 {}, {}", cond, current_idx, first_size_i64));
         self.emit_line(&format!("  br i1 {}, label %{}, label %{}", cond, body_label, end_label));
-        
+
         // 循环体
         self.emit_line(&format!("\n{}:", body_label));
-        
+
         // 分配子数组
-        let sub_array = self.generate_1d_array_creation(element_type, &sizes[1])?;
-        let (sub_array_type, sub_array_val) = self.parse_typed_value(&sub_array);
-        
+        let sub_array = if sub_sizes.len() == 1 {
+            // 最后一维，创建一维数组
+            self.generate_1d_array_creation(element_type, &sub_sizes[0])?
+        } else {
+            // 还有多个维度，递归创建多维数组
+            self.generate_md_array_creation(element_type, sub_sizes)?
+        };
+        let (_, sub_array_val) = self.parse_typed_value(&sub_array);
+
         // 将子数组指针存入指针数组
         let elem_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = getelementptr {}*, {}** {}, i64 {}", 
-            elem_ptr, elem_llvm_type, elem_llvm_type, ptr_array, current_idx));
-        
-        self.emit_line(&format!("  store {}* {}, {}** {}", elem_llvm_type, sub_array_val, elem_llvm_type, elem_ptr));
-        
+        self.emit_line(&format!("  {} = getelementptr {}, {}* {}, i64 {}",
+            elem_ptr, sub_array_llvm_type, sub_array_llvm_type, ptr_array, current_idx));
+
+        self.emit_line(&format!("  store {} {}, {}* {}", sub_array_llvm_type, sub_array_val, sub_array_llvm_type, elem_ptr));
+
         // 增加循环变量
         let next_idx = self.new_temp();
         self.emit_line(&format!("  {} = add i64 {}, 1", next_idx, current_idx));
         self.emit_line(&format!("  store i64 {}, i64* {}", next_idx, loop_var));
-        
+
         // 跳回循环条件
         self.emit_line(&format!("  br label %{}", loop_label));
-        
+
         // 循环结束
         self.emit_line(&format!("\n{}:", end_label));
-        
-        // 返回指针数组 (elem_type**)
-        Ok(format!("{}** {}", elem_llvm_type, ptr_array))
+
+        // 返回指针数组
+        Ok(format!("{}* {}", sub_array_llvm_type, ptr_array))
+    }
+
+    /// 获取多维数组类型的 LLVM 表示
+    fn get_md_array_type(&self, element_type: &Type, dimensions: usize) -> String {
+        let base = self.type_to_llvm(element_type);
+        format!("{}{}", base, "*".repeat(dimensions))
     }
 
     /// 获取数组元素指针（用于赋值操作）
@@ -1277,18 +1353,18 @@ impl IRGenerator {
         // 额外分配 8 字节用于存储长度
         let total_bytes = data_bytes + 8;
         
-        // 分配内存
-        let malloc_temp = self.new_temp();
-        self.emit_line(&format!("  {} = call i8* @malloc(i64 {})", malloc_temp, total_bytes));
+        // 分配内存（使用 calloc 自动零初始化）
+        let calloc_temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, total_bytes));
         
-        // 存储长度（前4字节）
+        // 存储长度（前4字节）- calloc 已零初始化，只需设置长度
         let len_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", len_ptr, malloc_temp));
+        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", len_ptr, calloc_temp));
         self.emit_line(&format!("  store i32 {}, i32* {}, align 4", num_elements, len_ptr));
         
         // 计算数据起始地址（跳过8字节长度头）
         let data_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 8", data_ptr, malloc_temp));
+        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 8", data_ptr, calloc_temp));
         
         // 转换为元素类型指针
         let cast_temp = self.new_temp();

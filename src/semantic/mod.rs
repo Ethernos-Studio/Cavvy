@@ -104,12 +104,25 @@ impl SemanticAnalyzer {
 
     fn collect_classes(&mut self, program: &Program) -> EolResult<()> {
         for class in &program.classes {
-            let class_info = ClassInfo {
+            let mut class_info = ClassInfo {
                 name: class.name.clone(),
                 methods: HashMap::new(),
                 fields: HashMap::new(),
                 parent: class.parent.clone(),
             };
+            
+            // 收集字段信息
+            for member in &class.members {
+                if let ClassMember::Field(field) = member {
+                    let field_info = FieldInfo {
+                        name: field.name.clone(),
+                        field_type: field.field_type.clone(),
+                        is_public: field.modifiers.contains(&Modifier::Public),
+                        is_static: field.modifiers.contains(&Modifier::Static),
+                    };
+                    class_info.fields.insert(field.name.clone(), field_info);
+                }
+            }
             
             self.type_registry.register_class(class_info)?;
         }
@@ -398,9 +411,42 @@ impl SemanticAnalyzer {
                     }
                 }
 
-                // 支持成员调用: obj.method(...)
+                // 支持成员调用: obj.method(...) 或 ClassName.method()（静态方法）
                 if let Expr::MemberAccess(member) = call.callee.as_ref() {
-                    // 推断对象类型
+                    // 检查是否是类名（静态方法调用）
+                    if let Expr::Identifier(class_name) = &*member.object {
+                        if let Some(class_info) = self.type_registry.get_class(class_name) {
+                            if let Some(method_info) = class_info.methods.get(&member.member) {
+                                if method_info.is_static {
+                                    // 静态方法调用
+                                    if call.args.len() != method_info.params.len() {
+                                        return Err(semantic_error(
+                                            call.loc.line,
+                                            call.loc.column,
+                                            format!("Method '{}' expects {} arguments, got {}",
+                                                member.member, method_info.params.len(), call.args.len())
+                                        ));
+                                    }
+
+                                    for (i, (arg, param)) in call.args.iter().zip(method_info.params.iter()).enumerate() {
+                                        let arg_type = self.infer_expr_type(arg)?;
+                                        if !self.types_compatible(&arg_type, &param.param_type) {
+                                            return Err(semantic_error(
+                                                call.loc.line,
+                                                call.loc.column,
+                                                format!("Argument {} type mismatch: expected {}, got {}",
+                                                    i + 1, param.param_type, arg_type)
+                                            ));
+                                        }
+                                    }
+
+                                    return Ok(method_info.return_type.clone());
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 推断对象类型（实例方法调用）
                     let obj_type = self.infer_expr_type(&member.object)?;
                     if let Type::Object(class_name) = obj_type {
                         if let Some(method_info) = self.type_registry.get_method(&class_name, &member.member) {
@@ -440,6 +486,17 @@ impl SemanticAnalyzer {
                 Ok(Type::Void)
             }
             Expr::MemberAccess(member) => {
+                // 检查是否是静态字段访问: ClassName.fieldName
+                if let Expr::Identifier(class_name) = &*member.object {
+                    if let Some(class_info) = self.type_registry.get_class(class_name) {
+                        if let Some(field_info) = class_info.fields.get(&member.member) {
+                            if field_info.is_static {
+                                return Ok(field_info.field_type.clone());
+                            }
+                        }
+                    }
+                }
+                
                 // 成员访问类型检查
                 let obj_type = self.infer_expr_type(&member.object)?;
                 

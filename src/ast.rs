@@ -252,11 +252,12 @@ pub struct CastExpr {
     pub loc: SourceLocation,
 }
 
-/// 数组创建表达式: new Type[size] 或 new Type[size1][size2]...
+/// 数组创建表达式: new Type[size] 或 new Type[size1][size2]... 或 new Type[size]()
 #[derive(Debug, Clone)]
 pub struct ArrayCreationExpr {
     pub element_type: Type,
     pub sizes: Vec<Expr>,  // 支持多维数组，每个维度的大小
+    pub zero_init: bool,   // 是否零初始化 new Type[size]()
     pub loc: SourceLocation,
 }
 

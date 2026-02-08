@@ -15,7 +15,15 @@ impl IRGenerator {
         // 找到主类并记录
         let mut main_class = None;
 
-        // 生成所有类方法
+        // 第一遍：收集所有静态字段
+        for class in &program.classes {
+            self.collect_static_fields(class)?;
+        }
+
+        // 生成静态字段的全局变量声明
+        self.emit_static_field_declarations();
+
+        // 第二遍：生成所有类方法
         for class in &program.classes {
             if class.members.iter().any(|m| {
                 if let crate::ast::ClassMember::Method(method) = m {
@@ -59,6 +67,57 @@ impl IRGenerator {
         Ok(self.output.clone())
     }
 
+    /// 收集类的静态字段
+    fn collect_static_fields(&mut self, class: &ClassDecl) -> EolResult<()> {
+        for member in &class.members {
+            if let ClassMember::Field(field) = member {
+                if field.modifiers.contains(&Modifier::Static) {
+                    self.register_static_field(&class.name, field)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// 注册静态字段
+    fn register_static_field(&mut self, class_name: &str, field: &FieldDecl) -> EolResult<()> {
+        let full_name = format!("@{}.{}", class_name, field.name);
+        let llvm_type = self.type_to_llvm(&field.field_type);
+        let size = field.field_type.size_in_bytes();
+        
+        let field_info = crate::codegen::context::StaticFieldInfo {
+            name: full_name.clone(),
+            llvm_type: llvm_type.clone(),
+            size,
+        };
+        
+        let key = format!("{}.{}", class_name, field.name);
+        self.static_field_map.insert(key, field_info.clone());
+        self.static_fields.push(field_info);
+        
+        Ok(())
+    }
+
+    /// 生成静态字段的全局变量声明
+    fn emit_static_field_declarations(&mut self) {
+        if self.static_fields.is_empty() {
+            return;
+        }
+        
+        self.emit_raw("; 静态字段声明（零初始化）");
+        // 克隆字段列表以避免借用问题
+        let fields: Vec<_> = self.static_fields.clone();
+        for field in fields {
+            let align = self.get_type_align(&field.llvm_type);
+            // 使用 zeroinitializer 实现零初始化
+            self.emit_raw(&format!(
+                "{} = private global {} zeroinitializer, align {}",
+                field.name, field.llvm_type, align
+            ));
+        }
+        self.emit_raw("");
+    }
+
     /// 生成类代码
     fn generate_class(&mut self, class: &ClassDecl) -> EolResult<()> {
         for member in &class.members {
@@ -68,8 +127,11 @@ impl IRGenerator {
                         self.generate_method(&class.name, method)?;
                     }
                 }
-                ClassMember::Field(_) => {
-                    // 静态字段暂不实现
+                ClassMember::Field(field) => {
+                    // 静态字段已在前面处理，这里处理实例字段（暂不实现）
+                    if !field.modifiers.contains(&Modifier::Static) {
+                        // 实例字段暂不实现
+                    }
                 }
             }
         }

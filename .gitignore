@@ -1,13 +1,18 @@
 *.exe
 *.ll
+*.eol
 
+!/example/
 !/lib/
 !/mingw-minimal/
 !/llvm-minimal/
 
 
 !/llvm-minimal/bin/*.exe
+!/example/*.eol
 
+
+/*.cpp
 *.obj
 
 *.o

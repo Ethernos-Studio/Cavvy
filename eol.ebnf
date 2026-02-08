@@ -1,0 +1,248 @@
+(*
+ * EOL (Ethernos Object Language) 语法规范 - EBNF 表示
+ * 版本: 0.3.3
+ *
+ * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 EOL 编程语言的语法结构。
+ * 符号约定:
+ *   - "..."  : 终结符 (字面量)
+ *   - =      : 定义
+ *   - |      : 或者
+ *   - ( )    : 分组
+ *   - [ ]    : 可选 (0 或 1 次)
+ *   - { }    : 重复 0 或多次
+ *   - { }-   : 重复 1 或多次
+ *   - (* *)  : 注释
+ *)
+
+(* ============================================================================
+ * 程序结构
+ * ============================================================================ *)
+
+program = { class_declaration };
+
+class_declaration = [ modifiers ], "class", identifier, [ ":", identifier ], "{", { class_member }, "}";
+
+class_member = field_declaration | method_declaration;
+
+(* ============================================================================
+ * 修饰符
+ * ============================================================================ *)
+
+modifiers = modifier, { modifier };
+
+modifier = "public" | "private" | "protected" | "static" | "final" | "abstract" | "native";
+
+(* ============================================================================
+ * 字段声明（支持静态字段）
+ * ============================================================================ *)
+
+field_declaration = [ modifiers ], type, identifier, [ "=", expression ], ";";
+
+(* 静态字段示例：
+ *   static int count;
+ *   static long[][] memo = new long[21][441]();
+ *   static bool[][] vis = new bool[21][441]();
+ *)
+
+(* ============================================================================
+ * 方法声明
+ * ============================================================================ *)
+
+method_declaration = [ modifiers ], ( type | "void" ), identifier, "(", [ parameter_list ], ")", ( block | ";" );
+
+parameter_list = parameter, { ",", parameter };
+
+parameter = type, identifier;
+
+(* ============================================================================
+ * 类型系统
+ * ============================================================================ *)
+
+type = primitive_type | reference_type;
+
+primitive_type = "int" | "long" | "float" | "double" | "bool" | "string" | "char";
+
+reference_type = identifier, { "[", "]" } | primitive_type, { "[", "]" };
+
+(* ============================================================================
+ * 语句
+ * ============================================================================ *)
+
+block = "{", { statement }, "}";
+
+statement = block
+          | variable_declaration
+          | if_statement
+          | while_statement
+          | for_statement
+          | do_while_statement
+          | switch_statement
+          | return_statement
+          | break_statement
+          | continue_statement
+          | expression_statement;
+
+variable_declaration = [ "final" ], type, identifier, [ "=", ( expression | array_initializer ) ], ";";
+
+array_initializer = "{", [ expression, { ",", expression } ], "}";
+
+if_statement = "if", "(", expression, ")", statement, [ "else", statement ];
+
+while_statement = "while", "(", expression, ")", statement;
+
+for_statement = "for", "(", [ statement ], [ expression ], ";", [ expression ], ")", statement;
+
+do_while_statement = "do", statement, "while", "(", expression, ")", ";";
+
+switch_statement = "switch", "(", expression, ")", "{", { case_clause }, [ default_clause ], "}";
+
+case_clause = "case", integer_literal, ":", { statement };
+
+default_clause = "default", ":", { statement };
+
+return_statement = "return", [ expression ], ";";
+
+break_statement = "break", ";";
+
+continue_statement = "continue", ";";
+
+expression_statement = expression, ";";
+
+(* ============================================================================
+ * 表达式 (按优先级从低到高)
+ * ============================================================================ *)
+
+expression = assignment_expression;
+
+assignment_expression = conditional_or_expression, [ assignment_operator, assignment_expression ];
+
+assignment_operator = "=" | "+=" | "-=" | "*=" | "/=" | "%=";
+
+conditional_or_expression = conditional_and_expression, { "||", conditional_and_expression };
+
+conditional_and_expression = bitwise_or_expression, { "&&", bitwise_or_expression };
+
+bitwise_or_expression = bitwise_xor_expression, { "|", bitwise_xor_expression };
+
+bitwise_xor_expression = bitwise_and_expression, { "^", bitwise_and_expression };
+
+bitwise_and_expression = equality_expression, { "&", equality_expression };
+
+equality_expression = relational_expression, { ( "==" | "!=" ), relational_expression };
+
+relational_expression = shift_expression, { ( "<" | "<=" | ">" | ">=" ), shift_expression };
+
+shift_expression = additive_expression, { ( "<<" | ">>" | ">>>" ), additive_expression };
+
+additive_expression = multiplicative_expression, { ( "+" | "-" ), multiplicative_expression };
+
+multiplicative_expression = unary_expression, { ( "*" | "/" | "%" ), unary_expression };
+
+unary_expression = ( "-" | "!" | "~" | "++" | "--" ), unary_expression
+                 | cast_expression
+                 | postfix_expression;
+
+cast_expression = "(", type, ")", unary_expression;
+
+postfix_expression = primary_expression, { postfix_operator };
+
+postfix_operator = "(", [ argument_list ], ")"
+                 | ".", identifier
+                 | "[", expression, "]"
+                 | "++"
+                 | "--";
+
+argument_list = expression, { ",", expression };
+
+primary_expression = literal
+                   | identifier
+                   | "(", expression, ")"
+                   | array_creation_expression
+                   | object_creation_expression;
+
+array_creation_expression = "new", type, "[", expression, "]", { "[", expression, "]" }, [ "(", ")" ];
+
+object_creation_expression = "new", identifier, "(", [ argument_list ], ")";
+
+(* ============================================================================
+ * 字面量
+ * ============================================================================ *)
+
+literal = integer_literal
+        | floating_point_literal
+        | string_literal
+        | character_literal
+        | boolean_literal
+        | null_literal;
+
+integer_literal = [ "-" ], ( decimal_literal | hexadecimal_literal | binary_literal | octal_literal ), [ integer_suffix ];
+
+decimal_literal = digit, { digit | "_" };
+
+hexadecimal_literal = "0x" | "0X", hex_digit, { hex_digit | "_" };
+
+binary_literal = "0b" | "0B", binary_digit, { binary_digit | "_" };
+
+octal_literal = "0o" | "0O", octal_digit, { octal_digit | "_" };
+
+integer_suffix = "L" | "l";
+
+floating_point_literal = [ "-" ], ( decimal_floating_point_literal ), [ floating_point_suffix ];
+
+decimal_floating_point_literal = digit, { digit | "_" }, ".", { digit | "_" }, [ exponent_part ]
+                               | ".", digit, { digit | "_" }, [ exponent_part ]
+                               | digit, { digit | "_" }, exponent_part;
+
+exponent_part = ( "e" | "E" ), [ "+" | "-" ], digit, { digit | "_" };
+
+floating_point_suffix = "F" | "f" | "D" | "d";
+
+string_literal = '"', { string_character }, '"';
+
+string_character = any_character_except_double_quote | escape_sequence;
+
+character_literal = "'", ( character | escape_sequence ), "'";
+
+boolean_literal = "true" | "false";
+
+null_literal = "null";
+
+(* ============================================================================
+ * 内置函数
+ * ============================================================================ *)
+
+(* 内置函数是编译器直接支持的函数，无需声明即可使用 *)
+
+(* 输出函数 *)
+(* print(value)   - 输出值（不换行） *)
+(* println(value) - 输出值（换行） *)
+(* 支持类型: int, long, float, double, string *)
+
+(* 输入函数 *)
+(* readInt()    - 读取整数，返回 long *)
+(* readFloat()  - 读取浮点数，返回 double *)
+(* readLine()   - 读取一行字符串，返回 string *)
+
+(* ============================================================================
+ * 基本定义
+ * ============================================================================ *)
+
+identifier = letter | "_", { letter | digit | "_" };
+
+letter = "a" .. "z" | "A" .. "Z";
+
+digit = "0" .. "9";
+
+hex_digit = digit | "a" .. "f" | "A" .. "F";
+
+binary_digit = "0" | "1";
+
+octal_digit = "0" .. "7";
+
+escape_sequence = "\\", ( "n" | "t" | "r" | "\\" | "'" | '"' );
+
+character = any_unicode_character;
+
+any_character_except_double_quote = ? 除双引号外的任何字符 ?;
+
+any_unicode_character = ? 任何 Unicode 字符 ?;

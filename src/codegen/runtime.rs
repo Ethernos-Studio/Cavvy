@@ -13,7 +13,7 @@ impl IRGenerator {
         self.emit_raw("declare i32 @scanf(i8*, ...)");
         self.emit_raw("declare void @SetConsoleOutputCP(i32)");
         self.emit_raw("declare i64 @strlen(i8*)");
-        self.emit_raw("declare i8* @malloc(i64)");
+        self.emit_raw("declare i8* @calloc(i64, i64)");
         self.emit_raw("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)");
         self.emit_raw("declare i32 @snprintf(i8*, i64, i8*, ...)");
         self.emit_raw("@.str.float_fmt = private unnamed_addr constant [3 x i8] c\"%f\\00\", align 1");
@@ -49,8 +49,8 @@ impl IRGenerator {
         self.emit_raw("  %total_len = add i64 %len_a, %len_b");
         self.emit_raw("  %buf_size = add i64 %total_len, 1  ; +1 for '\\0'");
         self.emit_raw("  ");
-        self.emit_raw("  ; 内存分配");
-        self.emit_raw("  %result = call i8* @malloc(i64 %buf_size)");
+        self.emit_raw("  ; 内存分配（使用 calloc 自动零初始化）");
+        self.emit_raw("  %result = call i8* @calloc(i64 1, i64 %buf_size)");
         self.emit_raw("  ");
         self.emit_raw("  ; malloc 失败保护：返回空字符串而非崩溃");
         self.emit_raw("  %is_null = icmp eq i8* %result, null");
@@ -89,11 +89,11 @@ impl IRGenerator {
     /// 生成浮点数转字符串运行时函数
     fn emit_float_to_string_runtime(&mut self) {
         // 使用一个包装函数来确保正确的调用约定
-        // 注意：使用 malloc 分配堆内存，而不是 alloca 分配栈内存
+        // 注意：使用 calloc 分配堆内存（自动零初始化），而不是 alloca 分配栈内存
         self.emit_raw("define i8* @__eol_float_to_string(double %value) {");
         self.emit_raw("entry:");
-        self.emit_raw("  ; 分配堆内存缓冲区（64字节，8字节对齐）");
-        self.emit_raw("  %buf = call i8* @malloc(i64 64)");
+        self.emit_raw("  ; 分配堆内存缓冲区（64字节，8字节对齐，使用 calloc 自动零初始化）");
+        self.emit_raw("  %buf = call i8* @calloc(i64 1, i64 64)");
         self.emit_raw("  %fmt_ptr = getelementptr [3 x i8], [3 x i8]* @.str.float_fmt, i64 0, i64 0");
         self.emit_raw("  ; 调用 snprintf（指定缓冲区大小）");
         self.emit_raw("  call i32 (i8*, i64, i8*, ...) @snprintf(i8* %buf, i64 64, i8* %fmt_ptr, double %value)");

@@ -8,6 +8,14 @@ pub struct LoopContext {
     pub end_label: String,   // break 跳转的目标（循环结束）
 }
 
+/// 静态字段信息
+#[derive(Debug, Clone)]
+pub struct StaticFieldInfo {
+    pub name: String,           // 完整名称: @ClassName.fieldName
+    pub llvm_type: String,      // LLVM 类型
+    pub size: usize,            // 大小（字节）
+}
+
 /// IR生成器核心上下文
 pub struct IRGenerator {
     pub output: String,
@@ -22,10 +30,17 @@ pub struct IRGenerator {
     pub var_types: HashMap<String, String>,
     pub var_class_map: HashMap<String, String>,
     pub loop_stack: Vec<LoopContext>,  // 循环上下文栈
+    pub target_triple: String,         // 目标平台三元组
+    pub static_fields: Vec<StaticFieldInfo>, // 静态字段列表
+    pub static_field_map: HashMap<String, StaticFieldInfo>, // 静态字段映射（按类名.字段名）
 }
 
 impl IRGenerator {
     pub fn new() -> Self {
+        Self::with_target("x86_64-w64-mingw32".to_string())
+    }
+
+    pub fn with_target(target_triple: String) -> Self {
         Self {
             output: String::new(),
             indent: 0,
@@ -39,6 +54,24 @@ impl IRGenerator {
             var_types: HashMap::new(),
             var_class_map: HashMap::new(),
             loop_stack: Vec::new(),
+            target_triple,
+            static_fields: Vec::new(),
+            static_field_map: HashMap::new(),
+        }
+    }
+
+    /// 检查是否是 Windows 目标平台
+    pub fn is_windows_target(&self) -> bool {
+        self.target_triple.contains("windows") || self.target_triple.contains("mingw32")
+    }
+
+    /// 获取 i64 类型的 printf/scanf 格式符
+    /// Windows 平台使用 %lld，其他平台使用 %ld
+    pub fn get_i64_format_specifier(&self) -> &'static str {
+        if self.is_windows_target() {
+            "%lld"
+        } else {
+            "%ld"
         }
     }
 
