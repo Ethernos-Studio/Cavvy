@@ -1,15 +1,15 @@
 [EOLC]
-version = "0.3.4.4"
-build = 13
+version = "0.3.4.5"
+build = 14
 
 [EOLLL]
-version = "0.3.4.4"
-build = 13
+version = "0.3.4.5"
+build = 14
 
 [IR2EXE]
-version = "0.3.4.4"
-build = 13
+version = "0.3.4.5"
+build = 14
 
 [EOL_CHECK]
-version = "0.3.4.4"
-build = 5
+version = "0.3.4.5"
+build = 6
