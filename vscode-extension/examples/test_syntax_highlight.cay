@@ -1,0 +1,83 @@
+@main
+public class TestSyntaxHighlight {
+    // 静态字段
+    static int staticCounter;
+    static string appName = "Cavvy Test";
+    
+    // 常量
+    final double PI = 3.14159;
+    
+    public static void main() {
+        // 变量声明
+        int x = 10;
+        long bigNumber = 1000000L;
+        float f = 3.14f;
+        double d = 2.71828;
+        bool flag = true;
+        char c = 'A';
+        string message = "Hello, Cavvy!";
+        
+        // 数组
+        int[] numbers = new int[5];
+        numbers[0] = 1;
+        numbers[1] = 2;
+        
+        // 字符串方法
+        int len = message.length();
+        string sub = message.substring(0, 5);
+        int idx = message.indexOf("Cavvy");
+        
+        // 内置函数
+        println("Testing syntax highlight");
+        print("Value: ");
+        println(x);
+        
+        // 控制流
+        if (x > 5) {
+            println("x is greater than 5");
+        } else {
+            println("x is not greater than 5");
+        }
+        
+        // 循环
+        for (int i = 0; i < 5; i++) {
+            println(i);
+        }
+        
+        int j = 0;
+        while (j < 3) {
+            println(j);
+            j++;
+        }
+        
+        // 方法调用
+        int result = add(10, 20);
+        println(result);
+        
+        // Switch
+        int choice = 2;
+        switch (choice) {
+            case 1:
+                println("One");
+                break;
+            case 2:
+                println("Two");
+                break;
+            default:
+                println("Other");
+        }
+    }
+    
+    public static int add(int a, int b) {
+        return a + b;
+    }
+    
+    // 可变参数方法
+    public static int sum(int... numbers) {
+        int total = 0;
+        for (int i = 0; i < numbers.length; i++) {
+            total = total + numbers[i];
+        }
+        return total;
+    }
+}

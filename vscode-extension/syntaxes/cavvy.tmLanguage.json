@@ -1,0 +1,354 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cavvy",
+  "scopeName": "source.cavvy",
+  "fileTypes": [".cay", ".eol"],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#annotations"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#modifiers"
+    },
+    {
+      "include": "#primitive-types"
+    },
+    {
+      "include": "#control-flow"
+    },
+    {
+      "include": "#literals"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#chars"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#builtin-functions"
+    },
+    {
+      "include": "#method-calls"
+    },
+    {
+      "include": "#class-declaration"
+    },
+    {
+      "include": "#method-declaration"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.cavvy",
+          "begin": "/\\*",
+          "end": "\\*/",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.comment.cavvy"
+            }
+          }
+        },
+        {
+          "name": "comment.line.double-slash.cavvy",
+          "begin": "//",
+          "end": "$",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.comment.cavvy"
+            }
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "patterns": [
+        {
+          "name": "storage.modifier.annotation.cavvy",
+          "match": "@\\s*[a-zA-Z_][a-zA-Z0-9_]*",
+          "captures": {
+            "0": {
+              "name": "entity.name.function.decorator.cavvy"
+            }
+          }
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.cavvy",
+          "match": "\\b(if|else|while|for|do|switch|case|default|break|continue|return|new)\\b"
+        },
+        {
+          "name": "keyword.other.cavvy",
+          "match": "\\b(class|void|this|null|final|static|abstract|native|public|private|protected)\\b"
+        }
+      ]
+    },
+    "modifiers": {
+      "patterns": [
+        {
+          "name": "storage.modifier.cavvy",
+          "match": "\\b(public|private|protected|static|final|abstract|native)\\b"
+        }
+      ]
+    },
+    "primitive-types": {
+      "patterns": [
+        {
+          "name": "storage.type.primitive.cavvy",
+          "match": "\\b(int|long|float|double|bool|string|char)\\b"
+        }
+      ]
+    },
+    "control-flow": {
+      "patterns": [
+        {
+          "name": "keyword.control.conditional.cavvy",
+          "match": "\\b(if|else|switch|case|default)\\b"
+        },
+        {
+          "name": "keyword.control.loop.cavvy",
+          "match": "\\b(while|for|do|break|continue)\\b"
+        },
+        {
+          "name": "keyword.control.return.cavvy",
+          "match": "\\b(return)\\b"
+        }
+      ]
+    },
+    "literals": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.cavvy",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.null.cavvy",
+          "match": "\\b(null)\\b"
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cavvy",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.cavvy",
+          "match": "\\\\(n|t|r|\\\\|\"|')"
+        }
+      ]
+    },
+    "chars": {
+      "name": "string.quoted.single.cavvy",
+      "begin": "'",
+      "end": "'",
+      "patterns": [
+        {
+          "name": "constant.character.escape.cavvy",
+          "match": "\\\\(n|t|r|\\\\|\"|')"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.cavvy",
+          "match": "\\b0[xX][0-9a-fA-F_]+[Ll]?\\b"
+        },
+        {
+          "name": "constant.numeric.binary.cavvy",
+          "match": "\\b0[bB][01_]+[Ll]?\\b"
+        },
+        {
+          "name": "constant.numeric.octal.cavvy",
+          "match": "\\b0[oO][0-7_]+[Ll]?\\b"
+        },
+        {
+          "name": "constant.numeric.float.cavvy",
+          "match": "\\b-?(?:\\d[\\d_]*\\.\\d[\\d_]*|\\.\\d[\\d_]*|\\d[\\d_]*\\.?)(?:[eE][+-]?\\d[\\d_]*)?[FfDd]?\\b"
+        },
+        {
+          "name": "constant.numeric.integer.cavvy",
+          "match": "\\b-?\\d[\\d_]*[Ll]?\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.assignment.cavvy",
+          "match": "(\\+=|-=|\\*=|/=|%=|=)"
+        },
+        {
+          "name": "keyword.operator.logical.cavvy",
+          "match": "(\\|\\||&&|!)"
+        },
+        {
+          "name": "keyword.operator.bitwise.cavvy",
+          "match": "(\\||&|\\^|~|<<|>>>|>>)"
+        },
+        {
+          "name": "keyword.operator.comparison.cavvy",
+          "match": "(==|!=|<=|>=|<|>)"
+        },
+        {
+          "name": "keyword.operator.arithmetic.cavvy",
+          "match": "(\\+|-\\+?|--?|\\*|/|%)"
+        }
+      ]
+    },
+    "builtin-functions": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.cavvy",
+          "match": "\\b(print|println|readInt|readFloat|readLine)\\s*(?=\\()"
+        },
+        {
+          "name": "support.function.builtin.cavvy",
+          "match": "\\b(length|substring|indexOf|replace|charAt)\\s*(?=\\()"
+        }
+      ]
+    },
+    "method-calls": {
+      "patterns": [
+        {
+          "name": "meta.method-call.cavvy",
+          "begin": "(\\.)\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.accessor.cavvy"
+            },
+            "2": {
+              "name": "entity.name.function.member.cavvy"
+            },
+            "3": {
+              "name": "punctuation.definition.arguments.begin.cavvy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.arguments.end.cavvy"
+            }
+          },
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
+        },
+        {
+          "name": "meta.field-access.cavvy",
+          "match": "(\\.)\\s*([a-zA-Z_][a-zA-Z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.cavvy"
+            },
+            "2": {
+              "name": "variable.other.property.cavvy"
+            }
+          }
+        }
+      ]
+    },
+    "class-declaration": {
+      "patterns": [
+        {
+          "name": "meta.class.declaration.cavvy",
+          "begin": "\\b(class)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(?::\\s*([a-zA-Z_][a-zA-Z0-9_]*))?\\s*",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.type.class.cavvy"
+            },
+            "2": {
+              "name": "entity.name.type.class.cavvy"
+            },
+            "3": {
+              "name": "entity.name.type.class.parent.cavvy"
+            }
+          },
+          "end": "(?=\\{)",
+          "patterns": [
+            {
+              "include": "#modifiers"
+            }
+          ]
+        }
+      ]
+    },
+    "method-declaration": {
+      "patterns": [
+        {
+          "name": "meta.method.declaration.cavvy",
+          "begin": "\\b((?:public|private|protected|static|final|abstract|native)\\s+)*(?:(int|long|float|double|bool|string|char|void)|([a-zA-Z_][a-zA-Z0-9_]*))\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\()",
+          "beginCaptures": {
+            "1": {
+              "name": "storage.modifier.cavvy"
+            },
+            "2": {
+              "name": "storage.type.primitive.cavvy"
+            },
+            "3": {
+              "name": "entity.name.type.cavvy"
+            },
+            "4": {
+              "name": "entity.name.function.cavvy"
+            },
+            "5": {
+              "name": "punctuation.definition.parameters.begin.cavvy"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.parameters.end.cavvy"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#primitive-types"
+            },
+            {
+              "include": "#identifiers"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "match": "\\.\\.\\.",
+              "name": "keyword.operator.varargs.cavvy"
+            }
+          ]
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.readwrite.cavvy",
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

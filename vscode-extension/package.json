@@ -1,0 +1,115 @@
+{
+  "name": "cavvy-analyzer",
+  "displayName": "Cavvy Analyzer",
+  "description": "Cavvy (EOL) 语言支持插件 - 语法高亮、跳转定义、语法错误提示",
+  "version": "0.1.0",
+  "publisher": "ethernos-studio",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Debuggers",
+    "Linters"
+  ],
+  "keywords": [
+    "cavvy",
+    "eol",
+    "language",
+    "syntax",
+    "highlight"
+  ],
+  "activationEvents": [
+    "onLanguage:cavvy"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "cavvy",
+        "aliases": [
+          "Cavvy",
+          "EOL",
+          "cavvy",
+          "eol"
+        ],
+        "extensions": [
+          ".cay",
+          ".eol"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/cavvy-icon.svg",
+          "dark": "./icons/cavvy-icon.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cavvy",
+        "scopeName": "source.cavvy",
+        "path": "./syntaxes/cavvy.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "Cavvy Analyzer",
+      "properties": {
+        "cavvyAnalyzer.compilerPath": {
+          "type": "string",
+          "default": "eolc",
+          "description": "Cavvy 编译器路径 (eolc 或 eol-check)"
+        },
+        "cavvyAnalyzer.enableDiagnostics": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用语法错误诊断"
+        },
+        "cavvyAnalyzer.diagnosticDelay": {
+          "type": "number",
+          "default": 500,
+          "description": "诊断延迟时间 (毫秒)"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "cavvyAnalyzer.checkSyntax",
+        "title": "检查 Cavvy 语法",
+        "category": "Cavvy"
+      },
+      {
+        "command": "cavvyAnalyzer.gotoDefinition",
+        "title": "跳转到定义",
+        "category": "Cavvy"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "editorLangId == cavvy",
+          "command": "cavvyAnalyzer.gotoDefinition",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "typescript": "^5.2.0",
+    "@vscode/vsce": "^2.21.0"
+  }
+}
