@@ -45,12 +45,12 @@ fn main() {
     match parse_verinfo() {
         Ok(verinfo) => {
             // 设置各工具的版本环境变量
-            if let Some(eolc_section) = verinfo.get("EOLC") {
+            if let Some(eolc_section) = verinfo.get("CAYC") {
                 if let Some(version) = eolc_section.get("version") {
                     println!("cargo:rustc-env=CAYC_VERSION={}", version);
                 }
             }
-            if let Some(eolll_section) = verinfo.get("EOLLL") {
+            if let Some(eolll_section) = verinfo.get("CAY-IR") {
                 if let Some(version) = eolll_section.get("version") {
                     println!("cargo:rustc-env=CAY-IR_VERSION={}", version);
                 }
@@ -60,7 +60,7 @@ fn main() {
                     println!("cargo:rustc-env=IR2EXE_VERSION={}", version);
                 }
             }
-            if let Some(eol_check_section) = verinfo.get("EOL_CHECK") {
+            if let Some(eol_check_section) = verinfo.get("CAY-CHECK") {
                 if let Some(version) = eol_check_section.get("version") {
                     println!("cargo:rustc-env=CAY_CHECK_VERSION={}", version);
                 }
