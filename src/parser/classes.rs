@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use crate::types::{Type, ParameterInfo};
-use crate::error::EolResult;
+use crate::error::cayResult;
 use crate::lexer::Token;
 use crate::error::SourceLocation;
 use super::Parser;
@@ -11,7 +11,7 @@ use super::expressions::parse_expression;
 use super::statements::parse_block;
 
 /// 解析类声明
-pub fn parse_class(parser: &mut Parser) -> EolResult<ClassDecl> {
+pub fn parse_class(parser: &mut Parser) -> cayResult<ClassDecl> {
     let loc = parser.current_loc();
 
     // 检查是否有 @main 注解
@@ -62,7 +62,7 @@ pub fn parse_class(parser: &mut Parser) -> EolResult<ClassDecl> {
 }
 
 /// 解析类成员（字段或方法）
-pub fn parse_class_member(parser: &mut Parser) -> EolResult<ClassMember> {
+pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
     // 向前看判断是字段或方法
     let checkpoint = parser.pos;
     let _modifiers = parse_modifiers(parser)?;
@@ -94,7 +94,7 @@ pub fn parse_class_member(parser: &mut Parser) -> EolResult<ClassMember> {
 }
 
 /// 解析字段声明
-pub fn parse_field(parser: &mut Parser) -> EolResult<FieldDecl> {
+pub fn parse_field(parser: &mut Parser) -> cayResult<FieldDecl> {
     let loc = parser.current_loc();
     let modifiers = parse_modifiers(parser)?;
     let field_type = parse_type(parser)?;
@@ -118,7 +118,7 @@ pub fn parse_field(parser: &mut Parser) -> EolResult<FieldDecl> {
 }
 
 /// 解析方法声明
-pub fn parse_method(parser: &mut Parser) -> EolResult<MethodDecl> {
+pub fn parse_method(parser: &mut Parser) -> cayResult<MethodDecl> {
     let loc = parser.current_loc();
     let modifiers = parse_modifiers(parser)?;
     
@@ -156,7 +156,7 @@ pub fn parse_method(parser: &mut Parser) -> EolResult<MethodDecl> {
 }
 
 /// 解析修饰符列表
-pub fn parse_modifiers(parser: &mut Parser) -> EolResult<Vec<Modifier>> {
+pub fn parse_modifiers(parser: &mut Parser) -> cayResult<Vec<Modifier>> {
     let mut modifiers = Vec::new();
     
     loop {
@@ -197,7 +197,7 @@ pub fn parse_modifiers(parser: &mut Parser) -> EolResult<Vec<Modifier>> {
 }
 
 /// 解析参数列表（支持可变参数）
-pub fn parse_parameters(parser: &mut Parser) -> EolResult<Vec<ParameterInfo>> {
+pub fn parse_parameters(parser: &mut Parser) -> cayResult<Vec<ParameterInfo>> {
     let mut params = Vec::new();
 
     if !parser.check(&Token::RParen) {

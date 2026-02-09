@@ -1,0 +1,26 @@
+public class MultiplicationTableSimple {
+    public static void main() {
+        long i = 1;
+        while (i <= 9) {
+            long j = 1;
+            while (j <= i) {
+                long product = i * j;
+                // 构建并输出每个乘法项，例如 "1×2=2  "
+                print(i);
+                print("x");
+                print(j);
+                print("=");
+                print(product);
+                if (product < 10) {
+                    print("  "); // 一位数加两个空格
+                } else {
+                    print(" "); // 两位数加一个空格
+                }
+                j = j + 1;
+            }
+            // 每行结束后换行
+            println("");
+            i = i + 1;
+        }
+    }
+}

@@ -4,11 +4,11 @@
 
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 impl IRGenerator {
     /// 生成 switch 语句代码
-    pub fn generate_switch_statement(&mut self, switch_stmt: &SwitchStmt) -> EolResult<()> {
+    pub fn generate_switch_statement(&mut self, switch_stmt: &SwitchStmt) -> cayResult<()> {
         let end_label = self.new_label("switch.end");
         let default_label = if switch_stmt.default.is_some() {
             self.new_label("switch.default")

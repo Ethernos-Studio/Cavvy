@@ -3,7 +3,7 @@ use crate::codegen::context::IRGenerator;
 use crate::types::Type;
 
 impl IRGenerator {
-    /// 将 EOL 类型转换为 LLVM IR 类型
+    /// 将 cay 类型转换为 LLVM IR 类型
     pub fn type_to_llvm(&self, ty: &Type) -> String {
         match ty {
             Type::Void => "void".to_string(),

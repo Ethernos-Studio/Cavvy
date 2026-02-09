@@ -1,0 +1,22 @@
+public class MultiplicationFormatted {
+    public static void main() {
+        long i = 1;
+        while (i <= 9) {
+            long j = 1;
+            while (j <= 9) {
+                // 打印 i×j=product 格式
+                print(i);
+                print("×");
+                print(j);
+                print("=");
+                long product = i * j;
+                print(product);
+                print(" "); // 空格分隔
+                j = j + 1;
+            }
+            // 每行结束后换行
+            print("\n");
+            i = i + 1;
+        }
+    }
+}

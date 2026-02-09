@@ -2,7 +2,7 @@
 
 use crate::ast::Expr;
 use crate::types::{Type, ParameterInfo};
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::analyzer::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
@@ -117,7 +117,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断 String 方法调用的返回类型
-    pub fn infer_string_method_call(&mut self, method_name: &str, args: &[Expr], line: usize, column: usize) -> EolResult<Type> {
+    pub fn infer_string_method_call(&mut self, method_name: &str, args: &[Expr], line: usize, column: usize) -> cayResult<Type> {
         use crate::error::semantic_error;
         
         match method_name {

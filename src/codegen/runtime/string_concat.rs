@@ -5,17 +5,17 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成字符串拼接运行时函数
     pub(super) fn emit_string_concat_runtime(&mut self) {
-        self.emit_raw("define i8* @__eol_string_concat(i8* %a, i8* %b) {");
+        self.emit_raw("define i8* @__cay_string_concat(i8* %a, i8* %b) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 空指针安全检查：null → 空字符串 \"\"");
         self.emit_raw("  %a_is_null = icmp eq i8* %a, null");
         self.emit_raw("  %a_ptr = select i1 %a_is_null,");
-        self.emit_raw("    i8* getelementptr ([1 x i8], [1 x i8]* @.eol_empty_str, i64 0, i64 0),");
+        self.emit_raw("    i8* getelementptr ([1 x i8], [1 x i8]* @.cay_empty_str, i64 0, i64 0),");
         self.emit_raw("    i8* %a");
         self.emit_raw("  ");
         self.emit_raw("  %b_is_null = icmp eq i8* %b, null");
         self.emit_raw("  %b_ptr = select i1 %b_is_null,");
-        self.emit_raw("    i8* getelementptr ([1 x i8], [1 x i8]* @.eol_empty_str, i64 0, i64 0),");
+        self.emit_raw("    i8* getelementptr ([1 x i8], [1 x i8]* @.cay_empty_str, i64 0, i64 0),");
         self.emit_raw("    i8* %b");
         self.emit_raw("  ");
         self.emit_raw("  ; 计算长度");
@@ -32,7 +32,7 @@ impl IRGenerator {
         self.emit_raw("  br i1 %is_null, label %fail, label %copy");
         self.emit_raw("  ");
         self.emit_raw("fail:");
-        self.emit_raw("  ret i8* getelementptr ([1 x i8], [1 x i8]* @.eol_empty_str, i64 0, i64 0)");
+        self.emit_raw("  ret i8* getelementptr ([1 x i8], [1 x i8]* @.cay_empty_str, i64 0, i64 0)");
         self.emit_raw("  ");
         self.emit_raw("copy:");
         self.emit_raw("  ; 快速内存复制（LLVM 会优化为 SSE/AVX 或 rep movsb）");

@@ -5,7 +5,7 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成布尔到字符串运行时函数
     pub(super) fn emit_bool_to_string_runtime(&mut self) {
-        self.emit_raw("define i8* @__eol_bool_to_string(i1 %value) {");
+        self.emit_raw("define i8* @__cay_bool_to_string(i1 %value) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 根据布尔值返回 \"true\" 或 \"false\"");
         self.emit_raw("  br i1 %value, label %true_case, label %false_case");

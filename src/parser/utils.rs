@@ -1,7 +1,7 @@
 //! 解析器辅助方法
 
 use crate::lexer::{Token, TokenWithLocation};
-use crate::error::{EolResult, EolError, parser_error, SourceLocation};
+use crate::error::{cayResult, cayError, parser_error, SourceLocation};
 use super::Parser;
 
 /// 检查是否到达令牌流末尾
@@ -56,7 +56,7 @@ pub fn match_token(parser: &mut Parser, token: &Token) -> bool {
 }
 
 /// 消耗指定令牌，否则报错
-pub fn consume<'a>(parser: &'a mut Parser, token: &Token, message: &str) -> EolResult<&'a Token> {
+pub fn consume<'a>(parser: &'a mut Parser, token: &Token, message: &str) -> cayResult<&'a Token> {
     if check(parser, token) {
         Ok(advance(parser))
     } else {
@@ -71,7 +71,7 @@ pub fn consume<'a>(parser: &'a mut Parser, token: &Token, message: &str) -> EolR
 }
 
 /// 消耗标识符
-pub fn consume_identifier(parser: &mut Parser, message: &str) -> EolResult<String> {
+pub fn consume_identifier(parser: &mut Parser, message: &str) -> cayResult<String> {
     if let Token::Identifier(name) = current_token(parser) {
         let name = name.clone();
         advance(parser);
@@ -82,7 +82,7 @@ pub fn consume_identifier(parser: &mut Parser, message: &str) -> EolResult<Strin
 }
 
 /// 创建错误
-pub fn error(parser: &Parser, message: &str) -> EolError {
+pub fn error(parser: &Parser, message: &str) -> cayError {
     let loc = &parser.tokens[parser.pos].loc;
     parser_error(loc.line, loc.column, message)
 }

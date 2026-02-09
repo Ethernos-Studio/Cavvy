@@ -2,10 +2,10 @@ use std::env;
 use std::fs;
 use std::process;
 use std::path::Path;
-use eol::Compiler;
-use eol::error::{print_error_with_context, EolError};
+use cavvy::Compiler;
+use cavvy::error::{print_error_with_context, cayError};
 
-const VERSION: &str = env!("EOLC_VERSION");
+const VERSION: &str = env!("CAYC_VERSION");
 
 struct CompileOptions {
     // 基础优化
@@ -77,8 +77,8 @@ impl Default for CompileOptions {
 }
 
 fn print_usage() {
-    println!("eolc v{}", VERSION);
-    println!("Usage: eolc [options] <source_file.eol> [output_file.exe]");
+    println!("Cavvy Compiler v{}", VERSION);
+    println!("Usage: cayc [options] <source_file.cay> [output_file.exe]");
     println!("");
     println!("Optimization Options:");
     println!("  -O0, -O1, -O2, -O3    优化级别 (默认: -O2)");
@@ -118,11 +118,11 @@ fn print_usage() {
     println!("  --help, -h            显示帮助信息");
     println!("");
     println!("Examples:");
-    println!("  eolc hello.eol");
-    println!("  eolc -O3 hello.eol hello.exe");
-    println!("  eolc --opt-ir -O3 --lto=full hello.eol");
-    println!("  eolc -O3 -march=native -mtune=native -fvectorize hello.eol");
-    println!("  eolc --static -O2 -L./libs -lmylib app.eol app.exe");
+    println!("  cayc hello.cay");
+    println!("  cayc -O3 hello.cay hello.exe");
+    println!("  cayc --opt-ir -O3 --lto=full hello.cay");
+    println!("  cayc -O3 -march=native -mtune=native -fvectorize hello.cay");
+    println!("  cayc --static -O2 -L./libs -lmylib app.cay app.exe");
 }
 
 fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), String> {
@@ -136,7 +136,7 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
 
         match arg.as_str() {
             "--version" | "-v" => {
-                println!("eolc v{}", VERSION);
+                println!("cayc v{}", VERSION);
                 process::exit(0);
             }
             "--help" | "-h" => {
@@ -342,7 +342,7 @@ fn main() {
         .to_string_lossy()
         .to_string();
 
-    println!("EOL 编译器 v{}", VERSION);
+    println!("Cavvy 编译器 v{}", VERSION);
     println!("源文件: {}", source_path);
     println!("输出: {}", exe_output);
     println!("优化级别: {}", options.optimization);
@@ -405,8 +405,8 @@ fn main() {
     }
     println!("");
 
-    // 1. EOL → IR
-    println!("[1] EOL → IR 编译...");
+    // 1. Cavvy → IR
+    println!("[1] Cavvy → IR 编译...");
     let source = match fs::read_to_string(&source_path) {
         Ok(content) => content,
         Err(e) => {
@@ -418,7 +418,7 @@ fn main() {
     let compiler = Compiler::new();
     match compiler.compile(&source, &ir_file) {
         Ok(_) => {
-            println!("  [+] EOL 编译成功");
+            println!("  [+] Cavvy 编译成功");
         }
         Err(e) => {
             print_error_with_context(&e, &source, &source_path);

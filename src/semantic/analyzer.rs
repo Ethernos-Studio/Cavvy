@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use crate::types::{Type, ParameterInfo, ClassInfo, MethodInfo, FieldInfo, TypeRegistry};
-use crate::error::{EolResult, semantic_error};
+use crate::error::{cayResult, semantic_error};
 use super::symbol_table::{SemanticSymbolTable, SemanticSymbolInfo};
 
 /// 语义分析器
@@ -35,7 +35,7 @@ impl SemanticAnalyzer {
         // print 可以接受任意类型参数
     }
 
-    pub fn analyze(&mut self, program: &Program) -> EolResult<()> {
+    pub fn analyze(&mut self, program: &Program) -> cayResult<()> {
         // 第一遍：收集所有类定义
         self.collect_classes(program)?;
 

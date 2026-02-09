@@ -4,11 +4,11 @@
 
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 impl IRGenerator {
     /// 生成 while 语句代码
-    pub fn generate_while_statement(&mut self, while_stmt: &WhileStmt) -> EolResult<()> {
+    pub fn generate_while_statement(&mut self, while_stmt: &WhileStmt) -> cayResult<()> {
         let cond_label = self.new_label("while.cond");
         let body_label = self.new_label("while.body");
         let end_label = self.new_label("while.end");
@@ -42,7 +42,7 @@ impl IRGenerator {
     }
 
     /// 生成 for 语句代码
-    pub fn generate_for_statement(&mut self, for_stmt: &ForStmt) -> EolResult<()> {
+    pub fn generate_for_statement(&mut self, for_stmt: &ForStmt) -> cayResult<()> {
         let cond_label = self.new_label("for.cond");
         let body_label = self.new_label("for.body");
         let update_label = self.new_label("for.update");
@@ -94,7 +94,7 @@ impl IRGenerator {
     }
 
     /// 生成 do-while 语句代码
-    pub fn generate_do_while_statement(&mut self, do_while_stmt: &DoWhileStmt) -> EolResult<()> {
+    pub fn generate_do_while_statement(&mut self, do_while_stmt: &DoWhileStmt) -> cayResult<()> {
         let body_label = self.new_label("dowhile.body");
         let cond_label = self.new_label("dowhile.cond");
         let end_label = self.new_label("dowhile.end");

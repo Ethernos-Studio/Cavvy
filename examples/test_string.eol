@@ -1,5 +1,0 @@
-public class TestString {
-    public static void main() {
-        print("Hello" + " " + "World");
-    }
-}

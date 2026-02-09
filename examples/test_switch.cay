@@ -1,0 +1,28 @@
+// 测试 switch 语句
+public class TestSwitch {
+    public static void main() {
+        // 基础 switch 语句
+        println("=== Basic switch ===");
+        long day = 3;
+        switch (day) {
+            case 1:
+                println("Monday");
+                break;
+            case 2:
+                println("Tuesday");
+                break;
+            case 3:
+                println("Wednesday");
+                break;
+            case 4:
+                println("Thursday");
+                break;
+            case 5:
+                println("Friday");
+                break;
+            default:
+                println("Weekend");
+                break;
+        }
+    }
+}

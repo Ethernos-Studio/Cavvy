@@ -5,7 +5,7 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成字符串长度运行时函数
     pub(super) fn emit_string_length_runtime(&mut self) {
-        self.emit_raw("define i32 @__eol_string_length(i8* %str) {");
+        self.emit_raw("define i32 @__cay_string_length(i8* %str) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 空指针安全检查");
         self.emit_raw("  %is_null = icmp eq i8* %str, null");

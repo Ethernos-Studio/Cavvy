@@ -4,11 +4,11 @@
 
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 impl IRGenerator {
     /// 生成单个语句代码
-    pub fn generate_statement(&mut self, stmt: &Stmt) -> EolResult<()> {
+    pub fn generate_statement(&mut self, stmt: &Stmt) -> cayResult<()> {
         match stmt {
             Stmt::Expr(expr) => {
                 self.generate_expression(expr)?;

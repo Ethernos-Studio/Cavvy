@@ -5,7 +5,7 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成整数到字符串运行时函数
     pub(super) fn emit_int_to_string_runtime(&mut self) {
-        self.emit_raw("define i8* @__eol_int_to_string(i64 %value) {");
+        self.emit_raw("define i8* @__cay_int_to_string(i64 %value) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 分配堆内存缓冲区（32字节足够存储64位整数）");
         self.emit_raw("  %buf = call i8* @calloc(i64 1, i64 32)");

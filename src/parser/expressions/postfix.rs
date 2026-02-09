@@ -3,13 +3,13 @@
 //! 处理函数调用、成员访问、数组索引等后缀表达式。
 
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::super::Parser;
 use super::primary::parse_primary;
 use super::assignment::parse_expression;
 
 /// 解析后缀表达式
-pub fn parse_postfix(parser: &mut Parser) -> EolResult<Expr> {
+pub fn parse_postfix(parser: &mut Parser) -> cayResult<Expr> {
     let mut expr = parse_primary(parser)?;
 
     loop {
@@ -49,7 +49,7 @@ pub fn parse_postfix(parser: &mut Parser) -> EolResult<Expr> {
 }
 
 /// 解析参数列表
-pub fn parse_arguments(parser: &mut Parser) -> EolResult<Vec<Expr>> {
+pub fn parse_arguments(parser: &mut Parser) -> cayResult<Vec<Expr>> {
     let mut args = Vec::new();
 
     if !parser.check(&crate::lexer::Token::RParen) {

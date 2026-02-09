@@ -1,13 +1,13 @@
 //! 语句解析
 
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::Parser;
 use super::types::{parse_type, is_primitive_type_token};
 use super::expressions::parse_expression;
 
 /// 解析代码块
-pub fn parse_block(parser: &mut Parser) -> EolResult<Block> {
+pub fn parse_block(parser: &mut Parser) -> cayResult<Block> {
     let loc = parser.current_loc();
     parser.consume(&crate::lexer::Token::LBrace, "Expected '{' to start block")?;
     
@@ -22,7 +22,7 @@ pub fn parse_block(parser: &mut Parser) -> EolResult<Block> {
 }
 
 /// 解析语句
-pub fn parse_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
     match parser.current_token() {
         crate::lexer::Token::LBrace => Ok(Stmt::Block(parse_block(parser)?)),
         crate::lexer::Token::If => parse_if_statement(parser),
@@ -70,7 +70,7 @@ pub fn parse_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析变量声明
-pub fn parse_var_decl(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_var_decl(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     
     let is_final = parser.match_token(&crate::lexer::Token::Final);
@@ -101,7 +101,7 @@ pub fn parse_var_decl(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析数组初始化表达式: {1, 2, 3}
-fn parse_array_initializer(parser: &mut Parser) -> EolResult<Expr> {
+fn parse_array_initializer(parser: &mut Parser) -> cayResult<Expr> {
     let loc = parser.current_loc();
     parser.consume(&crate::lexer::Token::LBrace, "Expected '{' to start array initializer")?;
     
@@ -129,7 +129,7 @@ fn parse_array_initializer(parser: &mut Parser) -> EolResult<Expr> {
 }
 
 /// 解析 if 语句
-pub fn parse_if_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_if_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     parser.advance(); // consume 'if'
     
@@ -153,7 +153,7 @@ pub fn parse_if_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析 while 语句
-pub fn parse_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_while_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     parser.advance(); // consume 'while'
     
@@ -171,7 +171,7 @@ pub fn parse_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析 for 语句
-pub fn parse_for_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_for_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     parser.advance(); // consume 'for'
     
@@ -210,7 +210,7 @@ pub fn parse_for_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析 do-while 语句
-pub fn parse_do_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_do_while_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     parser.advance(); // consume 'do'
     
@@ -230,7 +230,7 @@ pub fn parse_do_while_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析 switch 语句
-pub fn parse_switch_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_switch_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let loc = parser.current_loc();
     parser.advance(); // consume 'switch'
     
@@ -291,7 +291,7 @@ pub fn parse_switch_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析 return 语句
-pub fn parse_return_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_return_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let _loc = parser.current_loc();
     parser.advance(); // consume 'return'
     
@@ -307,7 +307,7 @@ pub fn parse_return_statement(parser: &mut Parser) -> EolResult<Stmt> {
 }
 
 /// 解析表达式语句
-pub fn parse_expression_statement(parser: &mut Parser) -> EolResult<Stmt> {
+pub fn parse_expression_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let expr = parse_expression(parser)?;
     parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after expression")?;
     Ok(Stmt::Expr(expr))

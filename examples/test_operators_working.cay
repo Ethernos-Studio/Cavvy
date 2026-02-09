@@ -1,0 +1,110 @@
+public class TestOperatorsWorking {
+    public static void main() {
+        // 使用 long 类型匹配字面量类型
+        long a = 15;
+        long b = 4;
+        
+        // 算术运算符
+        long sum = a + b;
+        long diff = a - b;
+        long prod = a * b;
+        long quot = a / b;
+        long mod = a % b;
+        
+        print("Arithmetic operators test:\n");
+        print("15 + 4 = ");
+        print(sum);
+        println("");
+        print("15 - 4 = ");
+        print(diff);
+        println("");
+        print("15 * 4 = ");
+        print(prod);
+        println("");
+        print("15 / 4 = ");
+        print(quot);
+        println("");
+        print("15 % 4 = ");
+        print(mod);
+        println("");
+        
+        // 关系运算符
+        bool eq = a == b;
+        bool ne = a != b;
+        bool lt = a < b;
+        bool le = a <= b;
+        bool gt = a > b;
+        bool ge = a >= b;
+        
+        print("\nRelational operators test:\n");
+        print("15 == 4: ");
+        if (eq) { print("true"); } else { print("false"); }
+        println("");
+        print("15 != 4: ");
+        if (ne) { print("true"); } else { print("false"); }
+        println("");
+        print("15 < 4: ");
+        if (lt) { print("true"); } else { print("false"); }
+        println("");
+        print("15 <= 4: ");
+        if (le) { print("true"); } else { print("false"); }
+        println("");
+        print("15 > 4: ");
+        if (gt) { print("true"); } else { print("false"); }
+        println("");
+        print("15 >= 4: ");
+        if (ge) { print("true"); } else { print("false"); }
+        println("");
+        
+        // 逻辑运算符
+        bool x = true;
+        bool y = false;
+        bool and = x && y;
+        bool or = x || y;
+        bool not = !x;
+        
+        print("\nLogical operators test:\n");
+        print("true && false: ");
+        if (and) { print("true"); } else { print("false"); }
+        println("");
+        print("true || false: ");
+        if (or) { print("true"); } else { print("false"); }
+        println("");
+        print("!true: ");
+        if (not) { print("true"); } else { print("false"); }
+        println("");
+        
+        // 位运算符
+        long m = 12;
+        long n = 10;
+        
+        long bitAnd = m & n;
+        long bitOr = m | n;
+        long bitXor = m ^ n;
+        long bitNot = ~m;
+        long shiftLeft = m << 2;
+        long shiftRight = m >> 1;
+        
+        print("\nBitwise operators test:\n");
+        print("12 & 10 = ");
+        print(bitAnd);
+        println("");
+        print("12 | 10 = ");
+        print(bitOr);
+        println("");
+        print("12 ^ 10 = ");
+        print(bitXor);
+        println("");
+        print("~12 = ");
+        print(bitNot);
+        println("");
+        print("12 << 2 = ");
+        print(shiftLeft);
+        println("");
+        print("12 >> 1 = ");
+        print(shiftRight);
+        println("");
+        
+        print("\nAll operator tests completed successfully!\n");
+    }
+}

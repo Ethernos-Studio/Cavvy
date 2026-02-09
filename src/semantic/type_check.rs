@@ -2,13 +2,13 @@
 
 use crate::ast::*;
 use crate::types::{Type, ParameterInfo};
-use crate::error::{EolResult, semantic_error};
+use crate::error::{cayResult, semantic_error};
 use super::analyzer::SemanticAnalyzer;
 use super::symbol_table::SemanticSymbolInfo;
 
 impl SemanticAnalyzer {
     /// 类型检查程序
-    pub fn type_check_program(&mut self, program: &Program) -> EolResult<()> {
+    pub fn type_check_program(&mut self, program: &Program) -> cayResult<()> {
         for class in &program.classes {
             self.current_class = Some(class.name.clone());
             
@@ -51,7 +51,7 @@ impl SemanticAnalyzer {
     }
 
     /// 类型检查语句
-    pub fn type_check_statement(&mut self, stmt: &Stmt, expected_return: Option<&Type>) -> EolResult<()> {
+    pub fn type_check_statement(&mut self, stmt: &Stmt, expected_return: Option<&Type>) -> cayResult<()> {
         match stmt {
             Stmt::Expr(expr) => {
                 self.infer_expr_type(expr)?;

@@ -2,11 +2,11 @@
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::{EolResult, codegen_error};
+use crate::error::{cayResult, codegen_error};
 
 impl IRGenerator {
     /// 生成表达式代码
-    pub fn generate_expression(&mut self, expr: &Expr) -> EolResult<String> {
+    pub fn generate_expression(&mut self, expr: &Expr) -> cayResult<String> {
         match expr {
             Expr::Literal(lit) => self.generate_literal(lit),
             Expr::Identifier(name) => {
@@ -50,7 +50,7 @@ impl IRGenerator {
     }
 
     /// 生成字面量代码
-    fn generate_literal(&mut self, lit: &LiteralValue) -> EolResult<String> {
+    fn generate_literal(&mut self, lit: &LiteralValue) -> cayResult<String> {
         match lit {
             LiteralValue::Int32(val) => Ok(format!("i32 {}", val)),
             LiteralValue::Int64(val) => Ok(format!("i64 {}", val)),
@@ -198,7 +198,7 @@ impl IRGenerator {
     }
     
     /// 生成二元表达式代码
-    fn generate_binary_expression(&mut self, bin: &BinaryExpr) -> EolResult<String> {
+    fn generate_binary_expression(&mut self, bin: &BinaryExpr) -> cayResult<String> {
         let left = self.generate_expression(&bin.left)?;
         let right = self.generate_expression(&bin.right)?;
         
@@ -213,7 +213,7 @@ impl IRGenerator {
                 // 字符串拼接处理
                 if left_type == "i8*" && right_type == "i8*" {
                     // 调用内建的字符串拼接函数
-                    self.emit_line(&format!("  {} = call i8* @__eol_string_concat(i8* {}, i8* {})",
+                    self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                         temp, left_val, right_val));
                     return Ok(format!("i8* {}", temp));
                 } else if left_type.starts_with("i") && right_type.starts_with("i") {
@@ -526,7 +526,7 @@ impl IRGenerator {
     }
 
     /// 生成一元表达式代码
-    fn generate_unary_expression(&mut self, unary: &UnaryExpr) -> EolResult<String> {
+    fn generate_unary_expression(&mut self, unary: &UnaryExpr) -> cayResult<String> {
         let operand = self.generate_expression(&unary.operand)?;
         let (op_type, op_val) = self.parse_typed_value(&operand);
         let temp = self.new_temp();
@@ -606,7 +606,7 @@ impl IRGenerator {
     }
 
     /// 生成函数调用表达式代码
-    fn generate_call_expression(&mut self, call: &CallExpr) -> EolResult<String> {
+    fn generate_call_expression(&mut self, call: &CallExpr) -> cayResult<String> {
         // 处理 print 和 println 函数
         if let Expr::Identifier(name) = call.callee.as_ref() {
             if name == "print" {
@@ -815,7 +815,7 @@ impl IRGenerator {
 
     /// 将可变参数打包成数组
     /// fixed_param_count: 固定参数的数量
-    fn pack_varargs_args(&mut self, _class_name: &str, method_name: &str, arg_results: &[String]) -> EolResult<Vec<String>> {
+    fn pack_varargs_args(&mut self, _class_name: &str, method_name: &str, arg_results: &[String]) -> cayResult<Vec<String>> {
         // 确定固定参数数量（这里需要根据实际方法定义来确定）
         let fixed_param_count = match method_name {
             "sum" => 0,  // sum(int... numbers) 没有固定参数
@@ -900,7 +900,7 @@ impl IRGenerator {
 
     /// 尝试生成 String 方法调用代码
     /// 返回 Some(result) 如果成功处理，None 如果不是 String 方法
-    fn try_generate_string_method_call(&mut self, member: &MemberAccessExpr, args: &[Expr]) -> EolResult<Option<String>> {
+    fn try_generate_string_method_call(&mut self, member: &MemberAccessExpr, args: &[Expr]) -> cayResult<Option<String>> {
         // 生成对象表达式（字符串）
         let obj_result = self.generate_expression(&member.object)?;
         let (obj_type, obj_val) = self.parse_typed_value(&obj_result);
@@ -919,7 +919,7 @@ impl IRGenerator {
                 if !args.is_empty() {
                     return Err(codegen_error("String.length() takes no arguments".to_string()));
                 }
-                self.emit_line(&format!("  {} = call i32 @__eol_string_length(i8* {})",
+                self.emit_line(&format!("  {} = call i32 @__cay_string_length(i8* {})",
                     temp, obj_val));
                 Ok(Some(format!("i32 {}", temp)))
             }
@@ -954,12 +954,12 @@ impl IRGenerator {
                 } else {
                     // substring(beginIndex) - 使用字符串长度作为 endIndex
                     let len_temp = self.new_temp();
-                    self.emit_line(&format!("  {} = call i32 @__eol_string_length(i8* {})",
+                    self.emit_line(&format!("  {} = call i32 @__cay_string_length(i8* {})",
                         len_temp, obj_val));
                     len_temp
                 };
 
-                self.emit_line(&format!("  {} = call i8* @__eol_string_substring(i8* {}, i32 {}, i32 {})",
+                self.emit_line(&format!("  {} = call i8* @__cay_string_substring(i8* {}, i32 {}, i32 {})",
                     temp, obj_val, begin_i32, end_i32));
                 Ok(Some(format!("i8* {}", temp)))
             }
@@ -976,7 +976,7 @@ impl IRGenerator {
                     return Err(codegen_error("String.indexOf() argument must be a string".to_string()));
                 }
 
-                self.emit_line(&format!("  {} = call i32 @__eol_string_indexof(i8* {}, i8* {})",
+                self.emit_line(&format!("  {} = call i32 @__cay_string_indexof(i8* {}, i8* {})",
                     temp, obj_val, substr_val));
                 Ok(Some(format!("i32 {}", temp)))
             }
@@ -996,7 +996,7 @@ impl IRGenerator {
                     t
                 };
 
-                self.emit_line(&format!("  {} = call i8 @__eol_string_charat(i8* {}, i32 {})",
+                self.emit_line(&format!("  {} = call i8 @__cay_string_charat(i8* {}, i32 {})",
                     temp, obj_val, index_i32));
                 Ok(Some(format!("i8 {}", temp)))
             }
@@ -1015,7 +1015,7 @@ impl IRGenerator {
                     return Err(codegen_error("String.replace() arguments must be strings".to_string()));
                 }
 
-                self.emit_line(&format!("  {} = call i8* @__eol_string_replace(i8* {}, i8* {}, i8* {})",
+                self.emit_line(&format!("  {} = call i8* @__cay_string_replace(i8* {}, i8* {}, i8* {})",
                     temp, obj_val, old_val, new_val));
                 Ok(Some(format!("i8* {}", temp)))
             }
@@ -1024,7 +1024,7 @@ impl IRGenerator {
     }
 
     /// 生成 print/println 调用代码
-    fn generate_print_call(&mut self, args: &[Expr], newline: bool) -> EolResult<String> {
+    fn generate_print_call(&mut self, args: &[Expr], newline: bool) -> cayResult<String> {
         if args.is_empty() {
             // 无参数，仅打印换行符（如果是 println）或什么都不做（如果是 print）
             if newline {
@@ -1161,7 +1161,7 @@ impl IRGenerator {
     }
 
     /// 生成 readInt 调用代码
-    fn generate_read_int_call(&mut self, args: &[Expr]) -> EolResult<String> {
+    fn generate_read_int_call(&mut self, args: &[Expr]) -> cayResult<String> {
         // readInt 应该没有参数
         if !args.is_empty() {
             return Err(codegen_error("readInt() takes no arguments".to_string()));
@@ -1201,7 +1201,7 @@ impl IRGenerator {
     }
 
     /// 生成 readFloat 调用代码
-    fn generate_read_float_call(&mut self, args: &[Expr]) -> EolResult<String> {
+    fn generate_read_float_call(&mut self, args: &[Expr]) -> cayResult<String> {
         // readFloat 应该没有参数
         if !args.is_empty() {
             return Err(codegen_error("readFloat() takes no arguments".to_string()));
@@ -1231,7 +1231,7 @@ impl IRGenerator {
     }
 
     /// 生成 readLine 调用代码
-    fn generate_read_line_call(&mut self, args: &[Expr]) -> EolResult<String> {
+    fn generate_read_line_call(&mut self, args: &[Expr]) -> cayResult<String> {
         // readLine 应该没有参数
         if !args.is_empty() {
             return Err(codegen_error("readLine() takes no arguments".to_string()));
@@ -1261,7 +1261,7 @@ impl IRGenerator {
     }
 
     /// 生成赋值表达式代码
-    fn generate_assignment(&mut self, assign: &AssignmentExpr) -> EolResult<String> {
+    fn generate_assignment(&mut self, assign: &AssignmentExpr) -> cayResult<String> {
         let value = self.generate_expression(&assign.value)?;
         let (value_type, val) = self.parse_typed_value(&value);
         
@@ -1426,7 +1426,7 @@ impl IRGenerator {
     }
 
     /// 生成类型转换表达式代码
-    fn generate_cast_expression(&mut self, cast: &CastExpr) -> EolResult<String> {
+    fn generate_cast_expression(&mut self, cast: &CastExpr) -> cayResult<String> {
         let expr_value = self.generate_expression(&cast.expr)?;
         let (from_type, val) = self.parse_typed_value(&expr_value);
         let to_type = self.type_to_llvm(&cast.target_type);
@@ -1504,7 +1504,7 @@ impl IRGenerator {
 
             // 调用专门的运行时函数来避免调用约定问题
             let result = self.new_temp();
-            self.emit_line(&format!("  {} = call i8* @__eol_float_to_string(double {})",
+            self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(double {})",
                 result, arg_val));
 
             return Ok(format!("{} {}", to_type, result));
@@ -1513,7 +1513,7 @@ impl IRGenerator {
         // 字符到字符串（char -> String）- 必须在整数转字符串之前处理
         if from_type == "i8" && to_type == "i8*" {
             let result = self.new_temp();
-            self.emit_line(&format!("  {} = call i8* @__eol_char_to_string(i8 {})",
+            self.emit_line(&format!("  {} = call i8* @__cay_char_to_string(i8 {})",
                 result, val));
             return Ok(format!("{} {}", to_type, result));
         }
@@ -1530,7 +1530,7 @@ impl IRGenerator {
                 self.emit_line(&format!("  {} = trunc i8 {} to i1", temp, val));
                 temp
             };
-            self.emit_line(&format!("  {} = call i8* @__eol_bool_to_string(i1 {})",
+            self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})",
                 result, bool_val));
             return Ok(format!("{} {}", to_type, result));
         }
@@ -1546,7 +1546,7 @@ impl IRGenerator {
                 self.emit_line(&format!("  {} = sext {} {} to i64", temp, from_type, val));
                 temp
             };
-            self.emit_line(&format!("  {} = call i8* @__eol_int_to_string(i64 {})",
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
                 result, i64_val));
             return Ok(format!("{} {}", to_type, result));
         }
@@ -1555,7 +1555,7 @@ impl IRGenerator {
     }
 
     /// 生成成员访问表达式代码
-    fn generate_member_access(&mut self, member: &MemberAccessExpr) -> EolResult<String> {
+    fn generate_member_access(&mut self, member: &MemberAccessExpr) -> cayResult<String> {
         // 检查是否是静态字段访问: ClassName.fieldName
         if let Expr::Identifier(class_name) = &*member.object {
             let static_key = format!("{}.{}", class_name, member.member);
@@ -1605,7 +1605,7 @@ impl IRGenerator {
     }
 
     /// 生成 new 表达式代码
-    fn generate_new_expression(&mut self, _new_expr: &NewExpr) -> EolResult<String> {
+    fn generate_new_expression(&mut self, _new_expr: &NewExpr) -> cayResult<String> {
         // 简化实现：为对象分配一块固定大小的内存（8字节），返回 i8* 指针
         // 这对不依赖对象字段的示例（如 NestedCalls）是足够的
         let size = 8i64;
@@ -1617,7 +1617,7 @@ impl IRGenerator {
     }
 
     /// 生成数组创建表达式代码: new Type[size] 或 new Type[size1][size2]...
-    fn generate_array_creation(&mut self, arr: &ArrayCreationExpr) -> EolResult<String> {
+    fn generate_array_creation(&mut self, arr: &ArrayCreationExpr) -> cayResult<String> {
         if arr.sizes.len() == 1 {
             // 一维数组
             self.generate_1d_array_creation(&arr.element_type, &arr.sizes[0])
@@ -1630,7 +1630,7 @@ impl IRGenerator {
     /// 生成一维数组创建
     /// 内存布局: [长度:i32][填充:i32][元素0][元素1]...[元素N-1]
     /// 返回的指针指向元素0，长度存储在指针前8字节
-    fn generate_1d_array_creation(&mut self, element_type: &Type, size_expr: &Expr) -> EolResult<String> {
+    fn generate_1d_array_creation(&mut self, element_type: &Type, size_expr: &Expr) -> cayResult<String> {
         // 生成数组大小表达式
         let size_val_expr = self.generate_expression(size_expr)?;
         let (size_type, size_val) = self.parse_typed_value(&size_val_expr);
@@ -1705,7 +1705,7 @@ impl IRGenerator {
     }
 
     /// 生成多维数组创建: new Type[size1][size2]...[sizeN]
-    fn generate_md_array_creation(&mut self, element_type: &Type, sizes: &[Expr]) -> EolResult<String> {
+    fn generate_md_array_creation(&mut self, element_type: &Type, sizes: &[Expr]) -> cayResult<String> {
         // 多维数组实现：分配一个指针数组，每个指针指向子数组
         // 例如 new int[3][4][5]:
         // 1. 分配 3 个指针的数组 (int**)
@@ -1818,7 +1818,7 @@ impl IRGenerator {
     }
 
     /// 获取数组元素指针（用于赋值操作）
-    fn get_array_element_ptr(&mut self, arr: &ArrayAccessExpr) -> EolResult<(String, String, String)> {
+    fn get_array_element_ptr(&mut self, arr: &ArrayAccessExpr) -> cayResult<(String, String, String)> {
         // 生成数组表达式
         let array_expr = self.generate_expression(&arr.array)?;
         let (array_type, array_val) = self.parse_typed_value(&array_expr);
@@ -1861,7 +1861,7 @@ impl IRGenerator {
     }
     
     /// 生成数组访问表达式代码: arr[index]
-    fn generate_array_access(&mut self, arr: &ArrayAccessExpr) -> EolResult<String> {
+    fn generate_array_access(&mut self, arr: &ArrayAccessExpr) -> cayResult<String> {
         let (elem_type, elem_ptr_temp, _) = self.get_array_element_ptr(arr)?;
         
         // 加载元素值
@@ -1874,7 +1874,7 @@ impl IRGenerator {
 
     /// 生成数组初始化表达式代码: {1, 2, 3}
     /// 内存布局: [长度:i32][填充:i32][元素0][元素1]...[元素N-1]
-    fn generate_array_init(&mut self, init: &ArrayInitExpr) -> EolResult<String> {
+    fn generate_array_init(&mut self, init: &ArrayInitExpr) -> cayResult<String> {
         if init.elements.is_empty() {
             return Err(codegen_error("Cannot generate code for empty array initializer".to_string()));
         }
@@ -1938,8 +1938,8 @@ impl IRGenerator {
 
     /// 生成方法引用表达式代码
     /// 方法引用: ClassName::methodName 或 obj::methodName
-    fn generate_method_ref(&mut self, method_ref: &MethodRefExpr) -> EolResult<String> {
-        // 方法引用在 EOL 中暂时作为函数指针处理
+    fn generate_method_ref(&mut self, method_ref: &MethodRefExpr) -> cayResult<String> {
+        // 方法引用在 cay 中暂时作为函数指针处理
         // 返回函数指针（i8* 作为占位符）
         let temp = self.new_temp();
 
@@ -1964,7 +1964,7 @@ impl IRGenerator {
 
     /// 生成 Lambda 表达式代码
     /// Lambda: (params) -> { body }
-    fn generate_lambda(&mut self, lambda: &LambdaExpr) -> EolResult<String> {
+    fn generate_lambda(&mut self, lambda: &LambdaExpr) -> cayResult<String> {
         // Lambda 表达式需要生成一个匿名函数
         // 由于 LLVM IR 的复杂性，这里采用简化实现
 
@@ -2011,7 +2011,7 @@ impl IRGenerator {
         }
 
         // 生成 Lambda 体
-        let _result: Result<(), crate::error::EolError> = match &lambda.body {
+        let _result: Result<(), crate::error::cayError> = match &lambda.body {
             LambdaBody::Expr(expr) => {
                 let val = self.generate_expression(expr)?;
                 let (_, val_str) = self.parse_typed_value(&val);

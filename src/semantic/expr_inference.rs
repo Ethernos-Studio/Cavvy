@@ -2,13 +2,13 @@
 
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::{EolResult, semantic_error};
+use crate::error::{cayResult, semantic_error};
 use super::analyzer::SemanticAnalyzer;
 use super::symbol_table::SemanticSymbolInfo;
 
 impl SemanticAnalyzer {
     /// 推断表达式类型
-    pub fn infer_expr_type(&mut self, expr: &Expr) -> EolResult<Type> {
+    pub fn infer_expr_type(&mut self, expr: &Expr) -> cayResult<Type> {
         match expr {
             Expr::Literal(lit) => match lit {
                 LiteralValue::Int32(_) => Ok(Type::Int32),
@@ -46,7 +46,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断二元表达式类型
-    fn infer_binary_type(&mut self, bin: &BinaryExpr) -> EolResult<Type> {
+    fn infer_binary_type(&mut self, bin: &BinaryExpr) -> cayResult<Type> {
         let left_type = self.infer_expr_type(&bin.left)?;
         let right_type = self.infer_expr_type(&bin.right)?;
         
@@ -124,7 +124,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断一元表达式类型
-    fn infer_unary_type(&mut self, unary: &UnaryExpr) -> EolResult<Type> {
+    fn infer_unary_type(&mut self, unary: &UnaryExpr) -> cayResult<Type> {
         let operand_type = self.infer_expr_type(&unary.operand)?;
         match unary.op {
             UnaryOp::Neg => Ok(operand_type),
@@ -145,7 +145,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断函数调用类型
-    fn infer_call_type(&mut self, call: &CallExpr) -> EolResult<Type> {
+    fn infer_call_type(&mut self, call: &CallExpr) -> cayResult<Type> {
         // 特殊处理内置函数
         if let Expr::Identifier(name) = call.callee.as_ref() {
             // 内置输入函数的类型推断
@@ -252,7 +252,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断成员访问类型
-    fn infer_member_access_type(&mut self, member: &MemberAccessExpr) -> EolResult<Type> {
+    fn infer_member_access_type(&mut self, member: &MemberAccessExpr) -> cayResult<Type> {
         // 检查是否是静态字段访问: ClassName.fieldName
         if let Expr::Identifier(class_name) = &*member.object {
             if let Some(class_info) = self.type_registry.get_class(class_name) {
@@ -304,7 +304,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断 new 表达式类型
-    fn infer_new_type(&mut self, new_expr: &NewExpr) -> EolResult<Type> {
+    fn infer_new_type(&mut self, new_expr: &NewExpr) -> cayResult<Type> {
         if self.type_registry.class_exists(&new_expr.class_name) {
             Ok(Type::Object(new_expr.class_name.clone()))
         } else {
@@ -317,7 +317,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断赋值表达式类型
-    fn infer_assignment_type(&mut self, assign: &AssignmentExpr) -> EolResult<Type> {
+    fn infer_assignment_type(&mut self, assign: &AssignmentExpr) -> cayResult<Type> {
         let target_type = self.infer_expr_type(&assign.target)?;
         let value_type = self.infer_expr_type(&assign.value)?;
         
@@ -333,13 +333,13 @@ impl SemanticAnalyzer {
     }
 
     /// 推断类型转换表达式类型
-    fn infer_cast_type(&mut self, cast: &CastExpr) -> EolResult<Type> {
+    fn infer_cast_type(&mut self, cast: &CastExpr) -> cayResult<Type> {
         // TODO: 检查转换是否合法
         Ok(cast.target_type.clone())
     }
 
     /// 推断数组创建表达式类型
-    fn infer_array_creation_type(&mut self, arr: &ArrayCreationExpr) -> EolResult<Type> {
+    fn infer_array_creation_type(&mut self, arr: &ArrayCreationExpr) -> cayResult<Type> {
         // 数组创建: new Type[size] 或 new Type[size1][size2]...
         // 检查所有维度的大小
         for (i, size) in arr.sizes.iter().enumerate() {
@@ -356,7 +356,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断数组初始化表达式类型
-    fn infer_array_init_type(&mut self, init: &ArrayInitExpr) -> EolResult<Type> {
+    fn infer_array_init_type(&mut self, init: &ArrayInitExpr) -> cayResult<Type> {
         // 数组初始化: {1, 2, 3}
         // 需要上下文来推断类型，这里返回一个占位符类型
         // 实际类型会在变量声明时根据声明类型确定
@@ -373,7 +373,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断数组访问表达式类型
-    fn infer_array_access_type(&mut self, arr: &ArrayAccessExpr) -> EolResult<Type> {
+    fn infer_array_access_type(&mut self, arr: &ArrayAccessExpr) -> cayResult<Type> {
         // 数组访问: arr[index]
         let array_type = self.infer_expr_type(&arr.array)?;
         let index_type = self.infer_expr_type(&arr.index)?;
@@ -397,7 +397,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断方法引用表达式类型
-    fn infer_method_ref_type(&mut self, method_ref: &MethodRefExpr) -> EolResult<Type> {
+    fn infer_method_ref_type(&mut self, method_ref: &MethodRefExpr) -> cayResult<Type> {
         // 方法引用: ClassName::methodName 或 obj::methodName
         // 返回函数类型（这里简化为 Object 类型，实际应该返回函数类型）
         // TODO: 实现完整的函数类型系统
@@ -426,7 +426,7 @@ impl SemanticAnalyzer {
     }
 
     /// 推断 Lambda 表达式类型
-    fn infer_lambda_type(&mut self, lambda: &LambdaExpr) -> EolResult<Type> {
+    fn infer_lambda_type(&mut self, lambda: &LambdaExpr) -> cayResult<Type> {
         // Lambda 表达式: (params) -> { body }
         // 创建新的作用域
         self.symbol_table.enter_scope();

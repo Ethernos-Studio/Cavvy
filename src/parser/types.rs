@@ -1,11 +1,11 @@
 //! 类型解析
 
 use crate::types::Type;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::Parser;
 
 /// 解析类型（支持多维数组）
-pub fn parse_type(parser: &mut Parser) -> EolResult<Type> {
+pub fn parse_type(parser: &mut Parser) -> cayResult<Type> {
     let base_type = match parser.current_token() {
         crate::lexer::Token::Int => { parser.advance(); Type::Int32 }
         crate::lexer::Token::Long => { parser.advance(); Type::Int64 }

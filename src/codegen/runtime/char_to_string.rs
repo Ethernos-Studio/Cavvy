@@ -5,7 +5,7 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成字符到字符串运行时函数
     pub(super) fn emit_char_to_string_runtime(&mut self) {
-        self.emit_raw("define i8* @__eol_char_to_string(i8 %value) {");
+        self.emit_raw("define i8* @__cay_char_to_string(i8 %value) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 分配堆内存缓冲区（2字节：字符 + 终止符）");
         self.emit_raw("  %buf = call i8* @calloc(i64 1, i64 2)");

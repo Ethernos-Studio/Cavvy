@@ -3,7 +3,7 @@
 //! 处理Lambda表达式: (params) -> { body } 或 (params) -> expr
 
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::super::Parser;
 use super::super::types::{parse_type, is_type_token};
 use super::super::statements::parse_statement;
@@ -11,7 +11,7 @@ use super::assignment::parse_expression;
 
 /// 尝试解析 Lambda 表达式
 /// 假设已经消耗了 '('，需要解析参数列表和 -> 箭头
-pub fn try_parse_lambda(parser: &mut Parser, loc: crate::error::SourceLocation) -> EolResult<Expr> {
+pub fn try_parse_lambda(parser: &mut Parser, loc: crate::error::SourceLocation) -> cayResult<Expr> {
     // 解析 Lambda 参数列表: (param1, param2, ...) 或 (int x, int y) 或 ()
     let mut params = Vec::new();
 
@@ -59,7 +59,7 @@ pub fn try_parse_lambda(parser: &mut Parser, loc: crate::error::SourceLocation) 
 }
 
 /// 解析 Lambda 参数
-fn parse_lambda_param(parser: &mut Parser) -> EolResult<LambdaParam> {
+fn parse_lambda_param(parser: &mut Parser) -> cayResult<LambdaParam> {
     // 检查是否有类型注解（可选）
     let checkpoint = parser.pos;
 
@@ -101,7 +101,7 @@ fn parse_lambda_param(parser: &mut Parser) -> EolResult<LambdaParam> {
 }
 
 /// 解析 Lambda 语句块
-fn parse_lambda_block(parser: &mut Parser) -> EolResult<Block> {
+fn parse_lambda_block(parser: &mut Parser) -> cayResult<Block> {
     let mut statements = Vec::new();
 
     while !parser.check(&crate::lexer::Token::RBrace) {

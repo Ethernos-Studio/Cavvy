@@ -4,14 +4,14 @@
 
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::super::Parser;
 use super::super::types::is_type_token;
 use super::lambda::try_parse_lambda;
 use super::assignment::parse_expression;
 
 /// 解析基本表达式
-pub fn parse_primary(parser: &mut Parser) -> EolResult<Expr> {
+pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
     let loc = parser.current_loc();
 
     let token = parser.current_token().clone();
@@ -105,7 +105,7 @@ pub fn parse_primary(parser: &mut Parser) -> EolResult<Expr> {
 }
 
 /// 解析 new 表达式（支持类创建和多维数组创建）
-pub fn parse_new_expression(parser: &mut Parser, loc: crate::error::SourceLocation) -> EolResult<Expr> {
+pub fn parse_new_expression(parser: &mut Parser, loc: crate::error::SourceLocation) -> cayResult<Expr> {
     // 首先尝试解析类型
     if is_type_token(parser) {
         // 解析基本类型或类名（不包含数组维度）
@@ -172,7 +172,7 @@ pub fn parse_new_expression(parser: &mut Parser, loc: crate::error::SourceLocati
 }
 
 /// 解析基本类型（不包含数组维度）
-pub fn parse_base_type(parser: &mut Parser) -> EolResult<Type> {
+pub fn parse_base_type(parser: &mut Parser) -> cayResult<Type> {
     match parser.current_token() {
         crate::lexer::Token::Int => { parser.advance(); Ok(Type::Int32) }
         crate::lexer::Token::Long => { parser.advance(); Ok(Type::Int64) }
@@ -191,7 +191,7 @@ pub fn parse_base_type(parser: &mut Parser) -> EolResult<Type> {
 }
 
 /// 解析参数列表
-fn parse_arguments(parser: &mut Parser) -> EolResult<Vec<Expr>> {
+fn parse_arguments(parser: &mut Parser) -> cayResult<Vec<Expr>> {
     let mut args = Vec::new();
 
     if !parser.check(&crate::lexer::Token::RParen) {

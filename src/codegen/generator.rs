@@ -1,15 +1,15 @@
-//! EOL LLVM IR 代码生成器主模块
+//! cay LLVM IR 代码生成器主模块
 //!
-//! 本模块将 EOL AST 转换为 LLVM IR 代码。
+//! 本模块将 cay AST 转换为 LLVM IR 代码。
 
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 impl IRGenerator {
     /// 主入口：生成程序的 LLVM IR
-    pub fn generate(&mut self, program: &Program) -> EolResult<String> {
+    pub fn generate(&mut self, program: &Program) -> cayResult<String> {
         self.emit_header();
 
         // 找到主类和main方法
@@ -87,7 +87,7 @@ impl IRGenerator {
             // 找到第一个空行，在运行时函数之前插入字符串常量
             let mut output = self.output.clone();
             // 在运行时函数之前插入字符串常量声明
-            let insert_pos = output.find("define i8* @__eol_string_concat")
+            let insert_pos = output.find("define i8* @__cay_string_concat")
                 .unwrap_or(output.len());
             output.insert_str(insert_pos, &string_decls);
             self.output = output;
@@ -97,7 +97,7 @@ impl IRGenerator {
     }
 
     /// 收集类的静态字段
-    fn collect_static_fields(&mut self, class: &ClassDecl) -> EolResult<()> {
+    fn collect_static_fields(&mut self, class: &ClassDecl) -> cayResult<()> {
         for member in &class.members {
             if let ClassMember::Field(field) = member {
                 if field.modifiers.contains(&Modifier::Static) {
@@ -109,7 +109,7 @@ impl IRGenerator {
     }
 
     /// 注册静态字段
-    fn register_static_field(&mut self, class_name: &str, field: &FieldDecl) -> EolResult<()> {
+    fn register_static_field(&mut self, class_name: &str, field: &FieldDecl) -> cayResult<()> {
         let full_name = format!("@{}.{}", class_name, field.name);
         let llvm_type = self.type_to_llvm(&field.field_type);
         let size = field.field_type.size_in_bytes();
@@ -148,7 +148,7 @@ impl IRGenerator {
     }
 
     /// 生成类方法声明（前向声明）
-    fn generate_class_declarations(&mut self, class: &ClassDecl) -> EolResult<()> {
+    fn generate_class_declarations(&mut self, class: &ClassDecl) -> cayResult<()> {
         for member in &class.members {
             if let ClassMember::Method(method) = member {
                 if !method.modifiers.contains(&Modifier::Native) {
@@ -160,7 +160,7 @@ impl IRGenerator {
     }
 
     /// 生成方法声明（declare）
-    fn generate_method_declaration(&mut self, class_name: &str, method: &MethodDecl) -> EolResult<()> {
+    fn generate_method_declaration(&mut self, class_name: &str, method: &MethodDecl) -> cayResult<()> {
         let fn_name = self.generate_method_name(class_name, method);
         let ret_type = self.type_to_llvm(&method.return_type);
 
@@ -182,7 +182,7 @@ impl IRGenerator {
     }
 
     /// 生成类代码（方法定义）
-    fn generate_class(&mut self, class: &ClassDecl) -> EolResult<()> {
+    fn generate_class(&mut self, class: &ClassDecl) -> cayResult<()> {
         for member in &class.members {
             match member {
                 ClassMember::Method(method) => {
@@ -202,7 +202,7 @@ impl IRGenerator {
     }
 
     /// 生成方法代码
-    fn generate_method(&mut self, class_name: &str, method: &MethodDecl) -> EolResult<()> {
+    fn generate_method(&mut self, class_name: &str, method: &MethodDecl) -> cayResult<()> {
         // 生成带参数签名的方法名以支持重载
         let fn_name = self.generate_method_name(class_name, method);
         self.current_function = fn_name.clone();

@@ -1,0 +1,11 @@
+// 测试 for 循环
+public class TestForLoop {
+    public static void main() {
+        // 基础 for 循环
+        println("=== Basic for loop ===");
+        for (long i = 0; i < 5; i = i + 1) {
+            print("i = ");
+            println(i);
+        }
+    }
+}

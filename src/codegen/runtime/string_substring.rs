@@ -6,14 +6,14 @@ impl IRGenerator {
     /// 生成字符串子串运行时函数
     pub(super) fn emit_string_substring_runtime(&mut self) {
         // substring(beginIndex, endIndex) - 两个参数版本
-        self.emit_raw("define i8* @__eol_string_substring(i8* %str, i32 %begin, i32 %end) {");
+        self.emit_raw("define i8* @__cay_string_substring(i8* %str, i32 %begin, i32 %end) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 空指针安全检查");
         self.emit_raw("  %is_null = icmp eq i8* %str, null");
         self.emit_raw("  br i1 %is_null, label %null_case, label %check_bounds");
         self.emit_raw("");
         self.emit_raw("null_case:");
-        self.emit_raw("  ret i8* getelementptr ([1 x i8], [1 x i8]* @.eol_empty_str, i64 0, i64 0)");
+        self.emit_raw("  ret i8* getelementptr ([1 x i8], [1 x i8]* @.cay_empty_str, i64 0, i64 0)");
         self.emit_raw("");
         self.emit_raw("check_bounds:");
         self.emit_raw("  %total_len = call i64 @strlen(i8* %str)");

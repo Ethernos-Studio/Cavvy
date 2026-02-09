@@ -3,13 +3,13 @@
 //! 处理一元运算符（-、!、~）和类型转换表达式。
 
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::super::Parser;
 use super::super::types::{parse_type, is_type_token};
 use super::postfix::parse_postfix;
 
 /// 解析一元表达式（包括类型转换）
-pub fn parse_unary(parser: &mut Parser) -> EolResult<Expr> {
+pub fn parse_unary(parser: &mut Parser) -> cayResult<Expr> {
     let loc = parser.current_loc();
 
     if parser.match_token(&crate::lexer::Token::Minus) {

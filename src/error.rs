@@ -2,7 +2,7 @@ use thiserror::Error;
 use std::fmt;
 
 #[derive(Error, Debug, Clone)]
-pub enum EolError {
+pub enum cayError {
     #[error("词法错误 [{line}:{column}]: {message}\n  提示: {suggestion}")]
     Lexer { 
         line: usize, 
@@ -66,7 +66,7 @@ pub enum EolError {
     },
 }
 
-pub type EolResult<T> = Result<T, EolError>;
+pub type cayResult<T> = Result<T, cayError>;
 
 #[derive(Debug, Clone)]
 pub struct SourceLocation {
@@ -81,10 +81,10 @@ impl fmt::Display for SourceLocation {
 }
 
 // 词法错误
-pub fn lexer_error(line: usize, column: usize, message: impl Into<String>) -> EolError {
+pub fn lexer_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_lexer_suggestion(&msg);
-    EolError::Lexer {
+    cayError::Lexer {
         line,
         column,
         message: msg,
@@ -93,10 +93,10 @@ pub fn lexer_error(line: usize, column: usize, message: impl Into<String>) -> Eo
 }
 
 // 语法错误
-pub fn parser_error(line: usize, column: usize, message: impl Into<String>) -> EolError {
+pub fn parser_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_parser_suggestion(&msg);
-    EolError::Parser {
+    cayError::Parser {
         line,
         column,
         message: msg,
@@ -105,10 +105,10 @@ pub fn parser_error(line: usize, column: usize, message: impl Into<String>) -> E
 }
 
 // 语义错误
-pub fn semantic_error(line: usize, column: usize, message: impl Into<String>) -> EolError {
+pub fn semantic_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_semantic_suggestion(&msg);
-    EolError::Semantic {
+    cayError::Semantic {
         line,
         column,
         message: msg,
@@ -117,10 +117,10 @@ pub fn semantic_error(line: usize, column: usize, message: impl Into<String>) ->
 }
 
 // 代码生成错误
-pub fn codegen_error(message: impl Into<String>) -> EolError {
+pub fn codegen_error(message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_codegen_suggestion(&msg);
-    EolError::CodeGen {
+    cayError::CodeGen {
         message: msg,
         suggestion,
     }
@@ -132,11 +132,11 @@ pub fn type_mismatch_error(
     column: usize,
     expected: impl Into<String>,
     actual: impl Into<String>,
-) -> EolError {
+) -> cayError {
     let expected_str = expected.into();
     let actual_str = actual.into();
     let suggestion = format!("请确保表达式返回 '{}' 类型的值", expected_str);
-    EolError::TypeMismatch {
+    cayError::TypeMismatch {
         line,
         column,
         message: format!("类型不匹配: 期望 '{}', 实际 '{}'", expected_str, actual_str),
@@ -151,10 +151,10 @@ pub fn undefined_identifier_error(
     line: usize,
     column: usize,
     name: impl Into<String>,
-) -> EolError {
+) -> cayError {
     let name_str = name.into();
     let suggestion = format!("请检查 '{}' 的拼写，或在使用前声明该变量/函数", name_str);
-    EolError::UndefinedIdentifier {
+    cayError::UndefinedIdentifier {
         line,
         column,
         name: name_str,
@@ -167,10 +167,10 @@ pub fn duplicate_definition_error(
     line: usize,
     column: usize,
     name: impl Into<String>,
-) -> EolError {
+) -> cayError {
     let name_str = name.into();
     let suggestion = format!("'{}' 已被定义，请使用不同的名称", name_str);
-    EolError::DuplicateDefinition {
+    cayError::DuplicateDefinition {
         line,
         column,
         name: name_str,
@@ -181,7 +181,7 @@ pub fn duplicate_definition_error(
 // 根据错误信息提供词法分析建议
 fn get_lexer_suggestion(message: &str) -> String {
     if message.contains("Unexpected character") {
-        "请检查是否有非法字符，EOL 仅支持标准 ASCII 字符".to_string()
+        "请检查是否有非法字符，cay 仅支持标准 ASCII 字符".to_string()
     } else if message.contains("Unterminated string") {
         "字符串字面量必须使用双引号闭合".to_string()
     } else if message.contains("Invalid escape") {
@@ -245,18 +245,18 @@ fn get_codegen_suggestion(message: &str) -> String {
 }
 
 // 打印带有上下文的错误信息
-pub fn print_error_with_context(error: &EolError, source: &str, filename: &str) {
+pub fn print_error_with_context(error: &cayError, source: &str, filename: &str) {
     eprintln!("\n[编译错误]");
     eprintln!("文件: {}", filename);
     
     // 获取错误位置
     let (line, column) = match error {
-        EolError::Lexer { line, column, .. } => (*line, *column),
-        EolError::Parser { line, column, .. } => (*line, *column),
-        EolError::Semantic { line, column, .. } => (*line, *column),
-        EolError::TypeMismatch { line, column, .. } => (*line, *column),
-        EolError::UndefinedIdentifier { line, column, .. } => (*line, *column),
-        EolError::DuplicateDefinition { line, column, .. } => (*line, *column),
+        cayError::Lexer { line, column, .. } => (*line, *column),
+        cayError::Parser { line, column, .. } => (*line, *column),
+        cayError::Semantic { line, column, .. } => (*line, *column),
+        cayError::TypeMismatch { line, column, .. } => (*line, *column),
+        cayError::UndefinedIdentifier { line, column, .. } => (*line, *column),
+        cayError::DuplicateDefinition { line, column, .. } => (*line, *column),
         _ => (0, 0),
     };
     

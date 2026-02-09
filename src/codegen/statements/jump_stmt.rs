@@ -3,11 +3,11 @@
 //! 处理break和continue语句的代码生成。
 
 use crate::codegen::context::IRGenerator;
-use crate::error::{EolResult, codegen_error};
+use crate::error::{cayResult, codegen_error};
 
 impl IRGenerator {
     /// 生成 break 语句代码
-    pub fn generate_break_statement(&mut self) -> EolResult<()> {
+    pub fn generate_break_statement(&mut self) -> cayResult<()> {
         if let Some(loop_ctx) = self.current_loop() {
             self.emit_line(&format!("  br label %{}", loop_ctx.end_label));
         } else {
@@ -17,7 +17,7 @@ impl IRGenerator {
     }
 
     /// 生成 continue 语句代码
-    pub fn generate_continue_statement(&mut self) -> EolResult<()> {
+    pub fn generate_continue_statement(&mut self) -> cayResult<()> {
         if let Some(loop_ctx) = self.current_loop() {
             self.emit_line(&format!("  br label %{}", loop_ctx.cond_label));
         } else {

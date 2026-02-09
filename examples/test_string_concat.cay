@@ -1,0 +1,6 @@
+public class TestStringConcat {
+    public static void main() {
+        print("Hello" + " " + "World");
+        println("");
+    }
+}

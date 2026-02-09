@@ -5,11 +5,11 @@
 use crate::codegen::context::IRGenerator;
 use crate::ast::*;
 use crate::types::Type;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 impl IRGenerator {
     /// 生成变量声明代码
-    pub fn generate_var_decl(&mut self, var: &VarDecl) -> EolResult<()> {
+    pub fn generate_var_decl(&mut self, var: &VarDecl) -> cayResult<()> {
         let var_type = self.type_to_llvm(&var.var_type);
         let align = self.get_type_align(&var_type);  // 获取对齐
 

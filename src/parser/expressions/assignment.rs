@@ -3,17 +3,17 @@
 //! 处理赋值表达式和作为入口点的表达式解析。
 
 use crate::ast::*;
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::super::Parser;
 use super::binary::parse_or;
 
 /// 解析表达式（入口点）
-pub fn parse_expression(parser: &mut Parser) -> EolResult<Expr> {
+pub fn parse_expression(parser: &mut Parser) -> cayResult<Expr> {
     parse_assignment(parser)
 }
 
 /// 解析赋值表达式
-pub fn parse_assignment(parser: &mut Parser) -> EolResult<Expr> {
+pub fn parse_assignment(parser: &mut Parser) -> cayResult<Expr> {
     let loc = parser.current_loc();
     let expr = parse_or(parser)?;
 

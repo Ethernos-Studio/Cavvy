@@ -5,7 +5,7 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成字符串字符获取运行时函数
     pub(super) fn emit_string_charat_runtime(&mut self) {
-        self.emit_raw("define i8 @__eol_string_charat(i8* %str, i32 %index) {");
+        self.emit_raw("define i8 @__cay_string_charat(i8* %str, i32 %index) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 空指针安全检查");
         self.emit_raw("  %is_null = icmp eq i8* %str, null");

@@ -1,13 +1,13 @@
 use std::env;
 use std::fs;
 use std::process;
-use eol::Compiler;
+use cavvy::Compiler;
 
 fn print_usage() {
-    println!("Usage: eolc <source_file.eol> [output_file.ll]");
+    println!("Usage: cayc <source_file.cay> [output_file.ll]");
     println!("");
-    println!("EOL (Ethernos Object Language) Compiler");
-    println!("Compiles .eol source files to LLVM IR (.ll)");
+    println!("Cay Compiler");
+    println!("Compiles .cay source files to LLVM IR (.ll)");
 }
 
 fn main() {
@@ -23,8 +23,8 @@ fn main() {
         args[2].clone()
     } else {
         // 默认输出文件名
-        if source_path.ends_with(".eol") {
-            source_path.replace(".eol", ".ll")
+        if source_path.ends_with(".cay") {
+            source_path.replace(".cay", ".ll")
         } else {
             format!("{}.ll", source_path)
         }

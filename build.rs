@@ -47,12 +47,12 @@ fn main() {
             // 设置各工具的版本环境变量
             if let Some(eolc_section) = verinfo.get("EOLC") {
                 if let Some(version) = eolc_section.get("version") {
-                    println!("cargo:rustc-env=EOLC_VERSION={}", version);
+                    println!("cargo:rustc-env=CAYC_VERSION={}", version);
                 }
             }
             if let Some(eolll_section) = verinfo.get("EOLLL") {
                 if let Some(version) = eolll_section.get("version") {
-                    println!("cargo:rustc-env=EOLLL_VERSION={}", version);
+                    println!("cargo:rustc-env=CAY-IR_VERSION={}", version);
                 }
             }
             if let Some(ir2exe_section) = verinfo.get("IR2EXE") {
@@ -62,7 +62,7 @@ fn main() {
             }
             if let Some(eol_check_section) = verinfo.get("EOL_CHECK") {
                 if let Some(version) = eol_check_section.get("version") {
-                    println!("cargo:rustc-env=EOL_CHECK_VERSION={}", version);
+                    println!("cargo:rustc-env=CAY_CHECK_VERSION={}", version);
                 }
             }
             
@@ -76,10 +76,10 @@ fn main() {
         Err(e) => {
             eprintln!("Warning: Failed to parse .verinfo: {}", e);
             // 设置默认版本
-            println!("cargo:rustc-env=EOLC_VERSION=0.3.2.0");
-            println!("cargo:rustc-env=EOLLL_VERSION=0.3.2.0");
+            println!("cargo:rustc-env=CAYC_VERSION=0.3.2.0");
+            println!("cargo:rustc-env=CAY-IR_VERSION=0.3.2.0");
             println!("cargo:rustc-env=IR2EXE_VERSION=0.3.2.0");
-            println!("cargo:rustc-env=EOL_CHECK_VERSION=0.3.2.0");
+            println!("cargo:rustc-env=CAY_CHECK_VERSION=0.3.2.0");
             println!("cargo:rustc-env=VERSION=0.3.2.0");
         }
     }

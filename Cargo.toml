@@ -1,5 +1,5 @@
 [package]
-name = "eol"
+name = "cavvy"
 version = "0.3.4"
 edition = "2024"
 
@@ -9,17 +9,17 @@ anyhow = "1.0"
 logos = "0.15"
 
 [[bin]]
-name = "eolc"
-path = "src/bin/eolc.rs"
+name = "cayc"
+path = "src/bin/cayc.rs"
 
 [[bin]]
-name = "eolll"
-path = "src/bin/eolll.rs"
+name = "cay-ir"
+path = "src/bin/cay-ir.rs"
 
 [[bin]]
 name = "ir2exe"
 path = "src/bin/ir2exe.rs"
 
 [[bin]]
-name = "eol-check"
-path = "src/bin/eol-check.rs"
+name = "cay-check"
+path = "src/bin/cay-check.rs"

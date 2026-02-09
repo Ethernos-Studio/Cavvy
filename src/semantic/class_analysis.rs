@@ -2,7 +2,7 @@
 
 use crate::ast::{Program, ClassMember, Modifier};
 use crate::types::{ClassInfo, FieldInfo, MethodInfo, ParameterInfo};
-use crate::error::EolResult;
+use crate::error::cayResult;
 use super::analyzer::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
@@ -13,7 +13,7 @@ impl SemanticAnalyzer {
     ///    - 如果只有一个类标记了 @main，选该类为主类
     ///    - 如果有多个类标记了 @main，报错
     ///    - 如果没有类标记 @main，报错并提示使用 @main
-    pub fn check_main_class_conflicts(&mut self, program: &Program) -> EolResult<()> {
+    pub fn check_main_class_conflicts(&mut self, program: &Program) -> cayResult<()> {
         // 收集所有有 main 方法的类
         let mut main_classes: Vec<(String, bool)> = Vec::new(); // (类名, 是否有@main标记)
 
@@ -88,7 +88,7 @@ impl SemanticAnalyzer {
     }
 
     /// 收集类定义
-    pub fn collect_classes(&mut self, program: &Program) -> EolResult<()> {
+    pub fn collect_classes(&mut self, program: &Program) -> cayResult<()> {
         for class in &program.classes {
             let mut class_info = ClassInfo {
                 name: class.name.clone(),
@@ -116,7 +116,7 @@ impl SemanticAnalyzer {
     }
 
     /// 分析方法定义
-    pub fn analyze_methods(&mut self, program: &Program) -> EolResult<()> {
+    pub fn analyze_methods(&mut self, program: &Program) -> cayResult<()> {
         for class in &program.classes {
             self.current_class = Some(class.name.clone());
 

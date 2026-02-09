@@ -1,5 +1,5 @@
 use logos::Logos;
-use crate::error::{EolResult, lexer_error};
+use crate::error::{cayResult, lexer_error};
 use crate::error::SourceLocation;
 
 #[derive(Logos, Debug, Clone, PartialEq)]
@@ -263,7 +263,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> EolResult<Vec<TokenWithLocation>> {
+    pub fn tokenize(&mut self) -> cayResult<Vec<TokenWithLocation>> {
         let mut tokens = Vec::new();
         
         while let Some(token_result) = self.inner.next() {
@@ -311,7 +311,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-pub fn lex(source: &str) -> EolResult<Vec<TokenWithLocation>> {
+pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
     let mut lexer = Lexer::new(source);
     lexer.tokenize()
 }

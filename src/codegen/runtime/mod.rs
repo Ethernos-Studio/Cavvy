@@ -1,6 +1,6 @@
 //! 运行时支持函数生成模块
 //!
-//! 本模块包含所有 EOL 运行时支持函数的 LLVM IR 生成。
+//! 本模块包含所有 cay 运行时支持函数的 LLVM IR 生成。
 //! 每个运行时函数都有独立的子模块。
 
 use crate::codegen::context::IRGenerator;
@@ -20,7 +20,7 @@ mod string_replace;
 impl IRGenerator {
     /// 发射IR头部（外部声明和运行时函数）
     pub fn emit_header(&mut self) {
-        self.emit_raw("; EOL (Ethernos Object Language) Generated LLVM IR");
+        self.emit_raw("; cay (Ethernos Object Language) Generated LLVM IR");
         self.emit_raw("target triple = \"x86_64-w64-mingw32\"");
         self.emit_raw("");
 
@@ -39,7 +39,7 @@ impl IRGenerator {
         self.emit_raw("");
 
         // 空字符串常量（用于 null 安全）
-        self.emit_raw("@.eol_empty_str = private unnamed_addr constant [1 x i8] c\"\\00\", align 1");
+        self.emit_raw("@.cay_empty_str = private unnamed_addr constant [1 x i8] c\"\\00\", align 1");
         self.emit_raw("");
 
         // 生成运行时函数

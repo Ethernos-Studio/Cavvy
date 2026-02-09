@@ -2,9 +2,9 @@ use std::env;
 use std::fs;
 use std::process;
 use std::path::Path;
-use eol::Compiler;
+use cavvy::Compiler;
 
-const VERSION: &str = env!("EOLLL_VERSION");
+const VERSION: &str = env!("CAY-IR_VERSION");
 
 struct CompileOptions {
     optimization: String,    // -O0, -O1, -O2, -O3, -Os, -Oz
@@ -23,8 +23,8 @@ impl Default for CompileOptions {
 }
 
 fn print_usage() {
-    println!("eolll v{}", VERSION);
-    println!("Usage: eolll [options] <source_file.eol> [output_file.ll]");
+    println!("Cavvy IR Generator v{}", VERSION);
+    println!("Usage: cay-ir [options] <source_file.cay> [output_file.ll]");
     println!("");
     println!("Options:");
     println!("  -O0, -O1, -O2, -O3    编译器优化级别 (默认: -O2)");
@@ -35,10 +35,10 @@ fn print_usage() {
     println!("  --help, -h            显示帮助信息");
     println!("");
     println!("Examples:");
-    println!("  eolll hello.eol");
-    println!("  eolll -O3 hello.eol hello.ll");
-    println!("  eolll --opt-ir -O3 hello.eol         # 生成优化后的 IR");
-    println!("  eolll --opt-ir --emit-optimized -O3 hello.eol  # 输出优化后的 IR");
+    println!("  cay-ir hello.cay");
+    println!("  cay-ir -O3 hello.cay hello.ll");
+    println!("  cay-ir --opt-ir -O3 hello.cay         # 生成优化后的 IR");
+    println!("  cay-ir --opt-ir --emit-optimized -O3 hello.cay  # 输出优化后的 IR");
 }
 
 fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), String> {
@@ -52,7 +52,7 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
 
         match arg.as_str() {
             "--version" | "-v" => {
-                println!("eolll v{}", VERSION);
+                println!("Cavvy IR Generator v{}", VERSION);
                 process::exit(0);
             }
             "--help" | "-h" => {
@@ -86,8 +86,8 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
 
     let input_file = input_file.ok_or("需要指定输入文件")?;
     let output_file = output_file.unwrap_or_else(|| {
-        if input_file.ends_with(".eol") {
-            input_file.replace(".eol", ".ll")
+        if input_file.ends_with(".cay") {
+            input_file.replace(".cay", ".ll")
         } else {
             format!("{}.ll", input_file)
         }
@@ -152,7 +152,7 @@ fn main() {
         }
     };
 
-    println!("eolll v{}", VERSION);
+    println!("Cavvy IR Generator v{}", VERSION);
     println!("Compiling: {}", source_path);
     println!("Output: {}", output_path);
     if options.optimize_ir {
@@ -160,13 +160,13 @@ fn main() {
     }
     println!("");
 
-    // 编译 EOL → IR
+    // 编译 Cavvy → IR
     let compiler = Compiler::new();
     let temp_ir_file = format!("{}.tmp.ll", output_path.trim_end_matches(".ll"));
 
     match compiler.compile(&source, &temp_ir_file) {
         Ok(_) => {
-            println!("  [+] EOL → IR 编译成功");
+            println!("  [+] Cavvy → IR 编译成功");
         }
         Err(e) => {
             eprintln!("Compilation error: {}", e);

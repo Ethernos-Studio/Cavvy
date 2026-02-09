@@ -233,7 +233,7 @@ impl TypeRegistry {
         }
     }
 
-    pub fn register_class(&mut self, class_info: ClassInfo) -> crate::error::EolResult<()> {
+    pub fn register_class(&mut self, class_info: ClassInfo) -> crate::error::cayResult<()> {
         let name = class_info.name.clone();
         if self.classes.contains_key(&name) {
             return Err(crate::error::semantic_error(

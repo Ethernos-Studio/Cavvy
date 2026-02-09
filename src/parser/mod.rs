@@ -1,4 +1,4 @@
-//! EOL 语法分析器
+//! cay 语法分析器
 //!
 //! 本模块将词法分析器生成的令牌流解析为抽象语法树 (AST)。
 //! 已重构为多个子模块以提高可维护性。
@@ -11,7 +11,7 @@ mod utils;
 
 use crate::lexer::TokenWithLocation;
 use crate::ast::Program;
-use crate::error::EolResult;
+use crate::error::cayResult;
 
 /// 语法分析器
 pub struct Parser {
@@ -28,7 +28,7 @@ impl Parser {
     }
 
     /// 解析整个程序
-    pub fn parse(&mut self) -> EolResult<Program> {
+    pub fn parse(&mut self) -> cayResult<Program> {
         let mut classes = Vec::new();
         
         while !self.is_at_end() {
@@ -48,32 +48,32 @@ impl Parser {
     }
 
     // 类解析方法
-    fn parse_class(&mut self) -> EolResult<crate::ast::ClassDecl> {
+    fn parse_class(&mut self) -> cayResult<crate::ast::ClassDecl> {
         classes::parse_class(self)
     }
     
-    fn parse_class_member(&mut self) -> EolResult<crate::ast::ClassMember> {
+    fn parse_class_member(&mut self) -> cayResult<crate::ast::ClassMember> {
         classes::parse_class_member(self)
     }
     
-    fn parse_field(&mut self) -> EolResult<crate::ast::FieldDecl> {
+    fn parse_field(&mut self) -> cayResult<crate::ast::FieldDecl> {
         classes::parse_field(self)
     }
     
-    fn parse_method(&mut self) -> EolResult<crate::ast::MethodDecl> {
+    fn parse_method(&mut self) -> cayResult<crate::ast::MethodDecl> {
         classes::parse_method(self)
     }
     
-    fn parse_modifiers(&mut self) -> EolResult<Vec<crate::ast::Modifier>> {
+    fn parse_modifiers(&mut self) -> cayResult<Vec<crate::ast::Modifier>> {
         classes::parse_modifiers(self)
     }
     
-    fn parse_parameters(&mut self) -> EolResult<Vec<crate::types::ParameterInfo>> {
+    fn parse_parameters(&mut self) -> cayResult<Vec<crate::types::ParameterInfo>> {
         classes::parse_parameters(self)
     }
     
     // 类型解析方法
-    fn parse_type(&mut self) -> EolResult<crate::types::Type> {
+    fn parse_type(&mut self) -> cayResult<crate::types::Type> {
         types::parse_type(self)
     }
     
@@ -86,108 +86,108 @@ impl Parser {
     }
     
     // 语句解析方法
-    fn parse_block(&mut self) -> EolResult<crate::ast::Block> {
+    fn parse_block(&mut self) -> cayResult<crate::ast::Block> {
         statements::parse_block(self)
     }
     
-    fn parse_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_statement(self)
     }
     
-    fn parse_var_decl(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_var_decl(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_var_decl(self)
     }
     
-    fn parse_if_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_if_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_if_statement(self)
     }
     
-    fn parse_while_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_while_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_while_statement(self)
     }
     
-    fn parse_for_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_for_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_for_statement(self)
     }
     
-    fn parse_do_while_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_do_while_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_do_while_statement(self)
     }
     
-    fn parse_switch_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_switch_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_switch_statement(self)
     }
     
-    fn parse_return_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_return_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_return_statement(self)
     }
     
-    fn parse_expression_statement(&mut self) -> EolResult<crate::ast::Stmt> {
+    fn parse_expression_statement(&mut self) -> cayResult<crate::ast::Stmt> {
         statements::parse_expression_statement(self)
     }
     
     // 表达式解析方法
-    fn parse_expression(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_expression(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_expression(self)
     }
     
-    fn parse_assignment(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_assignment(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_assignment(self)
     }
     
-    fn parse_or(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_or(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_or(self)
     }
     
-    fn parse_and(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_and(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_and(self)
     }
     
-    fn parse_bitwise_or(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_bitwise_or(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_bitwise_or(self)
     }
     
-    fn parse_bitwise_xor(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_bitwise_xor(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_bitwise_xor(self)
     }
     
-    fn parse_bitwise_and(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_bitwise_and(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_bitwise_and(self)
     }
     
-    fn parse_equality(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_equality(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_equality(self)
     }
     
-    fn parse_comparison(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_comparison(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_comparison(self)
     }
     
-    fn parse_shift(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_shift(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_shift(self)
     }
     
-    fn parse_term(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_term(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_term(self)
     }
     
-    fn parse_factor(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_factor(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_factor(self)
     }
     
-    fn parse_unary(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_unary(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_unary(self)
     }
     
-    fn parse_postfix(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_postfix(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_postfix(self)
     }
     
-    fn parse_primary(&mut self) -> EolResult<crate::ast::Expr> {
+    fn parse_primary(&mut self) -> cayResult<crate::ast::Expr> {
         expressions::parse_primary(self)
     }
     
-    fn parse_arguments(&mut self) -> EolResult<Vec<crate::ast::Expr>> {
+    fn parse_arguments(&mut self) -> cayResult<Vec<crate::ast::Expr>> {
         expressions::parse_arguments(self)
     }
     
@@ -224,21 +224,21 @@ impl Parser {
         utils::match_token(self, token)
     }
     
-    fn consume(&mut self, token: &crate::lexer::Token, message: &str) -> EolResult<&crate::lexer::Token> {
+    fn consume(&mut self, token: &crate::lexer::Token, message: &str) -> cayResult<&crate::lexer::Token> {
         utils::consume(self, token, message)
     }
     
-    fn consume_identifier(&mut self, message: &str) -> EolResult<String> {
+    fn consume_identifier(&mut self, message: &str) -> cayResult<String> {
         utils::consume_identifier(self, message)
     }
     
-    fn error(&self, message: &str) -> crate::error::EolError {
+    fn error(&self, message: &str) -> crate::error::cayError {
         utils::error(self, message)
     }
 }
 
 /// 解析令牌流生成 AST
-pub fn parse(tokens: Vec<TokenWithLocation>) -> EolResult<Program> {
+pub fn parse(tokens: Vec<TokenWithLocation>) -> cayResult<Program> {
     let mut parser = Parser::new(tokens);
     parser.parse()
 }

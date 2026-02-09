@@ -1,0 +1,34 @@
+// 测试 do-while 循环
+public class TestDoWhile {
+    public static void main() {
+        // 基础 do-while 循环
+        println("=== Basic do-while loop ===");
+        long i = 0;
+        do {
+            print("i = ");
+            println(i);
+            i = i + 1;
+        } while (i < 5);
+        
+        // do-while 至少执行一次
+        println("=== Do-while executes at least once ===");
+        long j = 10;
+        do {
+            print("j = ");
+            println(j);
+            j = j + 1;
+        } while (j < 5);
+        
+        // do-while 中使用 break
+        println("=== Do-while with break ===");
+        long k = 0;
+        do {
+            if (k == 3) {
+                break;
+            }
+            print("k = ");
+            println(k);
+            k = k + 1;
+        } while (k < 10);
+    }
+}

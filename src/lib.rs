@@ -6,7 +6,7 @@ pub mod parser;
 pub mod semantic;
 pub mod codegen;
 
-use error::EolResult;
+use error::cayResult;
 
 pub struct Compiler;
 
@@ -15,7 +15,7 @@ impl Compiler {
         Self
     }
 
-    pub fn compile(&self, source: &str, output_path: &str) -> EolResult<()> {
+    pub fn compile(&self, source: &str, output_path: &str) -> cayResult<()> {
         // 1. 词法分析
         let tokens = lexer::lex(source)?;
         
@@ -44,7 +44,7 @@ impl Compiler {
         
         // 输出到文件
         std::fs::write(output_path, ir)
-            .map_err(|e| error::EolError::Io(e.to_string()))?;
+            .map_err(|e| error::cayError::Io(e.to_string()))?;
         
         Ok(())
     }

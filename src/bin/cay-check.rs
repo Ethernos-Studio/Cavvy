@@ -1,16 +1,16 @@
 use std::env;
 use std::fs;
 use std::process;
-use eol::error::print_error_with_context;
-use eol::lexer;
-use eol::parser;
-use eol::semantic;
+use cavvy::error::print_error_with_context;
+use cavvy::lexer;
+use cavvy::parser;
+use cavvy::semantic;
 
-const VERSION: &str = env!("EOL_CHECK_VERSION");
+const VERSION: &str = env!("CAY_CHECK_VERSION");
 
 fn print_usage() {
-    println!("eol-check v{}", VERSION);
-    println!("Usage: eol-check [options] <source_file.eol>");
+    println!("Cay Check v{}", VERSION);
+    println!("Usage: cay-check [options] <source_file.cay>");
     println!("");
     println!("Options:");
     println!("  --lex-only            只进行词法分析");
@@ -19,9 +19,9 @@ fn print_usage() {
     println!("  --help, -h            显示帮助信息");
     println!("");
     println!("Examples:");
-    println!("  eol-check hello.eol");
-    println!("  eol-check --lex-only hello.eol");
-    println!("  eol-check --parse-only hello.eol");
+    println!("  cay-check hello.cay");
+    println!("  cay-check --lex-only hello.cay");
+    println!("  cay-check --parse-only hello.cay");
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -59,7 +59,7 @@ fn parse_args(args: &[String]) -> Result<(CheckOptions, String), String> {
 
         match arg.as_str() {
             "--version" | "-v" => {
-                println!("eol-check v{}", VERSION);
+                println!("cay-check v{}", VERSION);
                 process::exit(0);
             }
             "--help" | "-h" => {
@@ -103,7 +103,7 @@ fn main() {
         }
     };
 
-    println!("eol-check v{}", VERSION);
+    println!("cay-check v{}", VERSION);
     println!("检查文件: {}", source_path);
     println!("检查级别: {}", match options.level {
         CheckLevel::LexOnly => "词法分析",

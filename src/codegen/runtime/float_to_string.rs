@@ -7,7 +7,7 @@ impl IRGenerator {
     pub(super) fn emit_float_to_string_runtime(&mut self) {
         // 使用一个包装函数来确保正确的调用约定
         // 注意：使用 calloc 分配堆内存（自动零初始化），而不是 alloca 分配栈内存
-        self.emit_raw("define i8* @__eol_float_to_string(double %value) {");
+        self.emit_raw("define i8* @__cay_float_to_string(double %value) {");
         self.emit_raw("entry:");
         self.emit_raw("  ; 分配堆内存缓冲区（64字节，8字节对齐，使用 calloc 自动零初始化）");
         self.emit_raw("  %buf = call i8* @calloc(i64 1, i64 64)");

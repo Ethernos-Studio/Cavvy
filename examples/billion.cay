@@ -1,0 +1,21 @@
+public class Billion {
+    public static void main() {
+        long u = 40;
+        long r = 1234;
+        long sum = 0;
+        
+        long i = 0;
+        while (i < 10000) {
+            sum = 0;
+            long j = 0;
+            while (j < 100000) {
+                sum = sum + (j / u);
+                j = j + 1;
+            }
+            sum = sum + r;
+            i = i + 1;
+        }
+        
+        print(sum);
+    }
+}
