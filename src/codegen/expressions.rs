@@ -228,6 +228,22 @@ impl IRGenerator {
                     self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                         temp, left_val, right_val));
                     return Ok(format!("i8* {}", temp));
+                } else if left_type == "i8*" && right_type == "i8" {
+                    // 字符串 + char：先将char转换为字符串，然后拼接
+                    let char_as_string = self.new_temp();
+                    self.emit_line(&format!("  {} = call i8* @__cay_char_to_string(i8 {})",
+                        char_as_string, right_val));
+                    self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                        temp, left_val, char_as_string));
+                    return Ok(format!("i8* {}", temp));
+                } else if left_type == "i8" && right_type == "i8*" {
+                    // char + 字符串：先将char转换为字符串，然后拼接
+                    let char_as_string = self.new_temp();
+                    self.emit_line(&format!("  {} = call i8* @__cay_char_to_string(i8 {})",
+                        char_as_string, left_val));
+                    self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                        temp, char_as_string, right_val));
+                    return Ok(format!("i8* {}", temp));
                 } else if left_type.starts_with("i") && right_type.starts_with("i") {
                     // 整数加法，需要类型提升
                     let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(&left_type, &left_val, &right_type, &right_val);
