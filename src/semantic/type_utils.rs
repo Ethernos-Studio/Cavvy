@@ -11,7 +11,7 @@ impl SemanticAnalyzer {
         if from == to {
             return true;
         }
-        
+
         // null 可以赋值给任何引用类型（包括 string）
         if let Type::Object(obj_name) = from {
             if obj_name == "Object" {
@@ -19,7 +19,7 @@ impl SemanticAnalyzer {
                 return true;
             }
         }
-        
+
         // 基本类型之间的兼容
         match (from, to) {
             (Type::Int32, Type::Int64) => true,
@@ -32,6 +32,10 @@ impl SemanticAnalyzer {
             // char 可以赋值给 int (ASCII 码值)
             (Type::Char, Type::Int32) => true,
             (Type::Char, Type::Int64) => true,
+            // 数组类型：检查元素类型兼容性
+            (Type::Array(from_elem), Type::Array(to_elem)) => {
+                self.types_compatible(from_elem, to_elem)
+            }
             _ => false,
         }
     }

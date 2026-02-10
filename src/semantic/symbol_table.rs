@@ -50,6 +50,17 @@ impl SemanticSymbolTable {
     pub fn lookup_current(&self, name: &str) -> Option<&SemanticSymbolInfo> {
         self.scopes.last().and_then(|s| s.get(name))
     }
+
+    /// 更新已存在符号的信息（用于修改 is_initialized 等）
+    pub fn update(&mut self, name: &str, info: SemanticSymbolInfo) -> bool {
+        for scope in self.scopes.iter_mut().rev() {
+            if scope.contains_key(name) {
+                scope.insert(name.to_string(), info);
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl Default for SemanticSymbolTable {

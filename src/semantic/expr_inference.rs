@@ -66,6 +66,14 @@ impl SemanticAnalyzer {
                 if left_type == Type::String && right_type == Type::String {
                     Ok(Type::String)
                 }
+                // 字符串 + char：允许，结果为字符串
+                else if left_type == Type::String && right_type == Type::Char {
+                    Ok(Type::String)
+                }
+                // char + 字符串：允许，结果为字符串
+                else if left_type == Type::Char && right_type == Type::String {
+                    Ok(Type::String)
+                }
                 // 数值加法：两个操作数都必须是基本数值类型
                 else if left_type.is_primitive() && right_type.is_primitive() {
                     // 类型提升
@@ -80,6 +88,23 @@ impl SemanticAnalyzer {
             }
             BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
                 if left_type.is_primitive() && right_type.is_primitive() {
+                    // 检查除零和模零（仅当右操作数是字面量0时）
+                    if matches!(bin.op, BinaryOp::Div | BinaryOp::Mod) {
+                        if let Expr::Literal(LiteralValue::Int32(0)) = bin.right.as_ref() {
+                            return Err(semantic_error(
+                                bin.loc.line,
+                                bin.loc.column,
+                                "/ by zero".to_string()
+                            ));
+                        }
+                        if let Expr::Literal(LiteralValue::Int64(0)) = bin.right.as_ref() {
+                            return Err(semantic_error(
+                                bin.loc.line,
+                                bin.loc.column,
+                                "/ by zero".to_string()
+                            ));
+                        }
+                    }
                     // 类型提升
                     Ok(self.promote_types(&left_type, &right_type))
                 } else {
@@ -257,8 +282,50 @@ impl SemanticAnalyzer {
             }
         }
 
-        // 如果找不到任何合适的方法，返回 Void（保持向后兼容）
-        Ok(Type::Void)
+        // 如果找不到任何合适的方法，报错
+        // 尝试提供更详细的错误信息
+        if let Expr::Identifier(name) = call.callee.as_ref() {
+            if let Some(ref current_class) = self.current_class {
+                // 检查是否存在同名方法（参数不匹配）
+                if let Some(class_info) = self.type_registry.get_class(current_class) {
+                    if class_info.methods.contains_key(name) {
+                        return Err(semantic_error(
+                            call.loc.line,
+                            call.loc.column,
+                            format!("Method '{}' in class '{}' cannot be applied to given types", name, current_class)
+                        ));
+                    }
+                }
+            }
+            return Err(semantic_error(
+                call.loc.line,
+                call.loc.column,
+                format!("Cannot find method '{}'", name)
+            ));
+        }
+
+        if let Expr::MemberAccess(member) = call.callee.as_ref() {
+            if let Expr::Identifier(class_name) = &*member.object {
+                return Err(semantic_error(
+                    call.loc.line,
+                    call.loc.column,
+                    format!("Method '{}' in class '{}' cannot be applied to given types", member.member, class_name)
+                ));
+            }
+            if let Type::Object(class_name) = self.infer_expr_type(&member.object)? {
+                return Err(semantic_error(
+                    call.loc.line,
+                    call.loc.column,
+                    format!("Method '{}' in class '{}' cannot be applied to given types", member.member, class_name)
+                ));
+            }
+        }
+
+        Err(semantic_error(
+            call.loc.line,
+            call.loc.column,
+            "Cannot resolve method call".to_string()
+        ))
     }
 
     /// 推断成员访问类型
@@ -268,6 +335,24 @@ impl SemanticAnalyzer {
             if let Some(class_info) = self.type_registry.get_class(class_name) {
                 if let Some(field_info) = class_info.fields.get(&member.member) {
                     if field_info.is_static {
+                        // 检查私有字段访问权限
+                        if !field_info.is_public {
+                            if let Some(current_class) = &self.current_class {
+                                if current_class != class_name {
+                                    return Err(semantic_error(
+                                        member.loc.line,
+                                        member.loc.column,
+                                        format!("{} has private access in {}", member.member, class_name)
+                                    ));
+                                }
+                            } else {
+                                return Err(semantic_error(
+                                    member.loc.line,
+                                    member.loc.column,
+                                    format!("{} has private access in {}", member.member, class_name)
+                                ));
+                            }
+                        }
                         return Ok(field_info.field_type.clone());
                     }
                 }
@@ -296,6 +381,24 @@ impl SemanticAnalyzer {
         if let Type::Object(class_name) = obj_type {
             if let Some(class_info) = self.type_registry.get_class(&class_name) {
                 if let Some(field_info) = class_info.fields.get(&member.member) {
+                    // 检查私有字段访问权限
+                    if !field_info.is_public {
+                        if let Some(current_class) = &self.current_class {
+                            if current_class != &class_name {
+                                return Err(semantic_error(
+                                    member.loc.line,
+                                    member.loc.column,
+                                    format!("{} has private access in {}", member.member, class_name)
+                                ));
+                            }
+                        } else {
+                            return Err(semantic_error(
+                                member.loc.line,
+                                member.loc.column,
+                                format!("{} has private access in {}", member.member, class_name)
+                            ));
+                        }
+                    }
                     return Ok(field_info.field_type.clone());
                 }
             }
@@ -328,9 +431,22 @@ impl SemanticAnalyzer {
 
     /// 推断赋值表达式类型
     fn infer_assignment_type(&mut self, assign: &AssignmentExpr) -> cayResult<Type> {
+        // 检查是否是 final 变量重新赋值
+        if let Expr::Identifier(name) = &assign.target.as_ref() {
+            if let Some(info) = self.symbol_table.lookup(name) {
+                if info.is_final {
+                    return Err(semantic_error(
+                        assign.loc.line,
+                        assign.loc.column,
+                        format!("Cannot assign a value to final variable '{}'", name)
+                    ));
+                }
+            }
+        }
+
         let target_type = self.infer_expr_type(&assign.target)?;
         let value_type = self.infer_expr_type(&assign.value)?;
-        
+
         if self.types_compatible(&value_type, &target_type) {
             Ok(target_type)
         } else {
@@ -360,6 +476,25 @@ impl SemanticAnalyzer {
                     arr.loc.column,
                     format!("Array size at dimension {} must be integer, got {}", i + 1, size_type)
                 ));
+            }
+            // 检查负数数组大小（仅当大小是字面量时）
+            if let Expr::Literal(LiteralValue::Int32(n)) = size {
+                if *n < 0 {
+                    return Err(semantic_error(
+                        arr.loc.line,
+                        arr.loc.column,
+                        format!("Array size cannot be negative: {}", n)
+                    ));
+                }
+            }
+            if let Expr::Literal(LiteralValue::Int64(n)) = size {
+                if *n < 0 {
+                    return Err(semantic_error(
+                        arr.loc.line,
+                        arr.loc.column,
+                        format!("Array size cannot be negative: {}", n)
+                    ));
+                }
             }
         }
         Ok(Type::Array(Box::new(arr.element_type.clone())))

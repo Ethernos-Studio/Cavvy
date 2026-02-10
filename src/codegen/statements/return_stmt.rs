@@ -48,7 +48,20 @@ impl IRGenerator {
                             temp, value_type, val, ret_type));
                     }
                     self.emit_line(&format!("  ret {} {}", ret_type, temp));
-                } else {
+                }
+                // 整数到浮点数转换
+                else if value_type.starts_with("i") && (ret_type == "float" || ret_type == "double") {
+                    self.emit_line(&format!("  {} = sitofp {} {} to {}",
+                        temp, value_type, val, ret_type));
+                    self.emit_line(&format!("  ret {} {}", ret_type, temp));
+                }
+                // 浮点数到整数转换
+                else if (value_type == "float" || value_type == "double") && ret_type.starts_with("i") {
+                    self.emit_line(&format!("  {} = fptosi {} {} to {}",
+                        temp, value_type, val, ret_type));
+                    self.emit_line(&format!("  ret {} {}", ret_type, temp));
+                }
+                else {
                     // 类型不兼容，直接返回（可能会出错）
                     self.emit_line(&format!("  ret {}", value));
                 }
