@@ -1,0 +1,11 @@
+// Error测试：返回类型不匹配
+public class TestReturnTypeMismatch {
+    public static int getValue() {
+        return "hello";
+    }
+    
+    public static void main() {
+        int result = getValue();
+        println(result);
+    }
+}

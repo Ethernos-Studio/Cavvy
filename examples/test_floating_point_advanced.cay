@@ -1,0 +1,143 @@
+// 大型测试：高级浮点运算
+public class TestFloatingPointAdvanced {
+    
+    // 平方根（牛顿迭代法）
+    public static double sqrt(double n) {
+        if (n < 0) return -1;
+        if (n == 0) return 0;
+        double x = n;
+        double epsilon = 0.00001;
+        while (true) {
+            double nx = (x + n / x) / 2;
+            if (x - nx < epsilon && nx - x < epsilon) {
+                break;
+            }
+            x = nx;
+        }
+        return x;
+    }
+    
+    // 计算e^x（泰勒级数）
+    public static double exp(double x) {
+        double result = 1;
+        double term = 1;
+        for (int i = 1; i < 20; i++) {
+            term = term * x / i;
+            result = result + term;
+        }
+        return result;
+    }
+    
+    // 计算ln(x)（泰勒级数）
+    public static double ln(double x) {
+        if (x <= 0) return -1;
+        // 使用换底公式近似
+        int n = 0;
+        while (x > 2) {
+            x = x / 2;
+            n = n + 1;
+        }
+        x = x - 1;
+        double result = 0;
+        double term = x;
+        for (int i = 1; i < 50; i++) {
+            if (i % 2 == 1) {
+                result = result + term / i;
+            } else {
+                result = result - term / i;
+            }
+            term = term * x;
+        }
+        return result + n * 0.693147;
+    }
+    
+    // 计算sin(x)（泰勒级数）
+    public static double sin(double x) {
+        // 规范化到 -2π 到 2π
+        while (x > 6.283185) x = x - 6.283185;
+        while (x < -6.283185) x = x + 6.283185;
+        
+        double result = 0;
+        double term = x;
+        int sign = 1;
+        for (int i = 1; i < 20; i = i + 2) {
+            result = result + sign * term;
+            sign = -sign;
+            term = term * x * x / ((i + 1) * (i + 2));
+        }
+        return result;
+    }
+    
+    // 计算cos(x)（泰勒级数）
+    public static double cos(double x) {
+        while (x > 6.283185) x = x - 6.283185;
+        while (x < -6.283185) x = x + 6.283185;
+        
+        double result = 0;
+        double term = 1;
+        int sign = 1;
+        for (int i = 0; i < 20; i = i + 2) {
+            result = result + sign * term;
+            sign = -sign;
+            term = term * x * x / ((i + 1) * (i + 2));
+        }
+        return result;
+    }
+    
+    // 绝对值
+    public static double fabs(double x) {
+        if (x < 0) return -x;
+        return x;
+    }
+    
+    // 幂函数
+    public static double pow(double base, double exp) {
+        if (exp == 0) return 1;
+        if (base == 0) return 0;
+        return exp(exp * ln(base));
+    }
+    
+    public static void main() {
+        println("=== Advanced Floating Point Tests ===");
+        
+        // 测试平方根
+        println("\n1. Square root tests:");
+        double[] sqrtTests = {1, 4, 9, 16, 25, 100, 2};
+        for (int i = 0; i < 7; i++) {
+            print("sqrt(");
+            print((int)sqrtTests[i]);
+            print(") = ");
+            println((int)(sqrt(sqrtTests[i]) * 1000));
+        }
+        
+        // 测试e^x
+        println("\n2. Exponential tests:");
+        print("exp(0) = ");
+        println((int)(exp(0) * 1000));
+        print("exp(1) = ");
+        println((int)(exp(1) * 1000));
+        print("exp(2) = ");
+        println((int)(exp(2) * 1000));
+        
+        // 测试sin
+        println("\n3. Sine tests:");
+        double[] angles = {0, 0.523599, 0.785398, 1.570796, 3.141593};
+        for (int i = 0; i < 5; i++) {
+            print("sin(");
+            print((int)(angles[i] * 1000));
+            print(") = ");
+            println((int)(sin(angles[i]) * 1000));
+        }
+        
+        // 测试cos
+        println("\n4. Cosine tests:");
+        for (int i = 0; i < 5; i++) {
+            print("cos(");
+            print((int)(angles[i] * 1000));
+            print(") = ");
+            println((int)(cos(angles[i]) * 1000));
+        }
+        
+        println("\nAll advanced floating point tests completed!");
+    }
+}

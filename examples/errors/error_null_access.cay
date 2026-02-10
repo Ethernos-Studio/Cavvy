@@ -1,0 +1,8 @@
+// Error测试：null访问
+public class TestNullAccess {
+    public static void main() {
+        String s = null;
+        int len = s.length();
+        println(len);
+    }
+}

@@ -1,0 +1,124 @@
+// 大型测试：复杂控制流
+public class TestControlFlowComplex {
+    
+    public static void main() {
+        println("=== Complex Control Flow Tests ===");
+        
+        // 测试1: 嵌套循环
+        println("\n1. Nested loops - multiplication table:");
+        for (int i = 1; i <= 5; i++) {
+            for (int j = 1; j <= 5; j++) {
+                int product = i * j;
+                if (product < 10) {
+                    print(" ");
+                }
+                print(product);
+                print(" ");
+            }
+            println("");
+        }
+        
+        // 测试2: 带break的多层循环
+        println("\n2. Break in nested loops:");
+        int foundI = -1;
+        int foundJ = -1;
+        outer: for (int i = 0; i < 10; i++) {
+            for (int j = 0; j < 10; j++) {
+                if (i * j == 42) {
+                    foundI = i;
+                    foundJ = j;
+                    break outer;
+                }
+            }
+        }
+        print("Found i*j=42 at: i=");
+        print(foundI);
+        print(", j=");
+        println(foundJ);
+        
+        // 测试3: 带continue的循环
+        println("\n3. Continue in loop (print odd numbers):");
+        for (int i = 0; i < 20; i++) {
+            if (i % 2 == 0) {
+                continue;
+            }
+            print(i);
+            print(" ");
+        }
+        println("");
+        
+        // 测试4: do-while与条件结合
+        println("\n4. Do-while with complex condition:");
+        int x = 1;
+        do {
+            x = x * 2;
+            print(x);
+            print(" ");
+        } while (x < 100);
+        println("");
+        
+        // 测试5: switch语句
+        println("\n5. Switch statement tests:");
+        for (int day = 1; day <= 7; day++) {
+            print("Day ");
+            print(day);
+            print(": ");
+            switch (day) {
+                case 1:
+                    println("Monday");
+                    break;
+                case 2:
+                    println("Tuesday");
+                    break;
+                case 3:
+                    println("Wednesday");
+                    break;
+                case 4:
+                    println("Thursday");
+                    break;
+                case 5:
+                    println("Friday");
+                    break;
+                case 6:
+                case 7:
+                    println("Weekend");
+                    break;
+                default:
+                    println("Invalid");
+            }
+        }
+        
+        // 测试6: while与if嵌套
+        println("\n6. While with nested if:");
+        int n = 20;
+        while (n > 0) {
+            if (n % 3 == 0) {
+                print("Fizz");
+            } else if (n % 5 == 0) {
+                print("Buzz");
+            } else {
+                print(n);
+            }
+            print(" ");
+            n = n - 1;
+        }
+        println("");
+        
+        // 测试7: 复杂条件表达式
+        println("\n7. Complex conditions:");
+        for (int a = 1; a <= 5; a++) {
+            for (int b = 1; b <= 5; b++) {
+                if ((a + b > 5) && (a * b < 15) || (a == b)) {
+                    print("(");
+                    print(a);
+                    print(",");
+                    print(b);
+                    print(") ");
+                }
+            }
+        }
+        println("");
+        
+        println("\nAll complex control flow tests completed!");
+    }
+}

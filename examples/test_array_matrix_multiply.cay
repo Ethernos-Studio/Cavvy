@@ -1,0 +1,54 @@
+// 大型测试：矩阵乘法
+public class TestArrayMatrixMultiply {
+    public static void main() {
+        int[][] a = new int[3][3]();
+        int[][] b = new int[3][3]();
+        int[][] c = new int[3][3]();
+        
+        // 初始化矩阵A
+        a[0][0] = 1; a[0][1] = 2; a[0][2] = 3;
+        a[1][0] = 4; a[1][1] = 5; a[1][2] = 6;
+        a[2][0] = 7; a[2][1] = 8; a[2][2] = 9;
+        
+        // 初始化矩阵B (单位矩阵)
+        b[0][0] = 1; b[0][1] = 0; b[0][2] = 0;
+        b[1][0] = 0; b[1][1] = 1; b[1][2] = 0;
+        b[2][0] = 0; b[2][1] = 0; b[2][2] = 1;
+        
+        // 矩阵乘法 C = A * B
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                c[i][j] = 0;
+                for (int k = 0; k < 3; k++) {
+                    c[i][j] = c[i][j] + a[i][k] * b[k][j];
+                }
+            }
+        }
+        
+        // 验证结果 (C应该等于A)
+        boolean pass = true;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (c[i][j] != a[i][j]) {
+                    pass = false;
+                }
+            }
+        }
+        
+        if (pass) {
+            println("Matrix multiplication test PASSED!");
+        } else {
+            println("Matrix multiplication test FAILED!");
+        }
+        
+        // 打印结果矩阵
+        println("Result matrix C:");
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                print(c[i][j]);
+                print(" ");
+            }
+            println("");
+        }
+    }
+}

@@ -1,0 +1,12 @@
+// Error测试：缺少返回值
+public class TestMissingReturn {
+    public static int getValue() {
+        int x = 10;
+        // 缺少return语句
+    }
+    
+    public static void main() {
+        int result = getValue();
+        println(result);
+    }
+}

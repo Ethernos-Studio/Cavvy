@@ -1,0 +1,10 @@
+// Error测试：多个main方法
+public class TestMultipleMain {
+    public static void main() {
+        println("First main");
+    }
+    
+    public static void main() {
+        println("Second main");
+    }
+}

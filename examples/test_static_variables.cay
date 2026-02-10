@@ -1,0 +1,93 @@
+// 大型测试：静态变量
+public class TestStaticVariables {
+    
+    // 静态变量
+    static int counter = 0;
+    static long total = 0L;
+    static String message = "Initial";
+    static int[] data = new int[10]();
+    
+    public static void increment() {
+        counter = counter + 1;
+        total = total + counter;
+    }
+    
+    public static int getCounter() {
+        return counter;
+    }
+    
+    public static long getTotal() {
+        return total;
+    }
+    
+    public static void setMessage(String msg) {
+        message = msg;
+    }
+    
+    public static String getMessage() {
+        return message;
+    }
+    
+    public static void addToData(int index, int value) {
+        data[index] = value;
+    }
+    
+    public static int getFromData(int index) {
+        return data[index];
+    }
+    
+    public static void main() {
+        println("=== Static Variables Tests ===");
+        
+        // 测试初始值
+        print("Initial counter: ");
+        println(getCounter());
+        print("Initial total: ");
+        println((int)getTotal());
+        print("Initial message: ");
+        println(getMessage());
+        
+        // 测试增量
+        println("\nIncrementing 5 times:");
+        for (int i = 0; i < 5; i++) {
+            increment();
+            print("After increment ");
+            print(i + 1);
+            print(": counter=");
+            print(getCounter());
+            print(", total=");
+            println((int)getTotal());
+        }
+        
+        // 测试字符串静态变量
+        println("\nString static variable test:");
+        setMessage("Updated");
+        print("Updated message: ");
+        println(getMessage());
+        
+        // 测试数组静态变量
+        println("\nArray static variable test:");
+        for (int i = 0; i < 5; i++) {
+            addToData(i, i * 10);
+        }
+        print("Data array: ");
+        for (int i = 0; i < 5; i++) {
+            print(getFromData(i));
+            print(" ");
+        }
+        println("");
+        
+        // 验证静态变量在不同调用间保持
+        println("\nVerifying persistence:");
+        print("Final counter: ");
+        println(counter);
+        print("Final total: ");
+        println((int)total);
+        
+        if (counter == 5 && total == 15) {
+            println("\nStatic variable tests PASSED!");
+        } else {
+            println("\nStatic variable tests FAILED!");
+        }
+    }
+}

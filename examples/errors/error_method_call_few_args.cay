@@ -1,0 +1,11 @@
+// Error测试：方法调用参数不足
+public class TestMethodCallFewArgs {
+    public static int add(int a, int b) {
+        return a + b;
+    }
+    
+    public static void main() {
+        int result = add(1);
+        println(result);
+    }
+}

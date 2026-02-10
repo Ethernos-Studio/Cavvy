@@ -1,0 +1,111 @@
+// 大型测试：生命游戏 (Conway's Game of Life)
+public class TestGameOfLife {
+    
+    static int SIZE = 10;
+    
+    public static void printGrid(int[][] grid) {
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                if (grid[i][j] == 1) {
+                    print("*");
+                } else {
+                    print(".");
+                }
+            }
+            println("");
+        }
+    }
+    
+    public static int countNeighbors(int[][] grid, int x, int y) {
+        int count = 0;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                if (i == 0 && j == 0) continue;
+                int nx = x + i;
+                int ny = y + j;
+                if (nx >= 0 && nx < SIZE && ny >= 0 && ny < SIZE) {
+                    count = count + grid[nx][ny];
+                }
+            }
+        }
+        return count;
+    }
+    
+    public static void nextGeneration(int[][] current, int[][] next) {
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                int neighbors = countNeighbors(current, i, j);
+                if (current[i][j] == 1) {
+                    if (neighbors < 2 || neighbors > 3) {
+                        next[i][j] = 0;
+                    } else {
+                        next[i][j] = 1;
+                    }
+                } else {
+                    if (neighbors == 3) {
+                        next[i][j] = 1;
+                    } else {
+                        next[i][j] = 0;
+                    }
+                }
+            }
+        }
+    }
+    
+    public static void copyGrid(int[][] source, int[][] dest) {
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                dest[i][j] = source[i][j];
+            }
+        }
+    }
+    
+    public static void main() {
+        println("=== Game of Life Tests ===");
+        
+        int[][] grid1 = new int[SIZE][SIZE]();
+        int[][] grid2 = new int[SIZE][SIZE]();
+        
+        // 设置初始状态 (Blinker pattern)
+        grid1[4][4] = 1;
+        grid1[4][5] = 1;
+        grid1[4][6] = 1;
+        
+        println("Initial state:");
+        printGrid(grid1);
+        
+        // 模拟5代
+        for (int gen = 1; gen <= 5; gen++) {
+            nextGeneration(grid1, grid2);
+            copyGrid(grid2, grid1);
+            
+            print("\nGeneration ");
+            print(gen);
+            println(":");
+            printGrid(grid1);
+        }
+        
+        // 测试Block pattern (稳定)
+        println("\n=== Block Pattern (stable) ===");
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                grid1[i][j] = 0;
+            }
+        }
+        grid1[3][3] = 1;
+        grid1[3][4] = 1;
+        grid1[4][3] = 1;
+        grid1[4][4] = 1;
+        
+        println("Initial block:");
+        printGrid(grid1);
+        
+        nextGeneration(grid1, grid2);
+        copyGrid(grid2, grid1);
+        
+        println("\nAfter 1 generation (should be same):");
+        printGrid(grid1);
+        
+        println("\nGame of Life tests completed!");
+    }
+}

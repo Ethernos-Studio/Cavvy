@@ -1,0 +1,11 @@
+// Error测试：访问私有字段
+public class TestFieldPrivate {
+    private static int secret = 42;
+}
+
+public class TestAccessPrivate {
+    public static void main() {
+        int x = TestFieldPrivate.secret;
+        println(x);
+    }
+}

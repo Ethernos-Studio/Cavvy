@@ -1,0 +1,6 @@
+// Error测试：无效修饰符
+public class TestInvalidModifier {
+    public static native void main() {
+        println("Hello");
+    }
+}

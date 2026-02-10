@@ -1,0 +1,8 @@
+// Error测试：无效数组访问
+public class TestInvalidArrayAccess {
+    public static void main() {
+        int[] arr = {1, 2, 3};
+        int x = arr[10];
+        println(x);
+    }
+}

@@ -1,0 +1,176 @@
+// 大型测试：数学运算综合
+public class TestMathOperations {
+    
+    // 绝对值
+    public static int abs(int x) {
+        if (x < 0) {
+            return -x;
+        }
+        return x;
+    }
+    
+    // 最大值
+    public static int max(int a, int b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+    
+    // 最小值
+    public static int min(int a, int b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+    
+    // 平方
+    public static int square(int x) {
+        return x * x;
+    }
+    
+    // 立方
+    public static int cube(int x) {
+        return x * x * x;
+    }
+    
+    // 阶乘
+    public static long factorial(int n) {
+        if (n <= 1) {
+            return 1;
+        }
+        return n * factorial(n - 1);
+    }
+    
+    // 幂运算
+    public static int power(int base, int exp) {
+        if (exp == 0) {
+            return 1;
+        }
+        int result = 1;
+        for (int i = 0; i < exp; i++) {
+            result = result * base;
+        }
+        return result;
+    }
+    
+    // 判断质数
+    public static boolean isPrime(int n) {
+        if (n <= 1) {
+            return false;
+        }
+        if (n <= 3) {
+            return true;
+        }
+        if (n % 2 == 0 || n % 3 == 0) {
+            return false;
+        }
+        for (int i = 5; i * i <= n; i = i + 6) {
+            if (n % i == 0 || n % (i + 2) == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // 计算各位数字之和
+    public static int sumOfDigits(int n) {
+        int sum = 0;
+        n = abs(n);
+        while (n > 0) {
+            sum = sum + n % 10;
+            n = n / 10;
+        }
+        return sum;
+    }
+    
+    // 反转数字
+    public static int reverseNumber(int n) {
+        int reversed = 0;
+        int original = n;
+        n = abs(n);
+        while (n > 0) {
+            reversed = reversed * 10 + n % 10;
+            n = n / 10;
+        }
+        if (original < 0) {
+            return -reversed;
+        }
+        return reversed;
+    }
+    
+    public static void main() {
+        println("=== Math Operations Tests ===");
+        
+        // 测试绝对值
+        println("\n1. Absolute value tests:");
+        print("abs(-5) = ");
+        println(abs(-5));
+        print("abs(10) = ");
+        println(abs(10));
+        print("abs(0) = ");
+        println(abs(0));
+        
+        // 测试最大最小值
+        println("\n2. Max/Min tests:");
+        print("max(10, 20) = ");
+        println(max(10, 20));
+        print("min(10, 20) = ");
+        println(min(10, 20));
+        
+        // 测试平方立方
+        println("\n3. Square/Cube tests:");
+        print("square(5) = ");
+        println(square(5));
+        print("cube(3) = ");
+        println(cube(3));
+        
+        // 测试阶乘
+        println("\n4. Factorial tests:");
+        for (int i = 0; i <= 10; i++) {
+            print(i);
+            print("! = ");
+            println((int)factorial(i));
+        }
+        
+        // 测试幂运算
+        println("\n5. Power tests:");
+        print("2^10 = ");
+        println(power(2, 10));
+        print("3^5 = ");
+        println(power(3, 5));
+        print("5^3 = ");
+        println(power(5, 3));
+        
+        // 测试质数
+        println("\n6. Prime number tests:");
+        int[] primes = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 97};
+        int[] nonPrimes = {0, 1, 4, 6, 8, 9, 10, 12, 15, 100};
+        
+        print("Prime numbers: ");
+        for (int i = 0; i < 11; i++) {
+            if (isPrime(primes[i])) {
+                print(primes[i]);
+                print(" ");
+            }
+        }
+        println("");
+        
+        // 测试数字之和
+        println("\n7. Sum of digits tests:");
+        print("sumOfDigits(12345) = ");
+        println(sumOfDigits(12345));
+        print("sumOfDigits(-999) = ");
+        println(sumOfDigits(-999));
+        
+        // 测试数字反转
+        println("\n8. Reverse number tests:");
+        print("reverseNumber(12345) = ");
+        println(reverseNumber(12345));
+        print("reverseNumber(-9876) = ");
+        println(reverseNumber(-9876));
+        
+        println("\nAll math operations tests completed!");
+    }
+}

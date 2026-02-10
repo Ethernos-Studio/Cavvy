@@ -41,9 +41,9 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
             };
             Ok(Expr::Literal(lit))
         }
-        crate::lexer::Token::StringLiteral(s) => {
+        crate::lexer::Token::StringLiteral(Some(s)) => {
             parser.advance();
-            Ok(Expr::Literal(LiteralValue::String(s)))
+            Ok(Expr::Literal(LiteralValue::String(s.clone())))
         }
         crate::lexer::Token::CharLiteral(Some(c)) => {
             parser.advance();

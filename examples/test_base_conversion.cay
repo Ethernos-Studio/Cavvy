@@ -1,0 +1,136 @@
+// 大型测试：进制转换
+public class TestBaseConversion {
+    
+    // 十进制转二进制字符串
+    public static String decToBin(int n) {
+        if (n == 0) return "0";
+        String result = "";
+        while (n > 0) {
+            int bit = n & 1;
+            if (bit == 1) {
+                result = "1" + result;
+            } else {
+                result = "0" + result;
+            }
+            n = n >>> 1;
+        }
+        return result;
+    }
+    
+    // 十进制转八进制字符串
+    public static String decToOct(int n) {
+        if (n == 0) return "0";
+        String result = "";
+        while (n > 0) {
+            int digit = n & 7;
+            result = digitToChar(digit) + result;
+            n = n >>> 3;
+        }
+        return result;
+    }
+    
+    // 十进制转十六进制字符串
+    public static String decToHex(int n) {
+        if (n == 0) return "0";
+        String result = "";
+        while (n > 0) {
+            int digit = n & 15;
+            result = digitToChar(digit) + result;
+            n = n >>> 4;
+        }
+        return result;
+    }
+    
+    public static String digitToChar(int d) {
+        if (d < 10) {
+            return "" + (char)('0' + d);
+        } else {
+            return "" + (char)('A' + d - 10);
+        }
+    }
+    
+    // 验证转换
+    public static boolean stringEquals(String a, String b) {
+        if (a.length() != b.length()) return false;
+        for (int i = 0; i < a.length(); i++) {
+            if (a.charAt(i) != b.charAt(i)) return false;
+        }
+        return true;
+    }
+    
+    public static void main() {
+        println("=== Base Conversion Tests ===");
+        
+        // 测试十进制转二进制
+        println("\n1. Decimal to Binary:");
+        int[] decValues = {0, 1, 2, 5, 10, 15, 16, 255, 256, 1023};
+        String[] binExpected = {"0", "1", "10", "101", "1010", "1111", "10000", "11111111", "100000000", "1111111111"};
+        
+        boolean allPass = true;
+        for (int i = 0; i < 10; i++) {
+            String bin = decToBin(decValues[i]);
+            print(decValues[i]);
+            print(" -> ");
+            print(bin);
+            if (stringEquals(bin, binExpected[i])) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        // 测试十进制转八进制
+        println("\n2. Decimal to Octal:");
+        String[] octExpected = {"0", "1", "2", "5", "12", "17", "20", "377", "400", "1777"};
+        
+        for (int i = 0; i < 10; i++) {
+            String oct = decToOct(decValues[i]);
+            print(decValues[i]);
+            print(" -> ");
+            print(oct);
+            if (stringEquals(oct, octExpected[i])) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        // 测试十进制转十六进制
+        println("\n3. Decimal to Hexadecimal:");
+        String[] hexExpected = {"0", "1", "2", "5", "A", "F", "10", "FF", "100", "3FF"};
+        
+        for (int i = 0; i < 10; i++) {
+            String hex = decToHex(decValues[i]);
+            print(decValues[i]);
+            print(" -> ");
+            print(hex);
+            if (stringEquals(hex, hexExpected[i])) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        // 打印转换表
+        println("\n4. Conversion table (1-20):");
+        println("Dec  Bin      Oct  Hex");
+        for (int i = 1; i <= 20; i++) {
+            print(i);
+            print("    ");
+            print(decToBin(i));
+            print("    ");
+            print(decToOct(i));
+            print("    ");
+            println(decToHex(i));
+        }
+        
+        if (allPass) {
+            println("\nAll base conversion tests PASSED!");
+        } else {
+            println("\nSome base conversion tests FAILED!");
+        }
+    }
+}

@@ -1,0 +1,61 @@
+// 大型测试：复杂字符串操作
+public class TestStringComplexOps {
+    public static void main() {
+        String text = "The quick brown fox jumps over the lazy dog";
+        
+        // 测试1: 长度
+        int len = text.length();
+        println("Test 1: Length");
+        print("Length: ");
+        println(len);
+        
+        // 测试2: 子串提取
+        println("\nTest 2: Substring");
+        String word1 = text.substring(4, 9);
+        print("Word1: ");
+        println(word1);
+        
+        String word2 = text.substring(16, 19);
+        print("Word2: ");
+        println(word2);
+        
+        // 测试3: 查找
+        println("\nTest 3: IndexOf");
+        int idx1 = text.indexOf("fox");
+        print("Index of 'fox': ");
+        println(idx1);
+        
+        int idx2 = text.indexOf("cat");
+        print("Index of 'cat': ");
+        println(idx2);
+        
+        // 测试4: 替换
+        println("\nTest 4: Replace");
+        String replaced = text.replace("fox", "cat");
+        print("Replaced: ");
+        println(replaced);
+        
+        // 测试5: charAt
+        println("\nTest 5: CharAt");
+        print("charAt(0): ");
+        println(text.charAt(0));
+        print("charAt(10): ");
+        println(text.charAt(10));
+        
+        // 测试6: 字符串拼接
+        println("\nTest 6: Concatenation");
+        String part1 = "Hello";
+        String part2 = "World";
+        String combined = part1 + ", " + part2 + "!";
+        print("Combined: ");
+        println(combined);
+        
+        // 测试7: 空字符串
+        println("\nTest 7: Empty string");
+        String empty = "";
+        print("Empty length: ");
+        println(empty.length());
+        
+        println("\nAll complex string operations completed!");
+    }
+}

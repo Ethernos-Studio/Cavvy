@@ -1,0 +1,8 @@
+// Error测试：数组类型存储错误
+public class TestArrayStore {
+    public static void main() {
+        int[] arr = {1, 2, 3};
+        String s = "hello";
+        arr[0] = s;
+    }
+}

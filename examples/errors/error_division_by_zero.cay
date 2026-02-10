@@ -1,0 +1,9 @@
+// Error测试：除以零
+public class TestDivisionByZero {
+    public static void main() {
+        int x = 10;
+        int y = 0;
+        int result = x / y;
+        println(result);
+    }
+}

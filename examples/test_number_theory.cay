@@ -1,0 +1,130 @@
+// 大型测试：数论算法
+public class TestNumberTheory {
+    
+    // 最大公约数 (GCD)
+    public static int gcd(int a, int b) {
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+    
+    // 最小公倍数 (LCM)
+    public static int lcm(int a, int b) {
+        return (a / gcd(a, b)) * b;
+    }
+    
+    // 扩展欧几里得算法
+    public static int extendedGcd(int a, int b, int[] x, int[] y) {
+        if (b == 0) {
+            x[0] = 1;
+            y[0] = 0;
+            return a;
+        }
+        int[] x1 = new int[1]();
+        int[] y1 = new int[1]();
+        int g = extendedGcd(b, a % b, x1, y1);
+        x[0] = y1[0];
+        y[0] = x1[0] - (a / b) * y1[0];
+        return g;
+    }
+    
+    // 模幂运算
+    public static long modPow(long base, long exp, long mod) {
+        long result = 1;
+        base = base % mod;
+        while (exp > 0) {
+            if ((exp & 1) == 1) {
+                result = (result * base) % mod;
+            }
+            exp = exp >> 1;
+            base = (base * base) % mod;
+        }
+        return result;
+    }
+    
+    // 素性测试 (费马小定理)
+    public static boolean isPrimeFermat(int n, int iterations) {
+        if (n < 2) return false;
+        if (n == 2 || n == 3) return true;
+        if (n % 2 == 0) return false;
+        
+        for (int i = 0; i < iterations; i++) {
+            long a = 2 + i;
+            if (a >= n - 1) break;
+            if (modPow(a, n - 1, n) != 1) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    // 欧拉函数
+    public static int eulerPhi(int n) {
+        int result = n;
+        for (int p = 2; p * p <= n; p++) {
+            if (n % p == 0) {
+                while (n % p == 0) {
+                    n = n / p;
+                }
+                result = result - result / p;
+            }
+        }
+        if (n > 1) {
+            result = result - result / n;
+        }
+        return result;
+    }
+    
+    public static void main() {
+        println("=== Number Theory Tests ===");
+        
+        // 测试GCD
+        println("\n1. GCD tests:");
+        int[][] gcdTests = {{48, 18}, {56, 98}, {101, 10}, {100, 25}};
+        int[] gcdExpected = {6, 14, 1, 25};
+        for (int i = 0; i < 4; i++) {
+            print("gcd(");
+            print(gcdTests[i][0]);
+            print(", ");
+            print(gcdTests[i][1]);
+            print(") = ");
+            int result = gcd(gcdTests[i][0], gcdTests[i][1]);
+            print(result);
+            if (result == gcdExpected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+            }
+        }
+        
+        // 测试LCM
+        println("\n2. LCM tests:");
+        print("lcm(4, 6) = ");
+        println(lcm(4, 6));
+        print("lcm(21, 6) = ");
+        println(lcm(21, 6));
+        
+        // 测试模幂
+        println("\n3. Modular exponentiation tests:");
+        print("2^10 mod 1000 = ");
+        println((int)modPow(2, 10, 1000));
+        print("3^7 mod 100 = ");
+        println((int)modPow(3, 7, 100));
+        print("5^20 mod 100000 = ");
+        println((int)modPow(5, 20, 100000));
+        
+        // 测试欧拉函数
+        println("\n4. Euler's totient function tests:");
+        for (int i = 1; i <= 20; i++) {
+            print("phi(");
+            print(i);
+            print(") = ");
+            println(eulerPhi(i));
+        }
+        
+        println("\nAll number theory tests completed!");
+    }
+}

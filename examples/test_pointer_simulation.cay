@@ -1,0 +1,138 @@
+// 大型测试：使用数组模拟指针操作
+public class TestPointerSimulation {
+    
+    // 使用索引模拟指针
+    public static void swap(int[] arr, int i, int j) {
+        int temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+    }
+    
+    // 指针风格数组操作
+    public static int findMax(int[] arr, int start, int end) {
+        int maxIdx = start;
+        for (int i = start + 1; i < end; i++) {
+            if (arr[i] > arr[maxIdx]) {
+                maxIdx = i;
+            }
+        }
+        return maxIdx;
+    }
+    
+    // 反转数组的一部分
+    public static void reverseRange(int[] arr, int start, int end) {
+        while (start < end) {
+            swap(arr, start, end);
+            start = start + 1;
+            end = end - 1;
+        }
+    }
+    
+    // 旋转数组
+    public static void rotate(int[] arr, int n, int k) {
+        k = k % n;
+        if (k < 0) {
+            k = k + n;
+        }
+        reverseRange(arr, 0, k - 1);
+        reverseRange(arr, k, n - 1);
+        reverseRange(arr, 0, n - 1);
+    }
+    
+    // 分区操作（用于快速排序）
+    public static int partition(int[] arr, int low, int high) {
+        int pivot = arr[high];
+        int i = low - 1;
+        for (int j = low; j < high; j++) {
+            if (arr[j] <= pivot) {
+                i = i + 1;
+                swap(arr, i, j);
+            }
+        }
+        swap(arr, i + 1, high);
+        return i + 1;
+    }
+    
+    // 快速排序
+    public static void quickSort(int[] arr, int low, int high) {
+        if (low < high) {
+            int pi = partition(arr, low, high);
+            quickSort(arr, low, pi - 1);
+            quickSort(arr, pi + 1, high);
+        }
+    }
+    
+    public static void printArray(int[] arr, int n) {
+        for (int i = 0; i < n; i++) {
+            print(arr[i]);
+            print(" ");
+        }
+        println("");
+    }
+    
+    public static void main() {
+        println("=== Pointer Simulation Tests ===");
+        
+        // 测试交换
+        println("\n1. Swap test:");
+        int[] arr1 = {1, 2, 3, 4, 5};
+        print("Before: ");
+        printArray(arr1, 5);
+        swap(arr1, 0, 4);
+        print("After swap(0, 4): ");
+        printArray(arr1, 5);
+        
+        // 测试查找最大值
+        println("\n2. Find max test:");
+        int[] arr2 = {3, 7, 2, 9, 1, 5};
+        print("Array: ");
+        printArray(arr2, 6);
+        int maxIdx = findMax(arr2, 0, 6);
+        print("Max value is at index ");
+        print(maxIdx);
+        print(" with value ");
+        println(arr2[maxIdx]);
+        
+        // 测试反转范围
+        println("\n3. Reverse range test:");
+        int[] arr3 = {1, 2, 3, 4, 5, 6, 7, 8};
+        print("Before: ");
+        printArray(arr3, 8);
+        reverseRange(arr3, 2, 5);
+        print("After reverseRange(2, 5): ");
+        printArray(arr3, 8);
+        
+        // 测试旋转
+        println("\n4. Rotate test:");
+        int[] arr4 = {1, 2, 3, 4, 5};
+        print("Before: ");
+        printArray(arr4, 5);
+        rotate(arr4, 5, 2);
+        print("After rotate by 2: ");
+        printArray(arr4, 5);
+        
+        // 测试快速排序
+        println("\n5. Quick sort test:");
+        int[] arr5 = {64, 34, 25, 12, 22, 11, 90};
+        print("Before: ");
+        printArray(arr5, 7);
+        quickSort(arr5, 0, 6);
+        print("After quick sort: ");
+        printArray(arr5, 7);
+        
+        // 验证排序
+        boolean sorted = true;
+        for (int i = 1; i < 7; i++) {
+            if (arr5[i] < arr5[i - 1]) {
+                sorted = false;
+            }
+        }
+        if (sorted) {
+            println("\nQuick sort test PASSED!");
+        } else {
+            println("\nQuick sort test FAILED!");
+        }
+        
+        println("\nAll pointer simulation tests completed!");
+    }
+}

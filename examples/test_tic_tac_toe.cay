@@ -1,0 +1,156 @@
+// 大型测试：井字棋游戏
+public class TestTicTacToe {
+    
+    static int[][] board = new int[3][3]();
+    static int currentPlayer = 1;
+    
+    public static void initBoard() {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                board[i][j] = 0;
+            }
+        }
+        currentPlayer = 1;
+    }
+    
+    public static void printBoard() {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (board[i][j] == 0) {
+                    print(".");
+                } else if (board[i][j] == 1) {
+                    print("X");
+                } else {
+                    print("O");
+                }
+                if (j < 2) print("|");
+            }
+            println("");
+            if (i < 2) println("-+-+-");
+        }
+    }
+    
+    public static boolean makeMove(int row, int col) {
+        if (row < 0 || row > 2 || col < 0 || col > 2) {
+            return false;
+        }
+        if (board[row][col] != 0) {
+            return false;
+        }
+        board[row][col] = currentPlayer;
+        return true;
+    }
+    
+    public static boolean checkWin() {
+        // 检查行
+        for (int i = 0; i < 3; i++) {
+            if (board[i][0] != 0 && board[i][0] == board[i][1] && board[i][1] == board[i][2]) {
+                return true;
+            }
+        }
+        // 检查列
+        for (int j = 0; j < 3; j++) {
+            if (board[0][j] != 0 && board[0][j] == board[1][j] && board[1][j] == board[2][j]) {
+                return true;
+            }
+        }
+        // 检查对角线
+        if (board[0][0] != 0 && board[0][0] == board[1][1] && board[1][1] == board[2][2]) {
+            return true;
+        }
+        if (board[0][2] != 0 && board[0][2] == board[1][1] && board[1][1] == board[2][0]) {
+            return true;
+        }
+        return false;
+    }
+    
+    public static boolean isFull() {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (board[i][j] == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    
+    public static void switchPlayer() {
+        if (currentPlayer == 1) {
+            currentPlayer = 2;
+        } else {
+            currentPlayer = 1;
+        }
+    }
+    
+    public static void main() {
+        println("=== Tic Tac Toe Tests ===");
+        
+        initBoard();
+        
+        println("\nTest 1: X wins with top row");
+        makeMove(0, 0);
+        switchPlayer();
+        makeMove(1, 0);
+        switchPlayer();
+        makeMove(0, 1);
+        switchPlayer();
+        makeMove(1, 1);
+        switchPlayer();
+        makeMove(0, 2);
+        
+        printBoard();
+        if (checkWin()) {
+            println("X wins test PASSED!");
+        } else {
+            println("X wins test FAILED!");
+        }
+        
+        // 测试2：对角线胜利
+        initBoard();
+        println("\nTest 2: O wins with diagonal");
+        makeMove(0, 1);
+        switchPlayer();
+        makeMove(0, 0);
+        switchPlayer();
+        makeMove(0, 2);
+        switchPlayer();
+        makeMove(1, 1);
+        switchPlayer();
+        makeMove(1, 0);
+        switchPlayer();
+        makeMove(2, 2);
+        
+        printBoard();
+        if (checkWin()) {
+            println("O diagonal win test PASSED!");
+        } else {
+            println("O diagonal win test FAILED!");
+        }
+        
+        // 测试3：平局
+        initBoard();
+        println("\nTest 3: Draw game");
+        // X O X
+        // X X O
+        // O X O
+        makeMove(0, 0); switchPlayer();
+        makeMove(0, 1); switchPlayer();
+        makeMove(0, 2); switchPlayer();
+        makeMove(1, 2); switchPlayer();
+        makeMove(1, 0); switchPlayer();
+        makeMove(2, 0); switchPlayer();
+        makeMove(1, 1); switchPlayer();
+        makeMove(2, 2); switchPlayer();
+        makeMove(2, 1);
+        
+        printBoard();
+        if (!checkWin() && isFull()) {
+            println("Draw test PASSED!");
+        } else {
+            println("Draw test FAILED!");
+        }
+        
+        println("\nAll tic tac toe tests completed!");
+    }
+}

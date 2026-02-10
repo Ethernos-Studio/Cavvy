@@ -1,0 +1,100 @@
+// 大型测试：嵌套函数调用
+public class TestNestedFunctions {
+    
+    public static int add(int a, int b) {
+        return a + b;
+    }
+    
+    public static int subtract(int a, int b) {
+        return a - b;
+    }
+    
+    public static int multiply(int a, int b) {
+        return a * b;
+    }
+    
+    public static int divide(int a, int b) {
+        return a / b;
+    }
+    
+    public static int square(int x) {
+        return multiply(x, x);
+    }
+    
+    public static int cube(int x) {
+        return multiply(multiply(x, x), x);
+    }
+    
+    public static int factorial(int n) {
+        if (n <= 1) {
+            return 1;
+        }
+        return multiply(n, factorial(n - 1));
+    }
+    
+    public static int power(int base, int exp) {
+        if (exp == 0) {
+            return 1;
+        }
+        return multiply(base, power(base, exp - 1));
+    }
+    
+    public static int complex1(int a, int b, int c) {
+        return add(multiply(a, b), c);
+    }
+    
+    public static int complex2(int x) {
+        return add(square(x), add(multiply(2, x), 1));
+    }
+    
+    public static int nestedCalls(int n) {
+        return add(multiply(n, subtract(n, 1)), divide(n, 2));
+    }
+    
+    public static void main() {
+        println("=== Nested Function Tests ===");
+        
+        // 测试基本嵌套
+        print("add(multiply(2, 3), 4) = ");
+        println(add(multiply(2, 3), 4));
+        
+        print("subtract(divide(20, 4), 2) = ");
+        println(subtract(divide(20, 4), 2));
+        
+        // 测试多层嵌套
+        print("multiply(add(1, 2), add(3, 4)) = ");
+        println(multiply(add(1, 2), add(3, 4)));
+        
+        // 测试平方和立方
+        print("\nsquare(5) = ");
+        println(square(5));
+        print("cube(3) = ");
+        println(cube(3));
+        
+        // 测试阶乘
+        print("\nfactorial(5) = ");
+        println(factorial(5));
+        print("factorial(7) = ");
+        println(factorial(7));
+        
+        // 测试幂运算
+        print("\npower(2, 10) = ");
+        println(power(2, 10));
+        print("power(3, 5) = ");
+        println(power(3, 5));
+        
+        // 测试复杂表达式
+        print("\ncomplex1(2, 3, 4) = ");
+        println(complex1(2, 3, 4));
+        print("complex2(5) = ");
+        println(complex2(5));
+        print("nestedCalls(10) = ");
+        println(nestedCalls(10));
+        
+        // 测试深度嵌套
+        print("\nadd(add(add(1, 2), 3), 4) = ");
+        println(add(add(add(1, 2), 3), 4));
+        
+        println("\nAll nested function tests completed!");
+    }
+}

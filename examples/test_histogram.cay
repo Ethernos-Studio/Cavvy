@@ -1,0 +1,78 @@
+// 大型测试：直方图统计
+public class TestHistogram {
+    
+    public static void main() {
+        println("=== Histogram Tests ===");
+        
+        // 生成测试数据
+        int[] data = new int[100]();
+        for (int i = 0; i < 100; i++) {
+            data[i] = (i * 7 + 13) % 10;
+        }
+        
+        // 统计频率
+        int[] freq = new int[10]();
+        for (int i = 0; i < 100; i++) {
+            freq[data[i]] = freq[data[i]] + 1;
+        }
+        
+        // 打印直方图
+        println("\nFrequency distribution:");
+        for (int i = 0; i < 10; i++) {
+            print(i);
+            print(": ");
+            for (int j = 0; j < freq[i] && j < 20; j++) {
+                print("*");
+            }
+            print(" (");
+            print(freq[i]);
+            println(")");
+        }
+        
+        // 验证总和
+        int total = 0;
+        for (int i = 0; i < 10; i++) {
+            total = total + freq[i];
+        }
+        
+        print("\nTotal count: ");
+        println(total);
+        
+        if (total == 100) {
+            println("Histogram test PASSED!");
+        } else {
+            println("Histogram test FAILED!");
+        }
+        
+        // 计算统计数据
+        int min = freq[0];
+        int max = freq[0];
+        int minVal = 0;
+        int maxVal = 0;
+        
+        for (int i = 1; i < 10; i++) {
+            if (freq[i] < min) {
+                min = freq[i];
+                minVal = i;
+            }
+            if (freq[i] > max) {
+                max = freq[i];
+                maxVal = i;
+            }
+        }
+        
+        print("\nMin frequency: value ");
+        print(minVal);
+        print(" with ");
+        print(min);
+        println(" occurrences");
+        
+        print("Max frequency: value ");
+        print(maxVal);
+        print(" with ");
+        print(max);
+        println(" occurrences");
+        
+        println("\nAll histogram tests completed!");
+    }
+}

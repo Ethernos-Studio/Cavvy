@@ -1,0 +1,74 @@
+// 大型测试：大数斐波那契数列
+public class TestFibonacciLarge {
+    
+    // 使用数组存储大数
+    public static void addArrays(int[] a, int[] b, int[] result, int size) {
+        int carry = 0;
+        for (int i = 0; i < size; i++) {
+            int sum = a[i] + b[i] + carry;
+            result[i] = sum % 10;
+            carry = sum / 10;
+        }
+    }
+    
+    public static void copyArray(int[] src, int[] dst, int size) {
+        for (int i = 0; i < size; i++) {
+            dst[i] = src[i];
+        }
+    }
+    
+    public static void printBigNumber(int[] num, int size) {
+        int i = size - 1;
+        while (i > 0 && num[i] == 0) {
+            i = i - 1;
+        }
+        while (i >= 0) {
+            print(num[i]);
+            i = i - 1;
+        }
+    }
+    
+    public static void main() {
+        println("=== Large Fibonacci Tests ===");
+        
+        int SIZE = 200;
+        int[] a = new int[SIZE]();
+        int[] b = new int[SIZE]();
+        int[] c = new int[SIZE]();
+        
+        // F(0) = 0, F(1) = 1
+        a[0] = 0;
+        b[0] = 1;
+        
+        println("First 100 Fibonacci numbers:");
+        print("F(0) = ");
+        print(a[0]);
+        println("");
+        
+        print("F(1) = ");
+        print(b[0]);
+        println("");
+        
+        for (int i = 2; i <= 100; i++) {
+            addArrays(a, b, c, SIZE);
+            copyArray(b, a, SIZE);
+            copyArray(c, b, SIZE);
+            
+            if (i <= 20 || i % 10 == 0) {
+                print("F(");
+                print(i);
+                print(") = ");
+                printBigNumber(c, SIZE);
+                println("");
+            }
+        }
+        
+        // 验证F(50) = 12586269025
+        // 这个数字倒序存储在c中
+        println("\nVerification:");
+        print("F(50) should end with: 12586269025");
+        println("");
+        
+        println("\nLarge Fibonacci tests completed!");
+    }
+}

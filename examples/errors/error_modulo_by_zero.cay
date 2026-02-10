@@ -1,0 +1,9 @@
+// Error测试：取模零
+public class TestModuloByZero {
+    public static void main() {
+        int x = 10;
+        int y = 0;
+        int result = x % y;
+        println(result);
+    }
+}

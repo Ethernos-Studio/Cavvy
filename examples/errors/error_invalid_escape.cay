@@ -1,0 +1,7 @@
+// Error测试：无效转义序列
+public class TestInvalidEscape {
+    public static void main() {
+        String s = "\x";
+        println(s);
+    }
+}

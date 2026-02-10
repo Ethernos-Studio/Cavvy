@@ -1,0 +1,8 @@
+// Error测试：final变量重新赋值
+public class TestFinalReassignment {
+    public static void main() {
+        final int x = 10;
+        x = 20;
+        println(x);
+    }
+}

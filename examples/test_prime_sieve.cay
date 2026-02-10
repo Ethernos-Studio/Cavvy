@@ -1,0 +1,111 @@
+// 大型测试：素数筛 (埃拉托斯特尼筛法)
+public class TestPrimeSieve {
+    
+    static int MAX = 1000;
+    
+    public static void sieve(int[] isPrime, int n) {
+        // 初始化：假设所有数都是素数
+        for (int i = 0; i <= n; i++) {
+            isPrime[i] = 1;
+        }
+        isPrime[0] = 0;
+        isPrime[1] = 0;
+        
+        // 筛法
+        for (int i = 2; i * i <= n; i++) {
+            if (isPrime[i] == 1) {
+                for (int j = i * i; j <= n; j = j + i) {
+                    isPrime[j] = 0;
+                }
+            }
+        }
+    }
+    
+    public static int countPrimes(int[] isPrime, int n) {
+        int count = 0;
+        for (int i = 2; i <= n; i++) {
+            if (isPrime[i] == 1) {
+                count = count + 1;
+            }
+        }
+        return count;
+    }
+    
+    public static void printPrimes(int[] isPrime, int n) {
+        int count = 0;
+        for (int i = 2; i <= n; i++) {
+            if (isPrime[i] == 1) {
+                print(i);
+                print(" ");
+                count = count + 1;
+                if (count % 10 == 0) {
+                    println("");
+                }
+            }
+        }
+        println("");
+    }
+    
+    public static boolean isPrime(int[] sieve, int n) {
+        return sieve[n] == 1;
+    }
+    
+    public static void main() {
+        println("=== Prime Sieve Tests ===");
+        
+        int[] isPrime = new int[MAX + 1]();
+        
+        // 计算1000以内的素数
+        sieve(isPrime, MAX);
+        
+        // 统计素数个数
+        int primeCount = countPrimes(isPrime, MAX);
+        print("Number of primes up to 1000: ");
+        println(primeCount);
+        
+        // 1000以内应该有168个素数
+        if (primeCount == 168) {
+            println("Prime count test PASSED!");
+        } else {
+            print("Prime count test FAILED! Expected 168, got ");
+            println(primeCount);
+        }
+        
+        // 打印前100个素数
+        println("\nFirst 100 primes:");
+        printPrimes(isPrime, 100);
+        
+        // 测试一些已知的素数
+        println("\nTesting specific primes:");
+        int[] testPrimes = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 97, 541, 997};
+        boolean allCorrect = true;
+        for (int i = 0; i < 13; i++) {
+            print(testPrimes[i]);
+            if (isPrime(isPrime, testPrimes[i])) {
+                println(" is prime - PASS");
+            } else {
+                println(" is prime - FAIL");
+                allCorrect = false;
+            }
+        }
+        
+        // 测试一些非素数
+        println("\nTesting non-primes:");
+        int[] testNonPrimes = {4, 6, 8, 9, 10, 12, 100, 1000};
+        for (int i = 0; i < 8; i++) {
+            print(testNonPrimes[i]);
+            if (!isPrime(isPrime, testNonPrimes[i])) {
+                println(" is not prime - PASS");
+            } else {
+                println(" is not prime - FAIL");
+                allCorrect = false;
+            }
+        }
+        
+        if (allCorrect && primeCount == 168) {
+            println("\nAll prime sieve tests PASSED!");
+        } else {
+            println("\nSome prime sieve tests FAILED!");
+        }
+    }
+}

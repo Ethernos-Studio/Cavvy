@@ -1435,6 +1435,439 @@ fn test_power() {
             "Power should work, got: {}", output);
 }
 
+// ==================== 新增大型功能测试 ====================
+
+#[test]
+fn test_array_matrix_multiply() {
+    let output = compile_and_run_eol("examples/test_array_matrix_multiply.cay").expect("array matrix multiply should compile and run");
+    assert!(output.contains("PASSED"), "Array matrix multiply test should pass, got: {}", output);
+}
+
+#[test]
+fn test_array_transpose() {
+    let output = compile_and_run_eol("examples/test_array_transpose.cay").expect("array transpose should compile and run");
+    assert!(output.contains("PASSED"), "Array transpose test should pass, got: {}", output);
+}
+
+#[test]
+fn test_array_large_1d() {
+    let output = compile_and_run_eol("examples/test_array_large_1d.cay").expect("array large 1d should compile and run");
+    assert!(output.contains("PASSED"), "Array large 1D test should pass, got: {}", output);
+}
+
+#[test]
+fn test_string_complex_ops() {
+    let output = compile_and_run_eol("examples/test_string_complex_ops.cay").expect("string complex ops should compile and run");
+    assert!(output.contains("completed"), "String complex ops test should complete, got: {}", output);
+}
+
+#[test]
+fn test_string_palindrome() {
+    let output = compile_and_run_eol("examples/test_string_palindrome.cay").expect("string palindrome should compile and run");
+    assert!(output.contains("PASSED"), "String palindrome test should pass, got: {}", output);
+}
+
+#[test]
+fn test_algorithm_sorting() {
+    let output = compile_and_run_eol("examples/test_algorithm_sorting.cay").expect("algorithm sorting should compile and run");
+    assert!(output.contains("PASSED"), "Algorithm sorting test should pass, got: {}", output);
+}
+
+#[test]
+fn test_algorithm_search() {
+    let output = compile_and_run_eol("examples/test_algorithm_search.cay").expect("algorithm search should compile and run");
+    assert!(output.contains("PASSED"), "Algorithm search test should pass, got: {}", output);
+}
+
+#[test]
+fn test_math_operations() {
+    let output = compile_and_run_eol("examples/test_math_operations.cay").expect("math operations should compile and run");
+    assert!(output.contains("completed"), "Math operations test should complete, got: {}", output);
+}
+
+#[test]
+fn test_recursion_advanced() {
+    let output = compile_and_run_eol("examples/test_recursion_advanced.cay").expect("recursion advanced should compile and run");
+    assert!(output.contains("completed"), "Recursion advanced test should complete, got: {}", output);
+}
+
+#[test]
+fn test_control_flow_complex() {
+    let output = compile_and_run_eol("examples/test_control_flow_complex.cay").expect("control flow complex should compile and run");
+    assert!(output.contains("completed"), "Control flow complex test should complete, got: {}", output);
+}
+
+#[test]
+fn test_type_conversions_advanced() {
+    let output = compile_and_run_eol("examples/test_type_conversions_advanced.cay").expect("type conversions advanced should compile and run");
+    assert!(output.contains("completed"), "Type conversions advanced test should complete, got: {}", output);
+}
+
+#[test]
+fn test_array_3d() {
+    let output = compile_and_run_eol("examples/test_array_3d.cay").expect("array 3d should compile and run");
+    assert!(output.contains("completed"), "Array 3D test should complete, got: {}", output);
+}
+
+#[test]
+fn test_array_jagged() {
+    let output = compile_and_run_eol("examples/test_array_jagged.cay").expect("array jagged should compile and run");
+    assert!(output.contains("completed"), "Array jagged test should complete, got: {}", output);
+}
+
+#[test]
+fn test_method_various_returns() {
+    let output = compile_and_run_eol("examples/test_method_various_returns.cay").expect("method various returns should compile and run");
+    assert!(output.contains("completed"), "Method various returns test should complete, got: {}", output);
+}
+
+#[test]
+fn test_static_variables() {
+    let output = compile_and_run_eol("examples/test_static_variables.cay").expect("static variables should compile and run");
+    assert!(output.contains("PASSED"), "Static variables test should pass, got: {}", output);
+}
+
+#[test]
+fn test_bitwise_advanced() {
+    let output = compile_and_run_eol("examples/test_bitwise_advanced.cay").expect("bitwise advanced should compile and run");
+    assert!(output.contains("completed"), "Bitwise advanced test should complete, got: {}", output);
+}
+
+#[test]
+fn test_expression_complex() {
+    let output = compile_and_run_eol("examples/test_expression_complex.cay").expect("expression complex should compile and run");
+    assert!(output.contains("completed"), "Expression complex test should complete, got: {}", output);
+}
+
+#[test]
+fn test_data_structures() {
+    let output = compile_and_run_eol("examples/test_data_structures.cay").expect("data structures should compile and run");
+    assert!(output.contains("completed"), "Data structures test should complete, got: {}", output);
+}
+
+#[test]
+fn test_nested_functions() {
+    let output = compile_and_run_eol("examples/test_nested_functions.cay").expect("nested functions should compile and run");
+    assert!(output.contains("completed"), "Nested functions test should complete, got: {}", output);
+}
+
+#[test]
+fn test_pointer_simulation() {
+    let output = compile_and_run_eol("examples/test_pointer_simulation.cay").expect("pointer simulation should compile and run");
+    assert!(output.contains("PASSED"), "Pointer simulation test should pass, got: {}", output);
+}
+
+#[test]
+fn test_number_theory() {
+    let output = compile_and_run_eol("examples/test_number_theory.cay").expect("number theory should compile and run");
+    assert!(output.contains("completed"), "Number theory test should complete, got: {}", output);
+}
+
+#[test]
+fn test_floating_point_advanced() {
+    let output = compile_and_run_eol("examples/test_floating_point_advanced.cay").expect("floating point advanced should compile and run");
+    assert!(output.contains("completed"), "Floating point advanced test should complete, got: {}", output);
+}
+
+#[test]
+fn test_game_of_life() {
+    let output = compile_and_run_eol("examples/test_game_of_life.cay").expect("game of life should compile and run");
+    assert!(output.contains("completed"), "Game of life test should complete, got: {}", output);
+}
+
+#[test]
+fn test_maze_generator() {
+    let output = compile_and_run_eol("examples/test_maze_generator.cay").expect("maze generator should compile and run");
+    assert!(output.contains("PASSED") || output.contains("true"), "Maze generator test should pass, got: {}", output);
+}
+
+#[test]
+fn test_prime_sieve() {
+    let output = compile_and_run_eol("examples/test_prime_sieve.cay").expect("prime sieve should compile and run");
+    assert!(output.contains("PASSED"), "Prime sieve test should pass, got: {}", output);
+}
+
+#[test]
+fn test_matrix_determinant() {
+    let output = compile_and_run_eol("examples/test_matrix_determinant.cay").expect("matrix determinant should compile and run");
+    assert!(output.contains("completed"), "Matrix determinant test should complete, got: {}", output);
+}
+
+#[test]
+fn test_histogram() {
+    let output = compile_and_run_eol("examples/test_histogram.cay").expect("histogram should compile and run");
+    assert!(output.contains("PASSED"), "Histogram test should pass, got: {}", output);
+}
+
+#[test]
+fn test_tic_tac_toe() {
+    let output = compile_and_run_eol("examples/test_tic_tac_toe.cay").expect("tic tac toe should compile and run");
+    assert!(output.contains("PASSED"), "Tic tac toe test should pass, got: {}", output);
+}
+
+#[test]
+fn test_fibonacci_large() {
+    let output = compile_and_run_eol("examples/test_fibonacci_large.cay").expect("fibonacci large should compile and run");
+    assert!(output.contains("completed"), "Fibonacci large test should complete, got: {}", output);
+}
+
+#[test]
+fn test_permutations() {
+    let output = compile_and_run_eol("examples/test_permutations.cay").expect("permutations should compile and run");
+    assert!(output.contains("PASSED"), "Permutations test should pass, got: {}", output);
+}
+
+#[test]
+fn test_combinations() {
+    let output = compile_and_run_eol("examples/test_combinations.cay").expect("combinations should compile and run");
+    assert!(output.contains("completed"), "Combinations test should complete, got: {}", output);
+}
+
+#[test]
+fn test_roman_numerals() {
+    let output = compile_and_run_eol("examples/test_roman_numerals.cay").expect("roman numerals should compile and run");
+    assert!(output.contains("PASSED"), "Roman numerals test should pass, got: {}", output);
+}
+
+#[test]
+fn test_base_conversion() {
+    let output = compile_and_run_eol("examples/test_base_conversion.cay").expect("base conversion should compile and run");
+    assert!(output.contains("PASSED"), "Base conversion test should pass, got: {}", output);
+}
+
+// ==================== 新增错误测试 ====================
+
+#[test]
+fn test_error_duplicate_class() {
+    let error = compile_eol_expect_error("examples/errors/error_duplicate_class.cay")
+        .expect("duplicate class should fail to compile");
+    assert!(
+        error.contains("class") || error.contains("duplicate") || error.contains("redefined"),
+        "Should report duplicate class error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_final_reassignment() {
+    let error = compile_eol_expect_error("examples/errors/error_final_reassignment.cay")
+        .expect("final reassignment should fail to compile");
+    assert!(
+        error.contains("final") || error.contains("reassign") || error.contains("cannot assign"),
+        "Should report final reassignment error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_void_assignment() {
+    let error = compile_eol_expect_error("examples/errors/error_void_assignment.cay")
+        .expect("void assignment should fail to compile");
+    assert!(
+        error.contains("void") || error.contains("type") || error.contains("mismatch"),
+        "Should report void assignment error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_array_negative_size() {
+    let error = compile_eol_expect_error("examples/errors/error_array_negative_size.cay")
+        .expect("array negative size should fail to compile");
+    assert!(
+        error.contains("array") || error.contains("size") || error.contains("negative"),
+        "Should report array negative size error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_division_by_zero() {
+    let error = compile_eol_expect_error("examples/errors/error_division_by_zero.cay")
+        .expect("division by zero should fail to compile or run");
+    assert!(
+        error.contains("zero") || error.contains("divide") || error.contains("runtime"),
+        "Should report division by zero error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_modulo_by_zero() {
+    let error = compile_eol_expect_error("examples/errors/error_modulo_by_zero.cay")
+        .expect("modulo by zero should fail to compile or run");
+    assert!(
+        error.contains("zero") || error.contains("modulo") || error.contains("remainder"),
+        "Should report modulo by zero error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_undefined_method() {
+    let error = compile_eol_expect_error("examples/errors/error_undefined_method.cay")
+        .expect("undefined method should fail to compile");
+    assert!(
+        error.contains("undefined") || error.contains("not found") || error.contains("method"),
+        "Should report undefined method error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_missing_return() {
+    let error = compile_eol_expect_error("examples/errors/error_missing_return.cay")
+        .expect("missing return should fail to compile");
+    assert!(
+        error.contains("return") || error.contains("missing") || error.contains("expected"),
+        "Should report missing return error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_return_type_mismatch() {
+    let error = compile_eol_expect_error("examples/errors/error_return_type_mismatch.cay")
+        .expect("return type mismatch should fail to compile");
+    assert!(
+        error.contains("return") || error.contains("type") || error.contains("mismatch"),
+        "Should report return type mismatch error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_invalid_array_access() {
+    let error = compile_eol_expect_error("examples/errors/error_invalid_array_access.cay")
+        .expect("invalid array access should fail to compile or run");
+    assert!(
+        error.contains("array") || error.contains("index") || error.contains("bounds"),
+        "Should report invalid array access error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_string_index() {
+    let error = compile_eol_expect_error("examples/errors/error_string_index.cay")
+        .expect("string index access should fail to compile");
+    assert!(
+        error.contains("string") || error.contains("index") || error.contains("[]"),
+        "Should report string index error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_null_access() {
+    let error = compile_eol_expect_error("examples/errors/error_null_access.cay")
+        .expect("null access should fail to compile or run");
+    assert!(
+        error.contains("null") || error.contains("dereference"),
+        "Should report null access error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_invalid_operator() {
+    let error = compile_eol_expect_error("examples/errors/error_invalid_operator.cay")
+        .expect("invalid operator should fail to compile");
+    assert!(
+        error.contains("operator") || error.contains("syntax") || error.contains("unexpected"),
+        "Should report invalid operator error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_method_call_wrong_args() {
+    let error = compile_eol_expect_error("examples/errors/error_method_call_wrong_args.cay")
+        .expect("method call with wrong args should fail to compile");
+    assert!(
+        error.contains("argument") || error.contains("parameter") || error.contains("mismatch"),
+        "Should report method argument error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_method_call_few_args() {
+    let error = compile_eol_expect_error("examples/errors/error_method_call_few_args.cay")
+        .expect("method call with too few args should fail to compile");
+    assert!(
+        error.contains("argument") || error.contains("parameter") || error.contains("few"),
+        "Should report too few arguments error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_multiple_main() {
+    let error = compile_eol_expect_error("examples/errors/error_multiple_main.cay")
+        .expect("multiple main should fail to compile");
+    assert!(
+        error.contains("main") || error.contains("multiple") || error.contains("duplicate"),
+        "Should report multiple main error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_incompatible_types() {
+    let error = compile_eol_expect_error("examples/errors/error_incompatible_types.cay")
+        .expect("incompatible types should fail to compile");
+    assert!(
+        error.contains("type") || error.contains("incompatible") || error.contains("mismatch"),
+        "Should report incompatible types error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_abstract_class() {
+    let error = compile_eol_expect_error("examples/errors/error_abstract_class.cay")
+        .expect("abstract class instantiation should fail to compile");
+    assert!(
+        error.contains("abstract") || error.contains("instantiate") || error.contains("class"),
+        "Should report abstract class error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_field_private() {
+    let error = compile_eol_expect_error("examples/errors/error_field_private.cay")
+        .expect("access to private field should fail to compile");
+    assert!(
+        error.contains("private") || error.contains("access") || error.contains("field"),
+        "Should report private field access error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_array_store() {
+    let error = compile_eol_expect_error("examples/errors/error_array_store.cay")
+        .expect("array type store error should fail to compile");
+    assert!(
+        error.contains("array") || error.contains("type") || error.contains("store"),
+        "Should report array store error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_unreachable_code() {
+    let error = compile_eol_expect_error("examples/errors/error_unreachable_code.cay")
+        .expect("unreachable code should fail to compile");
+    assert!(
+        error.contains("unreachable") || error.contains("dead code") || error.contains("after return"),
+        "Should report unreachable code error, got: {}",
+        error
+    );
+}
+
 #[test]
 fn test_is_prime() {
     let output = compile_and_run_eol("examples/test_is_prime.cay").expect("is prime example should compile and run");

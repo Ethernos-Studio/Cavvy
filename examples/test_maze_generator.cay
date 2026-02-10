@@ -1,0 +1,123 @@
+// 大型测试：迷宫生成器
+public class TestMazeGenerator {
+    
+    static int WIDTH = 15;
+    static int HEIGHT = 11;
+    
+    // 0 = wall, 1 = path
+    static int[][] maze = new int[HEIGHT][WIDTH]();
+    static boolean[][] visited = new boolean[HEIGHT][WIDTH]();
+    
+    public static void initMaze() {
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                maze[i][j] = 0;
+                visited[i][j] = false;
+            }
+        }
+    }
+    
+    public static void carve(int x, int y) {
+        visited[y][x] = true;
+        maze[y][x] = 1;
+        
+        // 方向: 上, 右, 下, 左
+        int[] dx = {0, 2, 0, -2};
+        int[] dy = {-2, 0, 2, 0};
+        
+        // 随机打乱方向顺序 (简化版：固定顺序)
+        for (int i = 0; i < 4; i++) {
+            int nx = x + dx[i];
+            int ny = y + dy[i];
+            
+            if (nx > 0 && nx < WIDTH - 1 && ny > 0 && ny < HEIGHT - 1) {
+                if (!visited[ny][nx]) {
+                    // 打通墙壁
+                    maze[y + dy[i] / 2][x + dx[i] / 2] = 1;
+                    carve(nx, ny);
+                }
+            }
+        }
+    }
+    
+    public static void printMaze() {
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                if (maze[i][j] == 1) {
+                    print("  ");
+                } else {
+                    print("##");
+                }
+            }
+            println("");
+        }
+    }
+    
+    public static int countPaths() {
+        int count = 0;
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                if (maze[i][j] == 1) {
+                    count = count + 1;
+                }
+            }
+        }
+        return count;
+    }
+    
+    public static boolean hasPath(int startX, int startY, int endX, int endY) {
+        if (startX == endX && startY == endY) {
+            return true;
+        }
+        if (startX < 0 || startX >= WIDTH || startY < 0 || startY >= HEIGHT) {
+            return false;
+        }
+        if (maze[startY][startX] == 0 || visited[startY][startX]) {
+            return false;
+        }
+        
+        visited[startY][startX] = true;
+        
+        if (hasPath(startX + 1, startY, endX, endY)) return true;
+        if (hasPath(startX - 1, startY, endX, endY)) return true;
+        if (hasPath(startX, startY + 1, endX, endY)) return true;
+        if (hasPath(startX, startY - 1, endX, endY)) return true;
+        
+        return false;
+    }
+    
+    public static void main() {
+        println("=== Maze Generator Tests ===");
+        
+        initMaze();
+        carve(1, 1);
+        
+        println("Generated maze:");
+        printMaze();
+        
+        int paths = countPaths();
+        print("\nNumber of path cells: ");
+        println(paths);
+        
+        // 重置visited数组用于路径查找
+        for (int i = 0; i < HEIGHT; i++) {
+            for (int j = 0; j < WIDTH; j++) {
+                visited[i][j] = false;
+            }
+        }
+        
+        boolean pathExists = hasPath(1, 1, WIDTH - 2, HEIGHT - 2);
+        print("\nPath from (1,1) to exit exists: ");
+        if (pathExists) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        if (paths > 20 && pathExists) {
+            println("\nMaze generator test PASSED!");
+        } else {
+            println("\nMaze generator test FAILED!");
+        }
+    }
+}

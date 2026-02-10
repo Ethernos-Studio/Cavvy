@@ -131,15 +131,17 @@ pub enum Token {
     })]
     FloatLiteral(Option<(f64, Option<char>)>),
     
-    #[regex(r#""[^"]*""#, |lex| {
+    #[regex(r#""([^"\\]|\\.)*""#, |lex| {
         let s = lex.slice();
-        s[1..s.len()-1].to_string()
+        let content = &s[1..s.len()-1];
+        Some(process_escape_sequences(content))
     })]
-    StringLiteral(String),
+    StringLiteral(Option<String>),
     
     #[regex(r"'([^'\\]|\\.)'", |lex| {
         let s = lex.slice();
-        s.chars().nth(1)
+        let content = &s[1..s.len()-1];
+        process_char_escape(content)
     })]
     CharLiteral(Option<char>),
     
@@ -314,4 +316,52 @@ impl<'a> Lexer<'a> {
 pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
     let mut lexer = Lexer::new(source);
     lexer.tokenize()
+}
+
+/// 处理字符串中的转义序列
+fn process_escape_sequences(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars().peekable();
+    
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some('\\') => result.push('\\'),
+                Some('"') => result.push('"'),
+                Some('\'') => result.push('\''),
+                Some('0') => result.push('\0'),
+                Some(other) => {
+                    // 对于不认识的转义序列，保留原样
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    
+    result
+}
+
+/// 处理字符字面量的转义序列
+fn process_char_escape(s: &str) -> Option<char> {
+    if s.starts_with("\\") {
+        match s.chars().nth(1) {
+            Some('n') => Some('\n'),
+            Some('t') => Some('\t'),
+            Some('r') => Some('\r'),
+            Some('\\') => Some('\\'),
+            Some('\'') => Some('\''),
+            Some('"') => Some('"'),
+            Some('0') => Some('\0'),
+            _ => s.chars().nth(1),
+        }
+    } else {
+        s.chars().next()
+    }
 }

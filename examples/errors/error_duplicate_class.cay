@@ -1,0 +1,12 @@
+// Error测试：重复类名
+public class TestDuplicateClass {
+    public static void main() {
+        println("First class");
+    }
+}
+
+public class TestDuplicateClass {
+    public static void main() {
+        println("Second class with same name");
+    }
+}

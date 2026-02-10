@@ -1,0 +1,111 @@
+// 大型测试：矩阵行列式计算
+public class TestMatrixDeterminant {
+    
+    // 计算2x2矩阵行列式
+    public static int det2(int[][] m) {
+        return m[0][0] * m[1][1] - m[0][1] * m[1][0];
+    }
+    
+    // 计算3x3矩阵行列式
+    public static int det3(int[][] m) {
+        return m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1])
+             - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+             + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+    }
+    
+    // 矩阵加法
+    public static void addMatrix(int[][] a, int[][] b, int[][] c, int n) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                c[i][j] = a[i][j] + b[i][j];
+            }
+        }
+    }
+    
+    // 矩阵减法
+    public static void subMatrix(int[][] a, int[][] b, int[][] c, int n) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                c[i][j] = a[i][j] - b[i][j];
+            }
+        }
+    }
+    
+    // 矩阵数乘
+    public static void scalarMultiply(int[][] a, int scalar, int n) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                a[i][j] = a[i][j] * scalar;
+            }
+        }
+    }
+    
+    // 矩阵迹 (对角线之和)
+    public static int trace(int[][] m, int n) {
+        int sum = 0;
+        for (int i = 0; i < n; i++) {
+            sum = sum + m[i][i];
+        }
+        return sum;
+    }
+    
+    public static void printMatrix(int[][] m, int n) {
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                print(m[i][j]);
+                print(" ");
+            }
+            println("");
+        }
+    }
+    
+    public static void main() {
+        println("=== Matrix Operations Tests ===");
+        
+        // 测试2x2行列式
+        println("\n1. 2x2 Determinant tests:");
+        int[][] m2 = {{4, 7}, {2, 6}};
+        int det2Result = det2(m2);
+        print("det([[4,7],[2,6]]) = ");
+        println(det2Result);
+        if (det2Result == 10) {
+            println("2x2 determinant test PASSED!");
+        } else {
+            println("2x2 determinant test FAILED!");
+        }
+        
+        // 测试3x3行列式
+        println("\n2. 3x3 Determinant tests:");
+        int[][] m3 = {{1, 2, 3}, {0, 1, 4}, {5, 6, 0}};
+        int det3Result = det3(m3);
+        print("det([[1,2,3],[0,1,4],[5,6,0]]) = ");
+        println(det3Result);
+        if (det3Result == 1) {
+            println("3x3 determinant test PASSED!");
+        } else {
+            println("3x3 determinant test FAILED!");
+        }
+        
+        // 测试矩阵加法
+        println("\n3. Matrix addition:");
+        int[][] a = {{1, 2}, {3, 4}};
+        int[][] b = {{5, 6}, {7, 8}};
+        int[][] c = new int[2][2]();
+        addMatrix(a, b, c, 2);
+        print("A + B = ");
+        println(c[0][0]);
+        
+        // 测试迹
+        println("\n4. Matrix trace:");
+        int tr = trace(m3, 3);
+        print("trace([[1,2,3],[0,1,4],[5,6,0]]) = ");
+        println(tr);
+        if (tr == 2) {
+            println("Trace test PASSED!");
+        } else {
+            println("Trace test FAILED!");
+        }
+        
+        println("\nAll matrix tests completed!");
+    }
+}

@@ -265,12 +265,30 @@ impl IRGenerator {
     pub fn get_string_declarations(&self) -> String {
         let mut result = String::new();
         for (s, name) in &self.global_strings {
+            // 计算实际字节数：转义序列在LLVM IR中占实际字节
+            let mut actual_len = 0;
+            let mut chars = s.chars();
+            while let Some(c) = chars.next() {
+                if c == '\\' {
+                    // 转义序列，在LLVM IR中占1个字节
+                    if let Some(next) = chars.next() {
+                        match next {
+                            'n' | 't' | 'r' | '\\' | '"' | '\'' | '0' => actual_len += 1,
+                            _ => actual_len += 1,
+                        }
+                    }
+                } else {
+                    actual_len += c.len_utf8();
+                }
+            }
+            
             let escaped = s.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\0A")
                 .replace("\r", "\\0D")
-                .replace("\t", "\\09");
-            let len = s.len() + 1; // +1 for null terminator
+                .replace("\t", "\\09")
+                .replace("\0", "\\00");
+            let len = actual_len + 1; // +1 for null terminator
             result.push_str(&format!(
                 "{} = private unnamed_addr constant [{} x i8] c\"{}\\00\", align 1\n",
                 name, len, escaped

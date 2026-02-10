@@ -1,0 +1,7 @@
+// Error测试：未闭合字符串
+public class TestUnclosedString {
+    public static void main() {
+        String s = "hello;
+        println(s);
+    }
+}

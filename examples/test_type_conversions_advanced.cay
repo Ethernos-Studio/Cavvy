@@ -1,0 +1,97 @@
+// 大型测试：高级类型转换
+public class TestTypeConversionsAdvanced {
+    
+    public static void main() {
+        println("=== Advanced Type Conversion Tests ===");
+        
+        // 测试1: int到各种类型的转换
+        println("\n1. int conversions:");
+        int intVal = 100;
+        long longVal = (long)intVal;
+        float floatVal = (float)intVal;
+        double doubleVal = (double)intVal;
+        
+        print("int ");
+        print(intVal);
+        print(" -> long: ");
+        println((int)longVal);
+        print("int ");
+        print(intVal);
+        print(" -> float: ");
+        println((int)floatVal);
+        print("int ");
+        print(intVal);
+        print(" -> double: ");
+        println((int)doubleVal);
+        
+        // 测试2: long到各种类型
+        println("\n2. long conversions:");
+        long bigLong = 123456789L;
+        int intFromLong = (int)bigLong;
+        print("long ");
+        print((int)bigLong);
+        print(" -> int: ");
+        println(intFromLong);
+        
+        // 测试3: float/double转换
+        println("\n3. Floating point conversions:");
+        float f = 3.14159f;
+        double d = 2.718281828;
+        
+        int intFromFloat = (int)f;
+        int intFromDouble = (int)d;
+        float floatFromDouble = (float)d;
+        double doubleFromFloat = (double)f;
+        
+        print("float 3.14159 -> int: ");
+        println(intFromFloat);
+        print("double 2.71828 -> int: ");
+        println(intFromDouble);
+        print("double -> float: ");
+        println((int)floatFromDouble);
+        
+        // 测试4: char转换
+        println("\n4. char conversions:");
+        char c = 'A';
+        int charAsInt = (int)c;
+        char intAsChar = (char)66;
+        
+        print("char 'A' -> int: ");
+        println(charAsInt);
+        print("int 66 -> char: ");
+        println((int)intAsChar);
+        
+        // 测试5: 数组元素类型转换
+        println("\n5. Array element conversions:");
+        int[] intArr = {1, 2, 3, 4, 5};
+        double[] doubleArr = new double[5]();
+        
+        for (int i = 0; i < 5; i++) {
+            doubleArr[i] = (double)intArr[i];
+        }
+        
+        print("int[] -> double[]: ");
+        for (int i = 0; i < 5; i++) {
+            print((int)doubleArr[i]);
+            print(" ");
+        }
+        println("");
+        
+        // 测试6: 表达式中的隐式转换
+        println("\n6. Expression conversions:");
+        int a = 10;
+        double b = 3.5;
+        double result = a + b;
+        print("10 + 3.5 = ");
+        println((int)result);
+        
+        // 测试7: 复合赋值中的转换
+        println("\n7. Compound assignment conversions:");
+        int x = 5;
+        x += 2.5;  // 应该转换为int
+        print("5 += 2.5 = ");
+        println(x);
+        
+        println("\nAll advanced type conversion tests completed!");
+    }
+}

@@ -1,0 +1,162 @@
+// 大型测试：高级递归算法
+public class TestRecursionAdvanced {
+    
+    // 斐波那契数列（带记忆化）
+    static long[] fibMemo = new long[50]();
+    static boolean[] fibComputed = new boolean[50]();
+    
+    public static long fibonacci(int n) {
+        if (n <= 1) {
+            return n;
+        }
+        if (fibComputed[n]) {
+            return fibMemo[n];
+        }
+        fibMemo[n] = fibonacci(n - 1) + fibonacci(n - 2);
+        fibComputed[n] = true;
+        return fibMemo[n];
+    }
+    
+    // 计算组合数 C(n, k)
+    public static long combination(int n, int k) {
+        if (k == 0 || k == n) {
+            return 1;
+        }
+        if (k > n) {
+            return 0;
+        }
+        return combination(n - 1, k - 1) + combination(n - 1, k);
+    }
+    
+    // 汉诺塔
+    static int moveCount = 0;
+    
+    public static void hanoi(int n, char from, char aux, char to) {
+        if (n == 1) {
+            moveCount = moveCount + 1;
+            return;
+        }
+        hanoi(n - 1, from, to, aux);
+        moveCount = moveCount + 1;
+        hanoi(n - 1, aux, from, to);
+    }
+    
+    // 字符串反转（递归）
+    public static String reverseString(String s, int index) {
+        if (index >= s.length()) {
+            return "";
+        }
+        return reverseString(s, index + 1) + (char)s.charAt(index);
+    }
+    
+    // 判断回文（递归）
+    public static boolean isPalindrome(String s, int left, int right) {
+        if (left >= right) {
+            return true;
+        }
+        if (s.charAt(left) != s.charAt(right)) {
+            return false;
+        }
+        return isPalindrome(s, left + 1, right - 1);
+    }
+    
+    // 计算数字和（递归）
+    public static int digitSum(int n) {
+        if (n == 0) {
+            return 0;
+        }
+        return n % 10 + digitSum(n / 10);
+    }
+    
+    // 幂运算（递归，快速幂）
+    public static long fastPower(long base, int exp) {
+        if (exp == 0) {
+            return 1;
+        }
+        if (exp % 2 == 0) {
+            long half = fastPower(base, exp / 2);
+            return half * half;
+        }
+        return base * fastPower(base, exp - 1);
+    }
+    
+    public static void main() {
+        println("=== Advanced Recursion Tests ===");
+        
+        // 测试斐波那契
+        println("\n1. Fibonacci with memoization:");
+        for (int i = 0; i <= 20; i++) {
+            print("F(");
+            print(i);
+            print(") = ");
+            println((int)fibonacci(i));
+        }
+        
+        // 测试组合数
+        println("\n2. Combinations C(n, k):");
+        for (int n = 0; n <= 10; n++) {
+            for (int k = 0; k <= n; k++) {
+                print((int)combination(n, k));
+                print(" ");
+            }
+            println("");
+        }
+        
+        // 测试汉诺塔
+        println("\n3. Tower of Hanoi moves:");
+        for (int disks = 1; disks <= 10; disks++) {
+            moveCount = 0;
+            hanoi(disks, 'A', 'B', 'C');
+            print(disks);
+            print(" disks: ");
+            print(moveCount);
+            println(" moves");
+        }
+        
+        // 测试字符串反转
+        println("\n4. String reversal:");
+        String[] testStrings = {"hello", "world", "recursion", "12345"};
+        for (int i = 0; i < 4; i++) {
+            print("\"");
+            print(testStrings[i]);
+            print("\" reversed: \"");
+            print(reverseString(testStrings[i], 0));
+            println("\"");
+        }
+        
+        // 测试回文判断
+        println("\n5. Palindrome check:");
+        String[] palindromeTests = {"radar", "level", "hello", "A", "abba"};
+        for (int i = 0; i < 5; i++) {
+            print("\"");
+            print(palindromeTests[i]);
+            print("\" is palindrome: ");
+            if (isPalindrome(palindromeTests[i], 0, palindromeTests[i].length() - 1)) {
+                println("true");
+            } else {
+                println("false");
+            }
+        }
+        
+        // 测试数字和
+        println("\n6. Digit sum:");
+        int[] numbers = {12345, 999, 1000, 7};
+        for (int i = 0; i < 4; i++) {
+            print("digitSum(");
+            print(numbers[i]);
+            print(") = ");
+            println(digitSum(numbers[i]));
+        }
+        
+        // 测试快速幂
+        println("\n7. Fast power:");
+        print("2^30 = ");
+        println((int)fastPower(2, 30));
+        print("3^15 = ");
+        println((int)fastPower(3, 15));
+        print("5^10 = ");
+        println((int)fastPower(5, 10));
+        
+        println("\nAll advanced recursion tests completed!");
+    }
+}

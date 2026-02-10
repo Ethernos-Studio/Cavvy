@@ -1,0 +1,110 @@
+// 大型测试：基础数据结构实现
+public class TestDataStructures {
+    
+    // 栈的实现
+    static int[] stack = new int[100]();
+    static int stackTop = -1;
+    
+    public static void push(int value) {
+        stackTop = stackTop + 1;
+        stack[stackTop] = value;
+    }
+    
+    public static int pop() {
+        int value = stack[stackTop];
+        stackTop = stackTop - 1;
+        return value;
+    }
+    
+    public static int peek() {
+        return stack[stackTop];
+    }
+    
+    public static boolean isEmpty() {
+        return stackTop == -1;
+    }
+    
+    public static int stackSize() {
+        return stackTop + 1;
+    }
+    
+    // 队列的实现
+    static int[] queue = new int[100]();
+    static int front = 0;
+    static int rear = -1;
+    static int queueSize = 0;
+    
+    public static void enqueue(int value) {
+        rear = rear + 1;
+        queue[rear] = value;
+        queueSize = queueSize + 1;
+    }
+    
+    public static int dequeue() {
+        int value = queue[front];
+        front = front + 1;
+        queueSize = queueSize - 1;
+        return value;
+    }
+    
+    public static int queueFront() {
+        return queue[front];
+    }
+    
+    public static int queueLength() {
+        return queueSize;
+    }
+    
+    public static void main() {
+        println("=== Data Structures Tests ===");
+        
+        // 测试栈
+        println("\n1. Stack tests:");
+        push(10);
+        push(20);
+        push(30);
+        print("Stack size: ");
+        println(stackSize());
+        print("Top element: ");
+        println(peek());
+        print("Pop: ");
+        println(pop());
+        print("Pop: ");
+        println(pop());
+        print("Stack size after pops: ");
+        println(stackSize());
+        
+        // 测试队列
+        println("\n2. Queue tests:");
+        enqueue(1);
+        enqueue(2);
+        enqueue(3);
+        enqueue(4);
+        enqueue(5);
+        print("Queue size: ");
+        println(queueLength());
+        print("Front element: ");
+        println(queueFront());
+        print("Dequeue: ");
+        println(dequeue());
+        print("Dequeue: ");
+        println(dequeue());
+        print("Queue size after dequeues: ");
+        println(queueLength());
+        
+        // 验证栈的正确性
+        println("\n3. Stack verification:");
+        while (!isEmpty()) {
+            print("Popped: ");
+            println(pop());
+        }
+        print("Stack is empty: ");
+        if (isEmpty()) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        println("\nAll data structure tests completed!");
+    }
+}

@@ -1,0 +1,8 @@
+// Error测试：字符串索引访问
+public class TestStringIndex {
+    public static void main() {
+        String s = "hello";
+        char c = s[0];
+        println(c);
+    }
+}

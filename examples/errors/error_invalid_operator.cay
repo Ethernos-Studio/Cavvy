@@ -1,0 +1,9 @@
+// Error测试：无效运算符
+public class TestInvalidOperator {
+    public static void main() {
+        int x = 10;
+        int y = 20;
+        int z = x *** y;
+        println(z);
+    }
+}

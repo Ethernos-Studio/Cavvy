@@ -1,0 +1,100 @@
+// 大型测试：复杂表达式
+public class TestExpressionComplex {
+    
+    public static void main() {
+        println("=== Complex Expression Tests ===");
+        
+        // 测试1: 算术表达式优先级
+        println("\n1. Arithmetic precedence:");
+        int result1 = 2 + 3 * 4;
+        print("2 + 3 * 4 = ");
+        println(result1);
+        
+        int result2 = (2 + 3) * 4;
+        print("(2 + 3) * 4 = ");
+        println(result2);
+        
+        int result3 = 10 - 3 - 2;
+        print("10 - 3 - 2 = ");
+        println(result3);
+        
+        int result4 = 100 / 10 / 2;
+        print("100 / 10 / 2 = ");
+        println(result4);
+        
+        // 测试2: 混合类型表达式
+        println("\n2. Mixed type expressions:");
+        double d1 = 5 + 3.5;
+        print("5 + 3.5 = ");
+        println((int)d1);
+        
+        double d2 = 10.0 / 3;
+        print("10.0 / 3 = ");
+        println((int)d2);
+        
+        // 测试3: 位运算与算术混合
+        println("\n3. Bitwise and arithmetic:");
+        int b1 = (5 << 1) + 3;
+        print("(5 << 1) + 3 = ");
+        println(b1);
+        
+        int b2 = 10 & 6 + 4;
+        print("10 & 6 + 4 = ");
+        println(b2);
+        
+        // 测试4: 复杂条件表达式
+        println("\n4. Complex conditions:");
+        boolean c1 = (5 > 3) && (10 < 20);
+        print("(5 > 3) && (10 < 20) = ");
+        if (c1) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        boolean c2 = (5 < 3) || (10 > 20) || (7 == 7);
+        print("(5 < 3) || (10 > 20) || (7 == 7) = ");
+        if (c2) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        // 测试5: 三元风格表达式（使用if-else模拟）
+        println("\n5. Conditional expressions:");
+        int max = 10 > 5 ? 10 : 5;
+        print("max(10, 5) = ");
+        println(max);
+        
+        int abs = -10 < 0 ? -(-10) : -10;
+        print("abs(-10) = ");
+        println(abs);
+        
+        // 测试6: 数组索引表达式
+        println("\n6. Array index expressions:");
+        int[] arr = {10, 20, 30, 40, 50};
+        int idx = 2;
+        print("arr[2] = ");
+        println(arr[idx]);
+        print("arr[1+2] = ");
+        println(arr[1 + 2]);
+        
+        // 测试7: 自增自减在表达式中
+        println("\n7. Increment/decrement in expressions:");
+        int x = 5;
+        int y = x++;
+        print("x = 5, y = x++: x = ");
+        print(x);
+        print(", y = ");
+        println(y);
+        
+        x = 5;
+        y = ++x;
+        print("x = 5, y = ++x: x = ");
+        print(x);
+        print(", y = ");
+        println(y);
+        
+        println("\nAll complex expression tests completed!");
+    }
+}

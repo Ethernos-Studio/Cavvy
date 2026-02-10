@@ -1,0 +1,8 @@
+// Error测试：不兼容类型
+public class TestIncompatibleTypes {
+    public static void main() {
+        boolean b = true;
+        int x = b;
+        println(x);
+    }
+}

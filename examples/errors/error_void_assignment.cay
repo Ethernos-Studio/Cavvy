@@ -1,0 +1,11 @@
+// Error测试：void返回值赋值
+public class TestVoidAssignment {
+    public static void doSomething() {
+        println("Hello");
+    }
+    
+    public static void main() {
+        int x = doSomething();
+        println(x);
+    }
+}

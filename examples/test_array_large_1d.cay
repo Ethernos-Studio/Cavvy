@@ -1,0 +1,59 @@
+// 大型测试：一维大数组操作
+public class TestArrayLarge1D {
+    public static void main() {
+        int size = 1000;
+        int[] arr = new int[size]();
+        
+        // 初始化
+        for (int i = 0; i < size; i++) {
+            arr[i] = i;
+        }
+        
+        // 计算总和
+        long sum = 0;
+        for (int i = 0; i < size; i++) {
+            sum = sum + arr[i];
+        }
+        
+        // 验证总和: 0+1+2+...+999 = 999*1000/2 = 499500
+        long expected = 499500;
+        if (sum == expected) {
+            println("Large 1D array sum test PASSED!");
+        } else {
+            print("Large 1D array sum test FAILED! Expected: ");
+            print((int)expected);
+            print(", Got: ");
+            println((int)sum);
+        }
+        
+        // 查找最大值
+        int max = arr[0];
+        for (int i = 1; i < size; i++) {
+            if (arr[i] > max) {
+                max = arr[i];
+            }
+        }
+        
+        if (max == 999) {
+            println("Max test PASSED!");
+        } else {
+            println("Max test FAILED!");
+        }
+        
+        // 查找最小值
+        int min = arr[0];
+        for (int i = 1; i < size; i++) {
+            if (arr[i] < min) {
+                min = arr[i];
+            }
+        }
+        
+        if (min == 0) {
+            println("Min test PASSED!");
+        } else {
+            println("Min test FAILED!");
+        }
+        
+        println("All large 1D array tests completed!");
+    }
+}

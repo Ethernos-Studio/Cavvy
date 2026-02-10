@@ -1,0 +1,111 @@
+// 大型测试：各种返回类型的方法
+public class TestMethodVariousReturns {
+    
+    // 返回int
+    public static int getInt() {
+        return 42;
+    }
+    
+    // 返回long
+    public static long getLong() {
+        return 123456789L;
+    }
+    
+    // 返回float
+    public static float getFloat() {
+        return 3.14f;
+    }
+    
+    // 返回double
+    public static double getDouble() {
+        return 2.718281828;
+    }
+    
+    // 返回boolean
+    public static boolean getBool() {
+        return true;
+    }
+    
+    // 返回char
+    public static char getChar() {
+        return 'X';
+    }
+    
+    // 返回String
+    public static String getString() {
+        return "Hello, Cavvy!";
+    }
+    
+    // 返回int数组
+    public static int[] getIntArray() {
+        int[] arr = {1, 2, 3, 4, 5};
+        return arr;
+    }
+    
+    // 返回String数组
+    public static String[] getStringArray() {
+        String[] arr = new String[3]();
+        arr[0] = "Apple";
+        arr[1] = "Banana";
+        arr[2] = "Cherry";
+        return arr;
+    }
+    
+    // 复杂计算返回
+    public static int calculate(int a, int b, int c) {
+        return a * b + c;
+    }
+    
+    public static void main() {
+        println("=== Various Return Types Tests ===");
+        
+        // 测试基本类型返回
+        print("getInt(): ");
+        println(getInt());
+        
+        print("getLong(): ");
+        println((int)getLong());
+        
+        print("getFloat(): ");
+        println((int)getFloat());
+        
+        print("getDouble(): ");
+        println((int)getDouble());
+        
+        print("getBool(): ");
+        if (getBool()) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        print("getChar(): ");
+        println((int)getChar());
+        
+        print("getString(): ");
+        println(getString());
+        
+        // 测试数组返回
+        print("\ngetIntArray(): ");
+        int[] intArr = getIntArray();
+        for (int i = 0; i < 5; i++) {
+            print(intArr[i]);
+            print(" ");
+        }
+        println("");
+        
+        print("getStringArray(): ");
+        String[] strArr = getStringArray();
+        for (int i = 0; i < 3; i++) {
+            print(strArr[i]);
+            print(" ");
+        }
+        println("");
+        
+        // 测试复杂计算
+        print("\ncalculate(3, 4, 5): ");
+        println(calculate(3, 4, 5));
+        
+        println("\nAll return type tests completed!");
+    }
+}

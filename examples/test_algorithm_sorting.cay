@@ -1,0 +1,113 @@
+// 大型测试：排序算法合集
+public class TestAlgorithmSorting {
+    
+    // 冒泡排序
+    public static void bubbleSort(int[] arr, int n) {
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                if (arr[j] > arr[j + 1]) {
+                    int temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+    }
+    
+    // 选择排序
+    public static void selectionSort(int[] arr, int n) {
+        for (int i = 0; i < n - 1; i++) {
+            int minIdx = i;
+            for (int j = i + 1; j < n; j++) {
+                if (arr[j] < arr[minIdx]) {
+                    minIdx = j;
+                }
+            }
+            int temp = arr[i];
+            arr[i] = arr[minIdx];
+            arr[minIdx] = temp;
+        }
+    }
+    
+    // 插入排序
+    public static void insertionSort(int[] arr, int n) {
+        for (int i = 1; i < n; i++) {
+            int key = arr[i];
+            int j = i - 1;
+            while (j >= 0 && arr[j] > key) {
+                arr[j + 1] = arr[j];
+                j = j - 1;
+            }
+            arr[j + 1] = key;
+        }
+    }
+    
+    public static boolean isSorted(int[] arr, int n) {
+        for (int i = 1; i < n; i++) {
+            if (arr[i] < arr[i - 1]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    public static void printArray(int[] arr, int n) {
+        for (int i = 0; i < n; i++) {
+            print(arr[i]);
+            print(" ");
+        }
+        println("");
+    }
+    
+    public static void copyArray(int[] src, int[] dst, int n) {
+        for (int i = 0; i < n; i++) {
+            dst[i] = src[i];
+        }
+    }
+    
+    public static void main() {
+        int[] original = {64, 34, 25, 12, 22, 11, 90, 5, 77, 30};
+        int n = 10;
+        
+        println("Original array:");
+        printArray(original, n);
+        
+        // 测试冒泡排序
+        int[] arr1 = new int[n]();
+        copyArray(original, arr1, n);
+        bubbleSort(arr1, n);
+        println("\nAfter bubble sort:");
+        printArray(arr1, n);
+        if (isSorted(arr1, n)) {
+            println("Bubble sort: PASSED");
+        } else {
+            println("Bubble sort: FAILED");
+        }
+        
+        // 测试选择排序
+        int[] arr2 = new int[n]();
+        copyArray(original, arr2, n);
+        selectionSort(arr2, n);
+        println("\nAfter selection sort:");
+        printArray(arr2, n);
+        if (isSorted(arr2, n)) {
+            println("Selection sort: PASSED");
+        } else {
+            println("Selection sort: FAILED");
+        }
+        
+        // 测试插入排序
+        int[] arr3 = new int[n]();
+        copyArray(original, arr3, n);
+        insertionSort(arr3, n);
+        println("\nAfter insertion sort:");
+        printArray(arr3, n);
+        if (isSorted(arr3, n)) {
+            println("Insertion sort: PASSED");
+        } else {
+            println("Insertion sort: FAILED");
+        }
+        
+        println("\nAll sorting tests completed!");
+    }
+}

@@ -1,0 +1,129 @@
+// 大型测试：搜索算法合集
+public class TestAlgorithmSearch {
+    
+    // 线性搜索
+    public static int linearSearch(int[] arr, int n, int target) {
+        for (int i = 0; i < n; i++) {
+            if (arr[i] == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    // 二分搜索 (数组必须已排序)
+    public static int binarySearch(int[] arr, int n, int target) {
+        int left = 0;
+        int right = n - 1;
+        
+        while (left <= right) {
+            int mid = left + (right - left) / 2;
+            
+            if (arr[mid] == target) {
+                return mid;
+            }
+            
+            if (arr[mid] < target) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
+            }
+        }
+        return -1;
+    }
+    
+    // 在字符串数组中线性搜索
+    public static int stringLinearSearch(String[] arr, int n, String target) {
+        for (int i = 0; i < n; i++) {
+            if (arr[i] == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    
+    public static void main() {
+        int[] arr = {2, 5, 8, 12, 16, 23, 38, 45, 56, 67, 78, 89, 90, 95, 100};
+        int n = 15;
+        
+        println("Array for search tests:");
+        for (int i = 0; i < n; i++) {
+            print(arr[i]);
+            print(" ");
+        }
+        println("");
+        
+        // 测试线性搜索
+        println("\n=== Linear Search Tests ===");
+        int[] linearTargets = {23, 100, 1, 50};
+        int[] linearExpected = {5, 14, -1, -1};
+        
+        boolean linearPass = true;
+        for (int i = 0; i < 4; i++) {
+            int result = linearSearch(arr, n, linearTargets[i]);
+            print("Search for ");
+            print(linearTargets[i]);
+            print(": found at index ");
+            print(result);
+            print(" (expected ");
+            print(linearExpected[i]);
+            print(")");
+            if (result == linearExpected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                linearPass = false;
+            }
+        }
+        
+        // 测试二分搜索
+        println("\n=== Binary Search Tests ===");
+        boolean binaryPass = true;
+        for (int i = 0; i < 4; i++) {
+            int result = binarySearch(arr, n, linearTargets[i]);
+            print("Search for ");
+            print(linearTargets[i]);
+            print(": found at index ");
+            print(result);
+            print(" (expected ");
+            print(linearExpected[i]);
+            print(")");
+            if (result == linearExpected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                binaryPass = false;
+            }
+        }
+        
+        // 测试字符串搜索
+        println("\n=== String Search Tests ===");
+        String[] words = {"apple", "banana", "cherry", "date", "elderberry"};
+        int wordCount = 5;
+        
+        String[] searchWords = {"cherry", "grape", "apple"};
+        int[] wordExpected = {2, -1, 0};
+        
+        boolean stringPass = true;
+        for (int i = 0; i < 3; i++) {
+            int result = stringLinearSearch(words, wordCount, searchWords[i]);
+            print("Search for \"");
+            print(searchWords[i]);
+            print("\": found at index ");
+            print(result);
+            if (result == wordExpected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                stringPass = false;
+            }
+        }
+        
+        println("");
+        if (linearPass && binaryPass && stringPass) {
+            println("All search tests PASSED!");
+        } else {
+            println("Some search tests FAILED!");
+        }
+    }
+}

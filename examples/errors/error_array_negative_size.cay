@@ -1,0 +1,7 @@
+// Error测试：数组负大小
+public class TestArrayNegativeSize {
+    public static void main() {
+        int[] arr = new int[-5]();
+        println(arr.length);
+    }
+}

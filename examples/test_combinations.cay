@@ -1,0 +1,97 @@
+// 大型测试：组合生成
+public class TestCombinations {
+    
+    // 生成从n个元素中取k个的所有组合
+    public static void generateCombinations(int n, int k) {
+        int[] combination = new int[k]();
+        for (int i = 0; i < k; i++) {
+            combination[i] = i;
+        }
+        
+        int count = 0;
+        boolean done = false;
+        
+        while (!done) {
+            count = count + 1;
+            if (count <= 10) {
+                printCombination(combination, k);
+            }
+            
+            // 找到下一个组合
+            int i = k - 1;
+            while (i >= 0 && combination[i] == n - k + i) {
+                i = i - 1;
+            }
+            
+            if (i < 0) {
+                done = true;
+            } else {
+                combination[i] = combination[i] + 1;
+                for (int j = i + 1; j < k; j++) {
+                    combination[j] = combination[j - 1] + 1;
+                }
+            }
+        }
+        
+        print("Total combinations C(");
+        print(n);
+        print(",");
+        print(k);
+        print(") = ");
+        println(count);
+    }
+    
+    public static void printCombination(int[] comb, int k) {
+        print("{");
+        for (int i = 0; i < k; i++) {
+            print(comb[i]);
+            if (i < k - 1) {
+                print(",");
+            }
+        }
+        println("}");
+    }
+    
+    // 计算组合数
+    public static long combination(int n, int k) {
+        if (k > n - k) {
+            k = n - k;
+        }
+        long result = 1;
+        for (int i = 0; i < k; i++) {
+            result = result * (n - i) / (i + 1);
+        }
+        return result;
+    }
+    
+    public static void main() {
+        println("=== Combination Tests ===");
+        
+        println("\n1. C(5,3) combinations (first 10):");
+        generateCombinations(5, 3);
+        
+        println("\n2. C(6,2) combinations (first 10):");
+        generateCombinations(6, 2);
+        
+        println("\n3. Combination number calculations:");
+        int[][] tests = {{5, 2}, {10, 3}, {20, 5}, {30, 2}};
+        long[] expected = {10, 120, 15504, 435};
+        
+        for (int i = 0; i < 4; i++) {
+            long result = combination(tests[i][0], tests[i][1]);
+            print("C(");
+            print(tests[i][0]);
+            print(",");
+            print(tests[i][1]);
+            print(") = ");
+            print((int)result);
+            if (result == expected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+            }
+        }
+        
+        println("\nAll combination tests completed!");
+    }
+}

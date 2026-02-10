@@ -1,0 +1,71 @@
+// 大型测试：三维数组
+public class TestArray3D {
+    
+    public static void main() {
+        println("=== 3D Array Tests ===");
+        
+        // 创建3D数组
+        int[][][] cube = new int[3][3][3]();
+        
+        // 初始化
+        int value = 1;
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                for (int z = 0; z < 3; z++) {
+                    cube[x][y][z] = value;
+                    value = value + 1;
+                }
+            }
+        }
+        
+        // 打印3D数组
+        println("3D Cube contents:");
+        for (int x = 0; x < 3; x++) {
+            print("Layer ");
+            print(x);
+            println(":");
+            for (int y = 0; y < 3; y++) {
+                for (int z = 0; z < 3; z++) {
+                    print(cube[x][y][z]);
+                    print(" ");
+                }
+                println("");
+            }
+        }
+        
+        // 验证总和
+        int sum = 0;
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                for (int z = 0; z < 3; z++) {
+                    sum = sum + cube[x][y][z];
+                }
+            }
+        }
+        
+        print("\nSum of all elements: ");
+        println(sum);
+        
+        // 验证：1+2+...+27 = 27*28/2 = 378
+        if (sum == 378) {
+            println("3D array sum test PASSED!");
+        } else {
+            print("3D array sum test FAILED! Expected 378, got ");
+            println(sum);
+        }
+        
+        // 测试特定位置
+        boolean positionsCorrect = true;
+        if (cube[0][0][0] != 1) positionsCorrect = false;
+        if (cube[1][1][1] != 14) positionsCorrect = false;
+        if (cube[2][2][2] != 27) positionsCorrect = false;
+        
+        if (positionsCorrect) {
+            println("3D array position test PASSED!");
+        } else {
+            println("3D array position test FAILED!");
+        }
+        
+        println("\nAll 3D array tests completed!");
+    }
+}

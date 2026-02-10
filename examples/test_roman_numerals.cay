@@ -1,0 +1,123 @@
+// 大型测试：罗马数字转换
+public class TestRomanNumerals {
+    
+    // 整数转罗马数字
+    public static String intToRoman(int num) {
+        int[] values = {1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1};
+        String[] symbols = {"M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"};
+        
+        String result = "";
+        for (int i = 0; i < 13; i++) {
+            while (num >= values[i]) {
+                result = result + symbols[i];
+                num = num - values[i];
+            }
+        }
+        return result;
+    }
+    
+    // 罗马数字转整数
+    public static int romanToInt(String s) {
+        int result = 0;
+        int prevValue = 0;
+        
+        for (int i = s.length() - 1; i >= 0; i--) {
+            int value = romanCharToValue(s.charAt(i));
+            if (value < prevValue) {
+                result = result - value;
+            } else {
+                result = result + value;
+            }
+            prevValue = value;
+        }
+        return result;
+    }
+    
+    public static int romanCharToValue(char c) {
+        if (c == 'I') return 1;
+        if (c == 'V') return 5;
+        if (c == 'X') return 10;
+        if (c == 'L') return 50;
+        if (c == 'C') return 100;
+        if (c == 'D') return 500;
+        if (c == 'M') return 1000;
+        return 0;
+    }
+    
+    public static void main() {
+        println("=== Roman Numeral Tests ===");
+        
+        // 测试整数转罗马数字
+        println("\n1. Integer to Roman:");
+        int[] testNums = {1, 4, 5, 9, 10, 49, 50, 99, 100, 499, 500, 999, 1000, 1994, 2024};
+        String[] expectedRoman = {"I", "IV", "V", "IX", "X", "XLIX", "L", "XCIX", "C", "CDXCIX", "D", "CMXCIX", "M", "MCMXCIV", "MMXXIV"};
+        
+        boolean allPass = true;
+        for (int i = 0; i < 15; i++) {
+            String roman = intToRoman(testNums[i]);
+            print(testNums[i]);
+            print(" -> ");
+            print(roman);
+            
+            // 简单比较
+            boolean match = true;
+            if (roman.length() != expectedRoman[i].length()) {
+                match = false;
+            } else {
+                for (int j = 0; j < roman.length(); j++) {
+                    if (roman.charAt(j) != expectedRoman[i].charAt(j)) {
+                        match = false;
+                    }
+                }
+            }
+            
+            if (match) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        // 测试罗马数字转整数
+        println("\n2. Roman to Integer:");
+        String[] testRomans = {"III", "IV", "IX", "LVIII", "MCMXCIV"};
+        int[] expectedInts = {3, 4, 9, 58, 1994};
+        
+        for (int i = 0; i < 5; i++) {
+            int num = romanToInt(testRomans[i]);
+            print("\"");
+            print(testRomans[i]);
+            print("\" -> ");
+            print(num);
+            if (num == expectedInts[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        // 测试往返转换
+        println("\n3. Round-trip conversion:");
+        boolean roundTripPass = true;
+        for (int i = 1; i <= 100; i++) {
+            String roman = intToRoman(i);
+            int back = romanToInt(roman);
+            if (back != i) {
+                roundTripPass = false;
+            }
+        }
+        if (roundTripPass) {
+            println("Round-trip test PASSED for 1-100!");
+        } else {
+            println("Round-trip test FAILED!");
+        }
+        
+        if (allPass && roundTripPass) {
+            println("\nAll Roman numeral tests PASSED!");
+        } else {
+            println("\nSome Roman numeral tests FAILED!");
+        }
+    }
+}

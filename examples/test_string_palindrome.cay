@@ -1,0 +1,90 @@
+// 大型测试：回文字符串检测
+public class TestStringPalindrome {
+    
+    public static boolean isPalindrome(String s) {
+        int left = 0;
+        int right = s.length() - 1;
+        
+        while (left < right) {
+            if (s.charAt(left) != s.charAt(right)) {
+                return false;
+            }
+            left = left + 1;
+            right = right - 1;
+        }
+        return true;
+    }
+    
+    public static String reverse(String s) {
+        String result = "";
+        for (int i = s.length() - 1; i >= 0; i--) {
+            result = result + (char)s.charAt(i);
+        }
+        return result;
+    }
+    
+    public static void main() {
+        println("Palindrome tests:");
+        
+        String[] tests = {"radar", "level", "hello", "world", "civic", "deified"};
+        boolean[] expected = {true, true, false, false, true, true};
+        
+        boolean allPass = true;
+        for (int i = 0; i < 6; i++) {
+            boolean result = isPalindrome(tests[i]);
+            print("\"");
+            print(tests[i]);
+            print("\" is palindrome: ");
+            if (result) {
+                print("true");
+            } else {
+                print("false");
+            }
+            
+            if (result == expected[i]) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        println("\nReverse tests:");
+        String[] reverseTests = {"abc", "hello", "12345"};
+        String[] reverseExpected = {"cba", "olleh", "54321"};
+        
+        for (int i = 0; i < 3; i++) {
+            String reversed = reverse(reverseTests[i]);
+            print("\"");
+            print(reverseTests[i]);
+            print("\" reversed: \"");
+            print(reversed);
+            print("\"");
+            
+            // 简单比较
+            boolean match = true;
+            if (reversed.length() != reverseExpected[i].length()) {
+                match = false;
+            } else {
+                for (int j = 0; j < reversed.length(); j++) {
+                    if (reversed.charAt(j) != reverseExpected[i].charAt(j)) {
+                        match = false;
+                    }
+                }
+            }
+            
+            if (match) {
+                println(" - PASS");
+            } else {
+                println(" - FAIL");
+                allPass = false;
+            }
+        }
+        
+        if (allPass) {
+            println("\nAll palindrome tests PASSED!");
+        } else {
+            println("\nSome tests FAILED!");
+        }
+    }
+}

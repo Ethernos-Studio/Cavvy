@@ -1,0 +1,111 @@
+// 大型测试：高级位运算
+public class TestBitwiseAdvanced {
+    
+    // 计算二进制中1的个数
+    public static int countBits(int n) {
+        int count = 0;
+        while (n != 0) {
+            count = count + (n & 1);
+            n = n >>> 1;
+        }
+        return count;
+    }
+    
+    // 判断是否为2的幂
+    public static boolean isPowerOfTwo(int n) {
+        return n > 0 && (n & (n - 1)) == 0;
+    }
+    
+    // 获取最低位的1
+    public static int lowestOneBit(int n) {
+        return n & (-n);
+    }
+    
+    // 清除最低位的1
+    public static int clearLowestOneBit(int n) {
+        return n & (n - 1);
+    }
+    
+    // 设置第i位
+    public static int setBit(int n, int i) {
+        return n | (1 << i);
+    }
+    
+    // 清除第i位
+    public static int clearBit(int n, int i) {
+        return n & ~(1 << i);
+    }
+    
+    // 获取第i位
+    public static int getBit(int n, int i) {
+        return (n >>> i) & 1;
+    }
+    
+    // 切换第i位
+    public static int toggleBit(int n, int i) {
+        return n ^ (1 << i);
+    }
+    
+    public static void main() {
+        println("=== Advanced Bitwise Tests ===");
+        
+        // 测试countBits
+        println("1. Count bits tests:");
+        print("countBits(0b101010) = ");
+        println(countBits(42));
+        print("countBits(0b11111111) = ");
+        println(countBits(255));
+        print("countBits(0) = ");
+        println(countBits(0));
+        
+        // 测试isPowerOfTwo
+        println("\n2. Power of two tests:");
+        int[] powTests = {1, 2, 3, 4, 15, 16, 32, 64, 100};
+        for (int i = 0; i < 9; i++) {
+            print(powTests[i]);
+            print(" is power of 2: ");
+            if (isPowerOfTwo(powTests[i])) {
+                println("true");
+            } else {
+                println("false");
+            }
+        }
+        
+        // 测试位操作
+        println("\n3. Bit manipulation tests:");
+        int n = 0b10101010;
+        print("Original: ");
+        println(n);
+        print("setBit(n, 0): ");
+        println(setBit(n, 0));
+        print("clearBit(n, 1): ");
+        println(clearBit(n, 1));
+        print("getBit(n, 3): ");
+        println(getBit(n, 3));
+        print("toggleBit(n, 0): ");
+        println(toggleBit(n, 0));
+        
+        // 测试组合位运算
+        println("\n4. Combined bitwise operations:");
+        int a = 0b11110000;
+        int b = 0b00001111;
+        print("a = ");
+        println(a);
+        print("b = ");
+        println(b);
+        print("a | b = ");
+        println(a | b);
+        print("a & b = ");
+        println(a & b);
+        print("a ^ b = ");
+        println(a ^ b);
+        print("~a = ");
+        println(~a);
+        print("a << 2 = ");
+        println(a << 2);
+        print("a >> 2 = ");
+        println(a >> 2);
+        
+        println("\nAll advanced bitwise tests completed!");
+    }
+}

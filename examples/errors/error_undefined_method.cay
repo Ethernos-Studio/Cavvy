@@ -1,0 +1,6 @@
+// Error测试：未定义方法
+public class TestUndefinedMethod {
+    public static void main() {
+        undefinedFunction();
+    }
+}
