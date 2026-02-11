@@ -1,0 +1,27 @@
+// 测试预处理器 #define 指令
+// 版本: 0.3.5.0
+
+#define DEBUG 1
+#define VERSION "0.3.5.0"
+#define MAX_SIZE 100
+
+@main
+public class TestPreprocessorDefine {
+    public static void main() {
+        // 使用宏定义
+        int debug = DEBUG;
+        int max = MAX_SIZE;
+        
+        println("Debug mode: " + debug);
+        println("Max size: " + max);
+        
+        // 验证宏替换
+        if (debug == 1) {
+            println("DEBUG is enabled");
+        }
+        
+        if (max == 100) {
+            println("MAX_SIZE is correct");
+        }
+    }
+}

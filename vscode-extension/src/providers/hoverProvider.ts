@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
  * 提供 Cavvy 语言的悬停提示信息
  */
 export class CavvyHoverProvider implements vscode.HoverProvider {
-    
+
     // 关键字文档
     private keywordDocs: Map<string, string> = new Map([
         ['public', '**public** - 访问修饰符，表示公开的，任何地方都可以访问。\n\n```cavvy\npublic class MyClass {\n    public int value;\n}\n```'],
@@ -39,11 +39,42 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
         ['null', '**null** - 空引用。\n\n```cavvy\nstring s = null;\n```'],
         ['true', '**true** - 布尔真值。'],
         ['false', '**false** - 布尔假值。'],
-        ['import', '**import** - 导入其他包。'],
-        ['package', '**package** - 声明包名。'],
-        ['this', '**this** - 引用当前对象实例。']
+        ['this', '**this** - 引用当前对象实例。'],
+        ['extends', '**extends** - 继承父类。\n\n```cavvy\npublic class Child extends Parent {\n    // ...\n}\n```'],
+        ['implements', '**implements** - 实现接口。\n\n```cavvy\npublic class MyClass implements MyInterface {\n    // ...\n}\n```'],
+        ['interface', '**interface** - 声明接口。'],
+        ['enum', '**enum** - 声明枚举类型。']
     ]);
-    
+
+    // 预处理器指令文档
+    private preprocessorDocs: Map<string, { signature: string; description: string; example: string }> = new Map([
+        ['#define', {
+            signature: '#define MACRO [value]',
+            description: '定义一个预处理器宏。可以用于条件编译或简单的文本替换。',
+            example: '#define DEBUG\n#define VERSION "0.3.5.0"\n#define MAX_SIZE 100'
+        }],
+        ['#ifdef', {
+            signature: '#ifdef MACRO',
+            description: '条件编译：如果指定的宏已定义，则包含后续代码块。必须以 #endif 结束。',
+            example: '#define DEBUG\n\n#ifdef DEBUG\n    println("Debug mode enabled");\n    // 调试代码\n#endif'
+        }],
+        ['#ifndef', {
+            signature: '#ifndef MACRO',
+            description: '条件编译：如果指定的宏未定义，则包含后续代码块。必须以 #endif 结束。',
+            example: '#ifndef RELEASE\n    println("Development mode");\n    // 开发环境代码\n#endif'
+        }],
+        ['#endif', {
+            signature: '#endif',
+            description: '结束条件编译块。与 #ifdef 或 #ifndef 配对使用。',
+            example: '#ifdef DEBUG\n    // 调试代码\n#endif  // 结束条件编译'
+        }],
+        ['#undef', {
+            signature: '#undef MACRO',
+            description: '取消定义一个已定义的宏。',
+            example: '#define DEBUG\n// ... 使用 DEBUG ...\n#undef DEBUG  // 取消定义'
+        }]
+    ]);
+
     // 内置方法文档
     private methodDocs: Map<string, { signature: string; description: string; example: string }> = new Map([
         ['print', {
@@ -56,10 +87,25 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
             description: '打印值到控制台，并在末尾添加换行符。',
             example: 'println("Hello, World!");\nprintln(123);'
         }],
+        ['readInt', {
+            signature: 'readInt() -> long',
+            description: '从标准输入读取一个整数，返回 long 类型。',
+            example: 'long num = readInt();\nprintln("You entered: " + num);'
+        }],
+        ['readFloat', {
+            signature: 'readFloat() -> double',
+            description: '从标准输入读取一个浮点数，返回 double 类型。',
+            example: 'double val = readFloat();\nprintln("Value: " + val);'
+        }],
+        ['readLine', {
+            signature: 'readLine() -> string',
+            description: '从标准输入读取一行字符串。',
+            example: 'string name = readLine();\nprintln("Hello, " + name);'
+        }],
         ['length', {
             signature: 'length() -> int',
             description: '返回字符串或数组的长度。',
-            example: 'string s = "hello";\nint len = s.length();  // 5\nint[] arr = new int[10];\nint arrLen = arr.length();  // 10'
+            example: 'string s = "hello";\nint len = s.length();  // 5\nint[] arr = new int[10];\nint arrLen = arr.length;  // 10'
         }],
         ['charAt', {
             signature: 'charAt(index: int) -> char',
@@ -72,9 +118,9 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
             example: 'string s = "hello world";\nint pos = s.indexOf("world");  // 6\nint notFound = s.indexOf("xyz");  // -1'
         }],
         ['substring', {
-            signature: 'substring(start: int, end: int) -> string',
-            description: '返回从 start（包含）到 end（不包含）的子字符串。',
-            example: 'string s = "hello world";\nstring sub = s.substring(0, 5);  // "hello"'
+            signature: 'substring(start: int, end?: int) -> string',
+            description: '返回从 start（包含）到 end（不包含）的子字符串。如果省略 end，则返回到字符串末尾。',
+            example: 'string s = "hello world";\nstring sub1 = s.substring(0, 5);   // "hello"\nstring sub2 = s.substring(6);      // "world"'
         }],
         ['concat', {
             signature: 'concat(str: string) -> string',
@@ -105,9 +151,29 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
         if (!wordRange) {
             return undefined;
         }
-        
+
         const word = document.getText(wordRange);
-        
+
+        // 检查预处理器指令（需要检查行首）
+        const lineText = document.lineAt(position).text;
+        const trimmedLine = lineText.trim();
+        if (trimmedLine.startsWith('#')) {
+            const directiveMatch = trimmedLine.match(/^#(\w+)/);
+            if (directiveMatch) {
+                const directive = '#' + directiveMatch[1];
+                if (this.preprocessorDocs.has(directive)) {
+                    const doc = this.preprocessorDocs.get(directive);
+                    if (doc) {
+                        const content = new vscode.MarkdownString();
+                        content.appendCodeblock(doc.signature, 'cavvy');
+                        content.appendMarkdown(`\n${doc.description}\n\n**示例：**\n`);
+                        content.appendCodeblock(doc.example, 'cavvy');
+                        return new vscode.Hover(content);
+                    }
+                }
+            }
+        }
+
         // 检查关键字
         if (this.keywordDocs.has(word)) {
             const content = this.keywordDocs.get(word);
@@ -115,7 +181,7 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
                 return new vscode.Hover(new vscode.MarkdownString(content));
             }
         }
-        
+
         // 检查内置方法
         if (this.methodDocs.has(word)) {
             const doc = this.methodDocs.get(word);
@@ -127,7 +193,7 @@ export class CavvyHoverProvider implements vscode.HoverProvider {
                 return new vscode.Hover(content);
             }
         }
-        
+
         return undefined;
     }
 }

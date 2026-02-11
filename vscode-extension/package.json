@@ -2,9 +2,9 @@
   "name": "cavvy-analyzer",
   "displayName": "Cavvy Analyzer",
   "description": "Cavvy (EOL) 语言支持插件 - 语法高亮、跳转定义、语法错误提示",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "publisher": "ethernos-studio",
-  "license": "MIT",
+  "license": "GPL-3.0",
   "engines": {
     "vscode": "^1.74.0"
   },

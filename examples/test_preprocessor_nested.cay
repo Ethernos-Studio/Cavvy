@@ -1,0 +1,29 @@
+// 测试嵌套条件编译
+// 版本: 0.3.5.0
+
+#define OUTER
+
+@main
+public class TestPreprocessorNested {
+    public static void main() {
+        int value = 0;
+        
+        #ifdef OUTER
+            value = value + 1;
+            println("Outer block executed");
+            
+            #ifdef INNER
+                value = value + 10;
+                println("Inner block executed");
+            #endif
+            
+            #ifndef INNER
+                value = value + 100;
+                println("Inner not defined, this executes");
+            #endif
+        #endif
+        
+        println("Final value: " + value);
+        // 预期: value = 101 (1 + 100)
+    }
+}

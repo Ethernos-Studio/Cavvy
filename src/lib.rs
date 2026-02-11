@@ -1,11 +1,13 @@
 pub mod error;
 pub mod types;
 pub mod ast;
+pub mod preprocessor;
 pub mod lexer;
 pub mod parser;
 pub mod semantic;
 pub mod codegen;
 
+use std::path::{Path, PathBuf};
 use error::cayResult;
 
 pub struct Compiler;
@@ -15,6 +17,14 @@ impl Compiler {
         Self
     }
 
+    /// 编译源代码为 LLVM IR
+    /// 
+    /// # Arguments
+    /// * `source` - 原始源代码（已预处理）
+    /// * `output_path` - 输出文件路径
+    /// 
+    /// # Returns
+    /// 编译成功返回 Ok(())
     pub fn compile(&self, source: &str, output_path: &str) -> cayResult<()> {
         // 1. 词法分析
         let tokens = lexer::lex(source)?;
@@ -47,6 +57,34 @@ impl Compiler {
             .map_err(|e| error::cayError::Io(e.to_string()))?;
         
         Ok(())
+    }
+
+    /// 从文件编译，自动执行预处理
+    /// 
+    /// # Arguments
+    /// * `input_path` - 输入源文件路径
+    /// * `output_path` - 输出 LLVM IR 文件路径
+    /// 
+    /// # Returns
+    /// 编译成功返回 Ok(())
+    pub fn compile_file(&self, input_path: &str, output_path: &str) -> cayResult<()> {
+        // 读取源文件
+        let source = std::fs::read_to_string(input_path)
+            .map_err(|e| error::cayError::Io(
+                format!("无法读取源文件 '{}': {}", input_path, e)
+            ))?;
+        
+        // 获取基础目录（用于解析相对路径的 #include）
+        let base_dir = Path::new(input_path)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        
+        // 预处理
+        let preprocessed = preprocessor::preprocess(&source, input_path, base_dir)?;
+        
+        // 编译预处理后的代码
+        self.compile(&preprocessed, output_path)
     }
 }
 
@@ -84,5 +122,32 @@ mod tests {
         let tokens = lexer::lex(source).unwrap();
         let ast = parser::parse(tokens).unwrap();
         println!("AST: {:?}", ast);
+    }
+
+    #[test]
+    fn test_preprocessor_define() {
+        let source = r#"
+#define DEBUG 1
+public class Test {
+    public static void main() {
+        int x = DEBUG;
+    }
+}
+"#;
+        let preprocessed = preprocessor::preprocess(source, "test.cay", ".").unwrap();
+        assert!(preprocessed.contains("int x = 1;"));
+    }
+
+    #[test]
+    fn test_preprocessor_ifdef() {
+        let source = r#"
+#define DEBUG
+#ifdef DEBUG
+public class DebugClass {
+}
+#endif
+"#;
+        let preprocessed = preprocessor::preprocess(source, "test.cay", ".").unwrap();
+        assert!(preprocessed.contains("DebugClass"));
     }
 }

@@ -500,6 +500,7 @@ export class CavvyDiagnosticProvider {
             !trimmedLine.startsWith('import') &&
             !trimmedLine.startsWith('package') &&
             !trimmedLine.startsWith('@') &&
+            !trimmedLine.startsWith('#') &&  // 排除预处理器指令
             lineWithoutComment.length > 0) {
             // 这是一个可能的错误，但不是所有情况都需要分号
             // 例如：if/for/while/switch 语句后面不需要分号

@@ -1,6 +1,6 @@
 (*
  * EOL (Ethernos Object Language) 语法规范 - EBNF 表示
- * 版本: 0.3.4.4
+ * 版本: 0.3.5.0
  *
  * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 EOL 编程语言的语法结构。
  * 符号约定:
@@ -15,10 +15,48 @@
  *)
 
 (* ============================================================================
+ * 预处理器指令
+ * ============================================================================ *)
+
+(* 预处理器指令在编译前处理，支持条件编译 *)
+preprocessor_directive = define_directive
+                       | ifdef_directive
+                       | ifndef_directive
+                       | endif_directive;
+
+(* #define 定义宏 *)
+define_directive = "#define", identifier, [ replacement_text ];
+
+replacement_text = { any_character_except_newline };
+
+(* #ifdef 条件编译 - 如果宏已定义则包含代码 *)
+ifdef_directive = "#ifdef", identifier;
+
+(* #ifndef 条件编译 - 如果宏未定义则包含代码 *)
+ifndef_directive = "#ifndef", identifier;
+
+(* #endif 结束条件编译块 *)
+endif_directive = "#endif";
+
+(* 预处理器指令示例：
+ *   #define DEBUG
+ *   
+ *   #ifdef DEBUG
+ *   result = result + 1;
+ *   println("Debug code included");
+ *   #endif
+ *   
+ *   #ifndef RELEASE
+ *   result = result + 10;
+ *   println("Non-release code included");
+ *   #endif
+ *)
+
+(* ============================================================================
  * 程序结构
  * ============================================================================ *)
 
-program = { class_declaration };
+program = { preprocessor_directive | class_declaration };
 
 class_declaration = [ annotation ], [ modifiers ], "class", identifier, [ ":", identifier ], "{", { class_member }, "}";
 
@@ -326,5 +364,7 @@ escape_sequence = "\\", ( "n" | "t" | "r" | "\\" | "'" | '"' );
 character = any_unicode_character;
 
 any_character_except_double_quote = ? 除双引号外的任何字符 ?;
+
+any_character_except_newline = ? 除换行符外的任何字符 ?;
 
 any_unicode_character = ? 任何 Unicode 字符 ?;

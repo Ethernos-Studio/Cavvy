@@ -1,0 +1,34 @@
+// 测试预处理器 #ifdef / #ifndef / #endif 指令
+// 版本: 0.3.5.0
+
+#define DEBUG
+
+@main
+public class TestPreprocessorIfdef {
+    public static void main() {
+        int result = 0;
+        
+        #ifdef DEBUG
+        result = result + 1;
+        println("Debug code included");
+        #endif
+        
+        #ifndef RELEASE
+        result = result + 10;
+        println("Non-release code included");
+        #endif
+        
+        #ifdef UNDEFINED_MACRO
+        // 这段代码应该被跳过
+        result = result + 100;
+        println("This should not appear");
+        #endif
+        
+        println("Final result: " + result);
+        
+        // 预期输出: result = 11 (1 + 10)
+        if (result == 11) {
+            println("Conditional compilation works correctly!");
+        }
+    }
+}

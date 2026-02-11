@@ -64,6 +64,15 @@ pub enum cayError {
         name: String,
         suggestion: String,
     },
+
+    #[error("预处理器错误 [{line}:{column}]: {message}
+  提示: {suggestion}")]
+    Preprocessor { 
+        line: usize, 
+        column: usize, 
+        message: String,
+        suggestion: String,
+    },
 }
 
 pub type cayResult<T> = Result<T, cayError>;

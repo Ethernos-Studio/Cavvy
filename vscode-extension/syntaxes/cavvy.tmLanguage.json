@@ -5,6 +5,9 @@
   "fileTypes": [".cay", ".eol"],
   "patterns": [
     {
+      "include": "#preprocessor"
+    },
+    {
       "include": "#comments"
     },
     {
@@ -54,6 +57,43 @@
     }
   ],
   "repository": {
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.cavvy",
+          "match": "^(\\s*)(#)(define|ifdef|ifndef|endif|undef|if|elif|else|pragma|include|error|warning)(\\s+)(.*)$",
+          "captures": {
+            "1": {
+              "name": "punctuation.whitespace.preprocessor.leading.cavvy"
+            },
+            "2": {
+              "name": "punctuation.definition.preprocessor.cavvy"
+            },
+            "3": {
+              "name": "keyword.control.preprocessor.cavvy"
+            },
+            "4": {
+              "name": "punctuation.whitespace.preprocessor.cavvy"
+            },
+            "5": {
+              "name": "entity.name.function.preprocessor.cavvy",
+              "patterns": [
+                {
+                  "include": "#strings"
+                },
+                {
+                  "include": "#numbers"
+                },
+                {
+                  "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+                  "name": "entity.name.function.preprocessor.cavvy"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
     "comments": {
       "patterns": [
         {
@@ -99,7 +139,7 @@
         },
         {
           "name": "keyword.other.cavvy",
-          "match": "\\b(class|void|this|null|final|static|abstract|native|public|private|protected)\\b"
+          "match": "\\b(class|void|this|null|final|static|abstract|native|public|private|protected|extends|implements|interface|enum|package|import)\\b"
         }
       ]
     },
@@ -213,7 +253,11 @@
         },
         {
           "name": "keyword.operator.arithmetic.cavvy",
-          "match": "(\\+|-\\+?|--?|\\*|/|%)"
+          "match": "(\\+|-\\+|--?|\\*|/|%)"
+        },
+        {
+          "name": "keyword.operator.varargs.cavvy",
+          "match": "\\.\\.\\."
         }
       ]
     },
