@@ -236,6 +236,8 @@ pub enum Token {
     DoubleColon,
     #[token("->")]
     Arrow,
+    #[token("?")]
+    Question,
 
     // 换行（用于跟踪行号）- 支持 Windows \r\n 和 Unix \n
     #[regex(r"\r?\n")]

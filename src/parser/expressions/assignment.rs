@@ -15,7 +15,8 @@ pub fn parse_expression(parser: &mut Parser) -> cayResult<Expr> {
 /// 解析赋值表达式
 pub fn parse_assignment(parser: &mut Parser) -> cayResult<Expr> {
     let loc = parser.current_loc();
-    let expr = parse_or(parser)?;
+    // 先尝试解析三元运算符，它的优先级低于赋值
+    let expr = parse_ternary(parser)?;
 
     if let Some(op) = match_assignment_op(parser) {
         let value = parse_assignment(parser)?;
@@ -28,6 +29,28 @@ pub fn parse_assignment(parser: &mut Parser) -> cayResult<Expr> {
     }
 
     Ok(expr)
+}
+
+/// 解析三元运算符表达式: condition ? true_expr : false_expr
+fn parse_ternary(parser: &mut Parser) -> cayResult<Expr> {
+    let loc = parser.current_loc();
+    let condition = parse_or(parser)?;
+
+    // 检查是否有 ? 标记
+    if parser.match_token(&crate::lexer::Token::Question) {
+        let true_branch = Box::new(parse_or(parser)?);
+        parser.consume(&crate::lexer::Token::Colon, "Expected ':' after '?' in ternary expression")?;
+        let false_branch = Box::new(parse_ternary(parser)?); // 右结合
+
+        return Ok(Expr::Ternary(TernaryExpr {
+            condition: Box::new(condition),
+            true_branch,
+            false_branch,
+            loc,
+        }));
+    }
+
+    Ok(condition)
 }
 
 /// 匹配赋值操作符

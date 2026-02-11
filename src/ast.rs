@@ -146,6 +146,7 @@ pub enum Expr {
     ArrayInit(ArrayInitExpr),  // 数组初始化: {1, 2, 3}
     MethodRef(MethodRefExpr),  // 方法引用: ClassName::methodName
     Lambda(LambdaExpr),        // Lambda 表达式: (params) -> { body }
+    Ternary(TernaryExpr),      // 三元运算符: condition ? true_expr : false_expr
 }
 
 #[derive(Debug, Clone)]
@@ -308,6 +309,15 @@ pub struct LambdaParam {
 pub enum LambdaBody {
     Expr(Box<Expr>),      // 单表达式: (x) -> x * 2
     Block(Block),         // 语句块: (x) -> { return x * 2; }
+}
+
+/// 三元运算符表达式: condition ? true_expr : false_expr
+#[derive(Debug, Clone)]
+pub struct TernaryExpr {
+    pub condition: Box<Expr>,
+    pub true_branch: Box<Expr>,
+    pub false_branch: Box<Expr>,
+    pub loc: SourceLocation,
 }
 
 impl Program {

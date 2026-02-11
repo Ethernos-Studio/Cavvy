@@ -52,6 +52,7 @@ impl SemanticAnalyzer {
             Expr::ArrayAccess(arr) => self.infer_array_access_type(arr),
             Expr::MethodRef(method_ref) => self.infer_method_ref_type(method_ref),
             Expr::Lambda(lambda) => self.infer_lambda_type(lambda),
+            Expr::Ternary(ternary) => self.infer_ternary_type(ternary),
         }
     }
 
@@ -610,5 +611,43 @@ impl SemanticAnalyzer {
 
         // Lambda 表达式返回 Object 类型（简化处理）
         Ok(Type::Object("Function".to_string()))
+    }
+
+    /// 推断三元运算符表达式类型
+    fn infer_ternary_type(&mut self, ternary: &TernaryExpr) -> cayResult<Type> {
+        // 推断条件表达式类型
+        let cond_type = self.infer_expr_type(&ternary.condition)?;
+        
+        // 条件必须是布尔类型
+        if cond_type != Type::Bool {
+            return Err(semantic_error(
+                ternary.loc.line,
+                ternary.loc.column,
+                format!("Ternary operator condition must be boolean, got {}", cond_type)
+            ));
+        }
+        
+        // 推断两个分支的类型
+        let true_type = self.infer_expr_type(&ternary.true_branch)?;
+        let false_type = self.infer_expr_type(&ternary.false_branch)?;
+        
+        // 两个分支类型必须兼容
+        if true_type == false_type {
+            Ok(true_type)
+        } else if Self::is_numeric_type_helper(&true_type) && Self::is_numeric_type_helper(&false_type) {
+            // 数值类型进行类型提升
+            Ok(self.promote_types(&true_type, &false_type))
+        } else {
+            Err(semantic_error(
+                ternary.loc.line,
+                ternary.loc.column,
+                format!("Ternary operator branches must have compatible types, got {} and {}", true_type, false_type)
+            ))
+        }
+    }
+
+    /// 辅助方法：检查类型是否为数值类型
+    fn is_numeric_type_helper(ty: &Type) -> bool {
+        matches!(ty, Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char)
     }
 }

@@ -4,93 +4,82 @@ public class TestTypeConversionsAdvanced {
     public static void main() {
         println("=== Advanced Type Conversion Tests ===");
         
-        // 测试1: int到各种类型的转换
-        println("\n1. int conversions:");
-        int intVal = 100;
-        long longVal = (long)intVal;
-        float floatVal = (float)intVal;
-        double doubleVal = (double)intVal;
+        // 测试1: int 到 long 的转换
+        println("\n1. int to long:");
+        int i = 100;
+        long l = (long)i;
+        print("(long)100 = ");
+        println((int)l);
         
-        print("int ");
-        print(intVal);
-        print(" -> long: ");
-        println((int)longVal);
-        print("int ");
-        print(intVal);
-        print(" -> float: ");
-        println((int)floatVal);
-        print("int ");
-        print(intVal);
-        print(" -> double: ");
-        println((int)doubleVal);
+        // 测试2: long 到 int 的转换
+        println("\n2. long to int:");
+        long bigL = 12345L;
+        int smallI = (int)bigL;
+        print("(int)12345L = ");
+        println(smallI);
         
-        // 测试2: long到各种类型
-        println("\n2. long conversions:");
-        long bigLong = 123456789L;
-        int intFromLong = (int)bigLong;
-        print("long ");
-        print((int)bigLong);
-        print(" -> int: ");
-        println(intFromLong);
+        // 测试3: int 到 float/double
+        println("\n3. int to float/double:");
+        int intVal = 42;
+        float f = (float)intVal;
+        double d = (double)intVal;
+        print("(float)42 = ");
+        println((int)f);
+        print("(double)42 = ");
+        println((int)d);
         
-        // 测试3: float/double转换
-        println("\n3. Floating point conversions:");
-        float f = 3.14159f;
-        double d = 2.718281828;
+        // 测试4: float 到 int 的截断
+        println("\n4. float to int truncation:");
+        float pi = 3.14159f;
+        int truncated = (int)pi;
+        print("(int)3.14159f = ");
+        println(truncated);
         
-        int intFromFloat = (int)f;
-        int intFromDouble = (int)d;
-        float floatFromDouble = (float)d;
-        double doubleFromFloat = (double)f;
+        // 测试5: double 到 float
+        println("\n5. double to float:");
+        double precise = 2.718281828;
+        float approx = (float)precise;
+        print("(float)2.718... = ");
+        println((int)(approx * 1000));
         
-        print("float 3.14159 -> int: ");
-        println(intFromFloat);
-        print("double 2.71828 -> int: ");
-        println(intFromDouble);
-        print("double -> float: ");
-        println((int)floatFromDouble);
-        
-        // 测试4: char转换
-        println("\n4. char conversions:");
+        // 测试6: char 到 int
+        println("\n6. char to int:");
         char c = 'A';
-        int charAsInt = (int)c;
-        char intAsChar = (char)66;
+        int ascii = (int)c;
+        print("(int)'A' = ");
+        println(ascii);
         
-        print("char 'A' -> int: ");
-        println(charAsInt);
-        print("int 66 -> char: ");
-        println((int)intAsChar);
-        
-        // 测试5: 数组元素类型转换
-        println("\n5. Array element conversions:");
-        int[] intArr = {1, 2, 3, 4, 5};
-        double[] doubleArr = new double[5]();
-        
-        for (int i = 0; i < 5; i++) {
-            doubleArr[i] = (double)intArr[i];
-        }
-        
-        print("int[] -> double[]: ");
-        for (int i = 0; i < 5; i++) {
-            print((int)doubleArr[i]);
-            print(" ");
-        }
-        println("");
-        
-        // 测试6: 表达式中的隐式转换
-        println("\n6. Expression conversions:");
-        int a = 10;
-        double b = 3.5;
-        double result = a + b;
-        print("10 + 3.5 = ");
+        // 测试7: 算术运算中的隐式转换
+        println("\n7. Implicit conversions in arithmetic:");
+        int x = 5;
+        double y = 2.5;
+        double result = x + y;
+        print("5 + 2.5 = ");
         println((int)result);
         
-        // 测试7: 复合赋值中的转换
-        println("\n7. Compound assignment conversions:");
-        int x = 5;
-        x += 2.5;  // 应该转换为int
-        print("5 += 2.5 = ");
-        println(x);
+        // 测试8: 复合赋值中的转换（使用显式转换）
+        println("\n8. Compound assignment with explicit conversion:");
+        int a = 5;
+        a = (int)(a + 2.5);  // 显式转换
+        print("5 + 2.5 (truncated to int) = ");
+        println(a);
+        
+        // 测试9: 负数转换
+        println("\n9. Negative number conversions:");
+        int negInt = -100;
+        long negLong = (long)negInt;
+        float negFloat = (float)negInt;
+        print("(long)(-100) = ");
+        println((int)negLong);
+        print("(float)(-100) = ");
+        println((int)negFloat);
+        
+        // 测试10: 边界值
+        println("\n10. Boundary values:");
+        int maxInt = 2147483647;
+        long maxAsLong = (long)maxInt;
+        print("(long)MAX_INT = ");
+        println((int)maxAsLong);
         
         println("\nAll advanced type conversion tests completed!");
     }

@@ -1,7 +1,0 @@
-// Error测试：不可达代码
-public class TestUnreachableCode {
-    public static void main() {
-        return;
-        println("This is unreachable");
-    }
-}

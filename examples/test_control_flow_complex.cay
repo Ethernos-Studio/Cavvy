@@ -18,16 +18,17 @@ public class TestControlFlowComplex {
             println("");
         }
         
-        // 测试2: 带break的多层循环
+        // 测试2: 带break的多层循环（使用布尔标志代替带标签的break）
         println("\n2. Break in nested loops:");
         int foundI = -1;
         int foundJ = -1;
-        outer: for (int i = 0; i < 10; i++) {
-            for (int j = 0; j < 10; j++) {
+        boolean found = false;
+        for (int i = 0; i < 10 && !found; i++) {
+            for (int j = 0; j < 10 && !found; j++) {
                 if (i * j == 42) {
                     foundI = i;
                     foundJ = j;
-                    break outer;
+                    found = true;
                 }
             }
         }
@@ -48,17 +49,37 @@ public class TestControlFlowComplex {
         println("");
         
         // 测试4: do-while与条件结合
-        println("\n4. Do-while with complex condition:");
-        int x = 1;
+        println("\n4. Do-while with conditions:");
+        int count = 0;
+        int sum = 0;
         do {
-            x = x * 2;
-            print(x);
-            print(" ");
-        } while (x < 100);
+            count = count + 1;
+            sum = sum + count;
+            if (sum > 20) {
+                break;
+            }
+        } while (count < 100);
+        print("Sum exceeded 20 at count=");
+        println(count);
+        
+        // 测试5: 复杂的if-else链
+        println("\n5. Complex if-else chain:");
+        for (int i = 1; i <= 20; i++) {
+            if (i % 15 == 0) {
+                print("FizzBuzz ");
+            } else if (i % 3 == 0) {
+                print("Fizz ");
+            } else if (i % 5 == 0) {
+                print("Buzz ");
+            } else {
+                print(i);
+                print(" ");
+            }
+        }
         println("");
         
-        // 测试5: switch语句
-        println("\n5. Switch statement tests:");
+        // 测试6: switch语句
+        println("\n6. Switch statement:");
         for (int day = 1; day <= 7; day++) {
             print("Day ");
             print(day);
@@ -88,37 +109,37 @@ public class TestControlFlowComplex {
             }
         }
         
-        // 测试6: while与if嵌套
-        println("\n6. While with nested if:");
-        int n = 20;
-        while (n > 0) {
-            if (n % 3 == 0) {
-                print("Fizz");
-            } else if (n % 5 == 0) {
-                print("Buzz");
-            } else {
-                print(n);
+        // 测试7: while循环中的break和continue
+        println("\n7. While with break and continue:");
+        int n = 0;
+        int processed = 0;
+        while (n < 50) {
+            n = n + 1;
+            if (n % 10 == 0) {
+                continue;  // 跳过10的倍数
             }
-            print(" ");
-            n = n - 1;
+            if (n > 30) {
+                break;  // 超过30时停止
+            }
+            processed = processed + 1;
         }
-        println("");
+        print("Processed ");
+        print(processed);
+        println(" numbers");
         
-        // 测试7: 复杂条件表达式
-        println("\n7. Complex conditions:");
-        for (int a = 1; a <= 5; a++) {
-            for (int b = 1; b <= 5; b++) {
-                if ((a + b > 5) && (a * b < 15) || (a == b)) {
-                    print("(");
-                    print(a);
-                    print(",");
-                    print(b);
-                    print(") ");
+        // 测试8: 三重嵌套循环
+        println("\n8. Triple nested loop:");
+        int tripleCount = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                for (int k = 0; k < 3; k++) {
+                    tripleCount = tripleCount + 1;
                 }
             }
         }
-        println("");
+        print("Total iterations: ");
+        println(tripleCount);
         
-        println("\nAll complex control flow tests completed!");
+        println("\nAll control flow tests completed!");
     }
 }

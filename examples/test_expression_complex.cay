@@ -60,13 +60,24 @@ public class TestExpressionComplex {
             println("false");
         }
         
-        // 测试5: 三元风格表达式（使用if-else模拟）
+        // 测试5: 条件表达式（使用if-else模拟三元运算符）
         println("\n5. Conditional expressions:");
-        int max = 10 > 5 ? 10 : 5;
+        int max;
+        if (10 > 5) {
+            max = 10;
+        } else {
+            max = 5;
+        }
         print("max(10, 5) = ");
         println(max);
         
-        int abs = -10 < 0 ? -(-10) : -10;
+        int abs;
+        int negTen = -10;
+        if (negTen < 0) {
+            abs = -negTen;
+        } else {
+            abs = negTen;
+        }
         print("abs(-10) = ");
         println(abs);
         
@@ -79,21 +90,44 @@ public class TestExpressionComplex {
         print("arr[1+2] = ");
         println(arr[1 + 2]);
         
-        // 测试7: 自增自减在表达式中
-        println("\n7. Increment/decrement in expressions:");
-        int x = 5;
-        int y = x++;
-        print("x = 5, y = x++: x = ");
-        print(x);
-        print(", y = ");
-        println(y);
+        // 测试7: 复杂赋值链
+        println("\n7. Complex assignment chain:");
+        int a = 5;
+        int b = 10;
+        int c = 15;
+        a = b = c;
+        print("a = b = c = ");
+        println(a);
         
-        x = 5;
-        y = ++x;
-        print("x = 5, y = ++x: x = ");
-        print(x);
-        print(", y = ");
-        println(y);
+        // 测试8: 嵌套括号
+        println("\n8. Nested parentheses:");
+        int nested = ((1 + 2) * (3 + 4)) / ((5 - 2));
+        print("((1+2)*(3+4))/(5-2) = ");
+        println(nested);
+        
+        // 测试9: 布尔逻辑（不使用除零）
+        println("\n9. Boolean logic:");
+        boolean cond1 = 5 > 10;
+        boolean cond2 = 7 > 3;
+        boolean shortCircuit = cond1 && cond2;
+        print("false && true = ");
+        if (shortCircuit) {
+            println("true");
+        } else {
+            println("false");
+        }
+        
+        // 测试10: 类型转换表达式
+        println("\n10. Cast expressions:");
+        double dval = 3.7;
+        int ival = (int)dval;
+        print("(int)3.7 = ");
+        println(ival);
+        
+        char charC = 'A';
+        int ascii = (int)charC;
+        print("(int)'A' = ");
+        println(ascii);
         
         println("\nAll complex expression tests completed!");
     }

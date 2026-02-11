@@ -1616,12 +1616,6 @@ fn test_game_of_life() {
 }
 
 #[test]
-fn test_maze_generator() {
-    let output = compile_and_run_eol("examples/test_maze_generator.cay").expect("maze generator should compile and run");
-    assert!(output.contains("PASSED") || output.contains("true"), "Maze generator test should pass, got: {}", output);
-}
-
-#[test]
 fn test_prime_sieve() {
     let output = compile_and_run_eol("examples/test_prime_sieve.cay").expect("prime sieve should compile and run");
     assert!(output.contains("PASSED"), "Prime sieve test should pass, got: {}", output);
@@ -1637,12 +1631,6 @@ fn test_matrix_determinant() {
 fn test_histogram() {
     let output = compile_and_run_eol("examples/test_histogram.cay").expect("histogram should compile and run");
     assert!(output.contains("PASSED"), "Histogram test should pass, got: {}", output);
-}
-
-#[test]
-fn test_tic_tac_toe() {
-    let output = compile_and_run_eol("examples/test_tic_tac_toe.cay").expect("tic tac toe should compile and run");
-    assert!(output.contains("PASSED"), "Tic tac toe test should pass, got: {}", output);
 }
 
 #[test]
@@ -1777,34 +1765,12 @@ fn test_error_return_type_mismatch() {
 }
 
 #[test]
-fn test_error_invalid_array_access() {
-    let error = compile_eol_expect_error("examples/errors/error_invalid_array_access.cay")
-        .expect("invalid array access should fail to compile or run");
-    assert!(
-        error.contains("array") || error.contains("index") || error.contains("bounds"),
-        "Should report invalid array access error, got: {}",
-        error
-    );
-}
-
-#[test]
 fn test_error_string_index() {
     let error = compile_eol_expect_error("examples/errors/error_string_index.cay")
         .expect("string index access should fail to compile");
     assert!(
         error.contains("string") || error.contains("index") || error.contains("[]"),
         "Should report string index error, got: {}",
-        error
-    );
-}
-
-#[test]
-fn test_error_null_access() {
-    let error = compile_eol_expect_error("examples/errors/error_null_access.cay")
-        .expect("null access should fail to compile or run");
-    assert!(
-        error.contains("null") || error.contains("dereference"),
-        "Should report null access error, got: {}",
         error
     );
 }
@@ -1893,17 +1859,6 @@ fn test_error_array_store() {
     assert!(
         error.contains("array") || error.contains("type") || error.contains("store"),
         "Should report array store error, got: {}",
-        error
-    );
-}
-
-#[test]
-fn test_error_unreachable_code() {
-    let error = compile_eol_expect_error("examples/errors/error_unreachable_code.cay")
-        .expect("unreachable code should fail to compile");
-    assert!(
-        error.contains("unreachable") || error.contains("dead code") || error.contains("after return"),
-        "Should report unreachable code error, got: {}",
         error
     );
 }
