@@ -30,9 +30,14 @@ impl Parser {
     /// 解析整个程序
     pub fn parse(&mut self) -> cayResult<Program> {
         let mut classes = Vec::new();
-        
+        let mut interfaces = Vec::new();
+
         while !self.is_at_end() {
-            if self.check(&crate::lexer::Token::Class)
+            if self.check(&crate::lexer::Token::Interface)
+                || (self.check(&crate::lexer::Token::Public) && self.check_next(&crate::lexer::Token::Interface))
+            {
+                interfaces.push(self.parse_interface()?);
+            } else if self.check(&crate::lexer::Token::Class)
                 || self.check(&crate::lexer::Token::Public)
                 || self.check(&crate::lexer::Token::Private)
                 || self.check(&crate::lexer::Token::Protected)
@@ -40,34 +45,38 @@ impl Parser {
             {
                 classes.push(self.parse_class()?);
             } else {
-                return Err(self.error("Expected class declaration"));
+                return Err(self.error("Expected class or interface declaration"));
             }
         }
-        
-        Ok(Program { classes })
+
+        Ok(Program { classes, interfaces })
     }
 
     // 类解析方法
     fn parse_class(&mut self) -> cayResult<crate::ast::ClassDecl> {
         classes::parse_class(self)
     }
-    
+
+    fn parse_interface(&mut self) -> cayResult<crate::ast::InterfaceDecl> {
+        classes::parse_interface(self)
+    }
+
     fn parse_class_member(&mut self) -> cayResult<crate::ast::ClassMember> {
         classes::parse_class_member(self)
     }
-    
+
     fn parse_field(&mut self) -> cayResult<crate::ast::FieldDecl> {
         classes::parse_field(self)
     }
-    
+
     fn parse_method(&mut self) -> cayResult<crate::ast::MethodDecl> {
         classes::parse_method(self)
     }
-    
+
     fn parse_modifiers(&mut self) -> cayResult<Vec<crate::ast::Modifier>> {
         classes::parse_modifiers(self)
     }
-    
+
     fn parse_parameters(&mut self) -> cayResult<Vec<crate::types::ParameterInfo>> {
         classes::parse_parameters(self)
     }
@@ -219,7 +228,11 @@ impl Parser {
     fn check(&self, token: &crate::lexer::Token) -> bool {
         utils::check(self, token)
     }
-    
+
+    fn check_next(&self, token: &crate::lexer::Token) -> bool {
+        utils::check_next(self, token)
+    }
+
     fn match_token(&mut self, token: &crate::lexer::Token) -> bool {
         utils::match_token(self, token)
     }

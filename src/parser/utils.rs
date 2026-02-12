@@ -86,3 +86,12 @@ pub fn error(parser: &Parser, message: &str) -> cayError {
     let loc = &parser.tokens[parser.pos].loc;
     parser_error(loc.line, loc.column, message)
 }
+
+/// 检查下一个令牌是否匹配给定令牌
+pub fn check_next(parser: &Parser, token: &Token) -> bool {
+    if parser.pos + 1 >= parser.tokens.len() - 1 {
+        false
+    } else {
+        &parser.tokens[parser.pos + 1].token == token
+    }
+}

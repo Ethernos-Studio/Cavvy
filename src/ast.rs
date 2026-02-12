@@ -4,6 +4,15 @@ use crate::error::SourceLocation;
 #[derive(Debug, Clone)]
 pub struct Program {
     pub classes: Vec<ClassDecl>,
+    pub interfaces: Vec<InterfaceDecl>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterfaceDecl {
+    pub name: String,
+    pub modifiers: Vec<Modifier>,
+    pub methods: Vec<MethodDecl>,
+    pub loc: SourceLocation,
 }
 
 #[derive(Debug, Clone)]
@@ -11,6 +20,7 @@ pub struct ClassDecl {
     pub name: String,
     pub modifiers: Vec<Modifier>,
     pub parent: Option<String>,
+    pub interfaces: Vec<String>,  // 实现的接口列表
     pub members: Vec<ClassMember>,
     pub loc: SourceLocation,
 }
@@ -148,6 +158,7 @@ pub enum Expr {
     MethodRef(MethodRefExpr),  // 方法引用: ClassName::methodName
     Lambda(LambdaExpr),        // Lambda 表达式: (params) -> { body }
     Ternary(TernaryExpr),      // 三元运算符: condition ? true_expr : false_expr
+    InstanceOf(InstanceOfExpr), // instanceof 运算符: obj instanceof Type
 }
 
 #[derive(Debug, Clone)]
@@ -321,12 +332,20 @@ pub struct TernaryExpr {
     pub loc: SourceLocation,
 }
 
+/// instanceof 表达式: obj instanceof Type
+#[derive(Debug, Clone)]
+pub struct InstanceOfExpr {
+    pub expr: Box<Expr>,
+    pub target_type: crate::types::Type,
+    pub loc: SourceLocation,
+}
+
 impl Program {
     pub fn find_main_class(&self) -> Option<&ClassDecl> {
         self.classes.iter().find(|c| {
             c.members.iter().any(|m| {
                 if let ClassMember::Method(method) = m {
-                    method.name == "main" 
+                    method.name == "main"
                         && method.modifiers.contains(&Modifier::Public)
                         && method.modifiers.contains(&Modifier::Static)
                         && method.params.is_empty()
@@ -336,5 +355,14 @@ impl Program {
                 }
             })
         })
+    }
+}
+
+impl Default for Program {
+    fn default() -> Self {
+        Self {
+            classes: Vec::new(),
+            interfaces: Vec::new(),
+        }
     }
 }

@@ -1977,3 +1977,18 @@ fn test_error_include_cycle() {
         error
     );
 }
+
+// ==================== 0.4.1.0 接口、抽象类和 instanceof 测试 ====================
+
+#[test]
+fn test_instanceof() {
+    let output = compile_and_run_eol("examples/test_instanceof.cay").expect("instanceof should compile and run");
+    assert!(output.contains("shape instanceof Shape: true"),
+            "Should report shape is Shape, got: {}", output);
+    assert!(output.contains("rect instanceof Rectangle: true"),
+            "Should report rect is Rectangle, got: {}", output);
+    assert!(output.contains("rect instanceof Shape: true"),
+            "Should report rect is Shape (inheritance), got: {}", output);
+    assert!(output.contains("rect instanceof Drawable: true"),
+            "Should report rect is Drawable (interface), got: {}", output);
+}

@@ -1,7 +1,7 @@
 //! 类相关解析
 
 use crate::ast::*;
-use crate::types::{Type, ParameterInfo};
+use crate::types::{Type, ParameterInfo, InterfaceInfo};
 use crate::error::cayResult;
 use crate::lexer::Token;
 use crate::error::SourceLocation;
@@ -18,9 +18,9 @@ pub fn parse_class(parser: &mut Parser) -> cayResult<ClassDecl> {
     let modifiers = parse_modifiers(parser)?;
 
     parser.consume(&Token::Class, "Expected 'class' keyword")?;
-    
+
     let name = parser.consume_identifier("Expected class name")?;
-    
+
     // 支持 extends 关键字或 : 符号作为继承语法
     let parent = if parser.match_token(&Token::Extends) {
         Some(parser.consume_identifier("Expected parent class name after 'extends'")?)
@@ -30,21 +30,94 @@ pub fn parse_class(parser: &mut Parser) -> cayResult<ClassDecl> {
     } else {
         None
     };
-    
+
+    // 解析实现的接口
+    let mut interfaces = Vec::new();
+    if parser.match_token(&Token::Implements) {
+        loop {
+            let interface_name = parser.consume_identifier("Expected interface name")?;
+            interfaces.push(interface_name);
+            if !parser.match_token(&Token::Comma) {
+                break;
+            }
+        }
+    }
+
     parser.consume(&Token::LBrace, "Expected '{' after class declaration")?;
-    
+
     let mut members = Vec::new();
     while !parser.check(&Token::RBrace) && !parser.is_at_end() {
         members.push(parse_class_member(parser)?);
     }
-    
+
     parser.consume(&Token::RBrace, "Expected '}' after class body")?;
-    
+
     Ok(ClassDecl {
         name,
         modifiers,
         parent,
+        interfaces,
         members,
+        loc,
+    })
+}
+
+/// 解析接口声明
+pub fn parse_interface(parser: &mut Parser) -> cayResult<InterfaceDecl> {
+    let loc = parser.current_loc();
+
+    // 解析修饰符
+    let modifiers = parse_modifiers(parser)?;
+
+    parser.consume(&Token::Interface, "Expected 'interface' keyword")?;
+
+    let name = parser.consume_identifier("Expected interface name")?;
+
+    parser.consume(&Token::LBrace, "Expected '{' after interface declaration")?;
+
+    // 接口只能包含方法声明（没有方法体）
+    let mut methods = Vec::new();
+    while !parser.check(&Token::RBrace) && !parser.is_at_end() {
+        methods.push(parse_interface_method(parser)?);
+    }
+
+    parser.consume(&Token::RBrace, "Expected '}' after interface body")?;
+
+    Ok(InterfaceDecl {
+        name,
+        modifiers,
+        methods,
+        loc,
+    })
+}
+
+/// 解析接口方法（只有声明，没有实现）
+fn parse_interface_method(parser: &mut Parser) -> cayResult<MethodDecl> {
+    let loc = parser.current_loc();
+    let modifiers = parse_modifiers(parser)?;
+
+    let return_type = if parser.check(&Token::Void) {
+        parser.advance();
+        Type::Void
+    } else {
+        parse_type(parser)?
+    };
+
+    let name = parser.consume_identifier("Expected method name")?;
+
+    parser.consume(&Token::LParen, "Expected '(' after method name")?;
+    let params = parse_parameters(parser)?;
+    parser.consume(&Token::RParen, "Expected ')' after parameters")?;
+
+    // 接口方法必须以分号结束，没有方法体
+    parser.consume(&Token::Semicolon, "Expected ';' after interface method declaration")?;
+
+    Ok(MethodDecl {
+        name,
+        modifiers,
+        return_type,
+        params,
+        body: None,  // 接口方法没有方法体
         loc,
     })
 }

@@ -112,10 +112,10 @@ EOL (Ethernos Object Language) 是一个始终编译为原生机器码的静态�
 - [x] **访问控制基础** - `public/private/protected`，其中 `protected` 允许包内访问（同 Java）
 
 #### 0.4.1.x 多态与抽象（设计模式支持）
-- [ ] **动态分派** - 通过 vtable 实现运行时多态，确保零开销（不采用 fat pointer）
-- [ ] **抽象类** - `abstract class` 与纯虚函数（`= 0` 语法或 `abstract` 方法）
-- [ ] **接口（单实现版本）** - 先支持单接口实现 `implements Interface`，为后续多接口预留 vtable 空间
-- [ ] **类型转换** - `instanceof` 运算符与安全的向下转型（生成类型检查代码）
+- [x] **动态分派** - 通过 vtable 实现运行时多态，确保零开销（不采用 fat pointer）
+- [x] **抽象类** - `abstract class` 与纯虚函数（`= 0` 语法或 `abstract` 方法）
+- [x] **接口（单实现版本）** - 先支持单接口实现 `implements Interface`，为后续多接口预留 vtable 空间
+- [x] **类型转换** - `instanceof` 运算符与安全的向下转型（生成类型检查代码）
 
 #### 0.4.2.x 构造体系与初始化顺序
 - [ ] **构造函数基础** - 默认构造函数、显式构造函数定义

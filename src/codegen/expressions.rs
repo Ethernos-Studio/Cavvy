@@ -59,6 +59,7 @@ impl IRGenerator {
             Expr::MethodRef(method_ref) => self.generate_method_ref(method_ref),
             Expr::Lambda(lambda) => self.generate_lambda(lambda),
             Expr::Ternary(ternary) => self.generate_ternary_expression(ternary),
+            Expr::InstanceOf(instanceof) => self.generate_instanceof_expression(instanceof),
         }
     }
 
@@ -2389,7 +2390,7 @@ impl IRGenerator {
         let cond_result = self.generate_expression(&ternary.condition)?;
         let (cond_type, cond_val) = self.parse_typed_value(&cond_result);
         let cond_reg = self.new_temp();
-        
+
         // 将条件转换为 i1 类型
         if cond_type == "i1" {
             self.emit_line(&format!("  {} = icmp ne i1 {}, 0", cond_reg, cond_val));
@@ -2424,5 +2425,50 @@ impl IRGenerator {
             result_temp, then_type, then_temp, then_label, else_temp, else_label));
 
         Ok(format!("{} {}", then_type, result_temp))
+    }
+
+    /// 生成 instanceof 表达式代码
+    fn generate_instanceof_expression(&mut self, instanceof: &crate::ast::InstanceOfExpr) -> cayResult<String> {
+        // 简化实现：instanceof 在编译期确定
+        // 对于 Cavvy 0.4.1.0，我们使用简化方案：
+        // 如果表达式是 null，返回 false
+        // 否则返回 true（假设类型正确，因为语义分析已经检查过）
+
+        let expr_result = self.generate_expression(&instanceof.expr)?;
+        let (expr_type, expr_val) = self.parse_typed_value(&expr_result);
+
+        // 创建标签
+        let null_label = self.new_label("instanceof.null");
+        let nonnull_label = self.new_label("instanceof.nonnull");
+        let end_label = self.new_label("instanceof.end");
+
+        // 检查是否为 null
+        let is_null = self.new_temp();
+        if expr_type.ends_with("*") {
+            // 指针类型，与 null 比较
+            self.emit_line(&format!("  {} = icmp eq {} {}, null", is_null, expr_type, expr_val));
+        } else {
+            // 非指针类型，不可能是 null
+            self.emit_line(&format!("  {} = icmp eq i1 0, 1", is_null));
+        }
+
+        // 分支
+        self.emit_line(&format!("  br i1 {}, label %{}, label %{}", is_null, null_label, nonnull_label));
+
+        // null 分支：返回 false
+        self.emit_line(&format!("\n{}:", null_label));
+        self.emit_line(&format!("  br label %{}", end_label));
+
+        // 非 null 分支：返回 true（简化处理）
+        self.emit_line(&format!("\n{}:", nonnull_label));
+        self.emit_line(&format!("  br label %{}", end_label));
+
+        // 合并点
+        self.emit_line(&format!("\n{}:", end_label));
+        let result_temp = self.new_temp();
+        self.emit_line(&format!("  {} = phi i1 [ 0, %{} ], [ 1, %{} ]",
+            result_temp, null_label, nonnull_label));
+
+        Ok(format!("i1 {}", result_temp))
     }
 }

@@ -56,12 +56,21 @@ endif_directive = "#endif";
  * 程序结构
  * ============================================================================ *)
 
-program = { preprocessor_directive | class_declaration };
+program = { preprocessor_directive | class_declaration | interface_declaration };
 
-class_declaration = [ annotation ], [ modifiers ], "class", identifier, [ inheritance ], "{", { class_member }, "}";
+class_declaration = [ annotation ], [ modifiers ], "class", identifier, [ inheritance ], [ implementation ], "{", { class_member }, "}";
 
 (* 继承声明 - 支持 extends 关键字或 : 符号 *)
 inheritance = "extends", identifier | ":", identifier;
+
+(* 接口实现声明 *)
+implementation = "implements", identifier, { ",", identifier };
+
+(* 接口声明 *)
+interface_declaration = [ modifiers ], "interface", identifier, "{", { interface_method_declaration }, "}";
+
+(* 接口方法声明 - 只有声明，没有实现 *)
+interface_method_declaration = [ modifiers ], ( type | "void" ), identifier, "(", [ parameter_list ], ")", ";";
 
 (* 主类注解 - 用于显式指定程序入口类 *)
 annotation = "@", identifier;
@@ -196,7 +205,7 @@ bitwise_and_expression = equality_expression, { "&", equality_expression };
 
 equality_expression = relational_expression, { ( "==" | "!=" ), relational_expression };
 
-relational_expression = shift_expression, { ( "<" | "<=" | ">" | ">=" ), shift_expression };
+relational_expression = shift_expression, { ( "<" | "<=" | ">" | ">=" | "instanceof" ), shift_expression };
 
 shift_expression = additive_expression, { ( "<<" | ">>" | ">>>" ), additive_expression };
 

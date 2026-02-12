@@ -29,6 +29,14 @@ pub struct ClassInfo {
     pub methods: HashMap<String, Vec<MethodInfo>>,  // 支持方法重载：同名方法可以有多个
     pub fields: HashMap<String, FieldInfo>,
     pub parent: Option<String>,
+    pub interfaces: Vec<String>,  // 实现的接口列表
+    pub is_abstract: bool,  // 是否是抽象类
+}
+
+#[derive(Debug, Clone)]
+pub struct InterfaceInfo {
+    pub name: String,
+    pub methods: HashMap<String, MethodInfo>,
 }
 
 impl ClassInfo {
@@ -229,12 +237,14 @@ impl fmt::Display for Type {
 #[derive(Debug, Clone)]
 pub struct TypeRegistry {
     pub classes: HashMap<String, ClassInfo>,
+    pub interfaces: HashMap<String, InterfaceInfo>,
 }
 
 impl TypeRegistry {
     pub fn new() -> Self {
         Self {
             classes: HashMap::new(),
+            interfaces: HashMap::new(),
         }
     }
 
@@ -248,6 +258,26 @@ impl TypeRegistry {
         }
         self.classes.insert(name, class_info);
         Ok(())
+    }
+
+    pub fn register_interface(&mut self, interface_info: InterfaceInfo) -> crate::error::cayResult<()> {
+        let name = interface_info.name.clone();
+        if self.interfaces.contains_key(&name) {
+            return Err(crate::error::semantic_error(
+                0, 0,
+                format!("Interface '{}' already defined", name)
+            ));
+        }
+        self.interfaces.insert(name, interface_info);
+        Ok(())
+    }
+
+    pub fn get_interface(&self, name: &str) -> Option<&InterfaceInfo> {
+        self.interfaces.get(name)
+    }
+
+    pub fn interface_exists(&self, name: &str) -> bool {
+        self.interfaces.contains_key(name)
     }
 
     pub fn get_class(&self, name: &str) -> Option<&ClassInfo> {
@@ -297,5 +327,18 @@ impl TypeRegistry {
 impl Default for TypeRegistry {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl InterfaceInfo {
+    pub fn new(name: String) -> Self {
+        Self {
+            name,
+            methods: HashMap::new(),
+        }
+    }
+
+    pub fn add_method(&mut self, method: MethodInfo) {
+        self.methods.insert(method.name.clone(), method);
     }
 }

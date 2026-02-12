@@ -127,7 +127,7 @@ pub fn parse_equality(parser: &mut Parser) -> cayResult<Expr> {
     Ok(left)
 }
 
-/// 解析比较表达式
+/// 解析比较表达式（包括 instanceof）
 pub fn parse_comparison(parser: &mut Parser) -> cayResult<Expr> {
     let mut left = parse_shift(parser)?;
 
@@ -163,6 +163,14 @@ pub fn parse_comparison(parser: &mut Parser) -> cayResult<Expr> {
                 left: Box::new(left),
                 op: BinaryOp::Ge,
                 right: Box::new(right),
+                loc,
+            });
+        } else if parser.match_token(&crate::lexer::Token::InstanceOf) {
+            // 解析 instanceof 表达式
+            let target_type = super::super::types::parse_type(parser)?;
+            left = Expr::InstanceOf(InstanceOfExpr {
+                expr: Box::new(left),
+                target_type,
                 loc,
             });
         } else {

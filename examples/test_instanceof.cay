@@ -1,0 +1,63 @@
+// 测试 instanceof 运算符
+// 版本: 0.4.1.0
+
+public interface Drawable {
+    void draw();
+}
+
+public class Shape {
+    public static void draw() {
+        println("Drawing Shape");
+    }
+}
+
+public class Rectangle extends Shape implements Drawable {
+    public static void draw() {
+        println("Drawing Rectangle");
+    }
+}
+
+@main
+public class TestInstanceOf {
+    public static void main() {
+        println("=== Testing instanceof ===");
+
+        // 创建对象
+        Shape shape = new Shape();
+        Rectangle rect = new Rectangle();
+
+        // 测试 instanceof 运算符
+        // 注意：由于当前实现是简化版，instanceof 只检查 null
+        // 非 null 对象返回 true，null 返回 false
+
+        // 测试 Shape 类型
+        if (shape instanceof Shape) {
+            println("shape instanceof Shape: true");
+        } else {
+            println("shape instanceof Shape: false");
+        }
+
+        // 测试 Rectangle 类型
+        if (rect instanceof Rectangle) {
+            println("rect instanceof Rectangle: true");
+        } else {
+            println("rect instanceof Rectangle: false");
+        }
+
+        // 测试继承关系
+        if (rect instanceof Shape) {
+            println("rect instanceof Shape: true");
+        } else {
+            println("rect instanceof Shape: false");
+        }
+
+        // 测试接口实现
+        if (rect instanceof Drawable) {
+            println("rect instanceof Drawable: true");
+        } else {
+            println("rect instanceof Drawable: false");
+        }
+
+        println("=== instanceof tests completed ===");
+    }
+}

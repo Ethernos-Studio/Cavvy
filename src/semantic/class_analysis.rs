@@ -89,14 +89,42 @@ impl SemanticAnalyzer {
 
     /// 收集类定义
     pub fn collect_classes(&mut self, program: &Program) -> cayResult<()> {
+        // 首先收集接口定义
+        for interface in &program.interfaces {
+            let mut interface_info = crate::types::InterfaceInfo::new(interface.name.clone());
+
+            // 收集接口方法
+            for method in &interface.methods {
+                let method_info = MethodInfo {
+                    name: method.name.clone(),
+                    class_name: interface.name.clone(),
+                    params: method.params.clone(),
+                    return_type: method.return_type.clone(),
+                    is_public: true,  // 接口方法默认是public
+                    is_private: false,
+                    is_protected: false,
+                    is_static: false,
+                    is_native: false,
+                    is_override: false,
+                };
+                interface_info.add_method(method_info);
+            }
+
+            self.type_registry.register_interface(interface_info)?;
+        }
+
+        // 然后收集类定义
         for class in &program.classes {
+            let is_abstract = class.modifiers.contains(&Modifier::Abstract);
             let mut class_info = ClassInfo {
                 name: class.name.clone(),
                 methods: std::collections::HashMap::new(),
                 fields: std::collections::HashMap::new(),
                 parent: class.parent.clone(),
+                interfaces: class.interfaces.clone(),
+                is_abstract,
             };
-            
+
             // 收集字段信息
             for member in &class.members {
                 if let ClassMember::Field(field) = member {
@@ -111,7 +139,7 @@ impl SemanticAnalyzer {
                     class_info.fields.insert(field.name.clone(), field_info);
                 }
             }
-            
+
             self.type_registry.register_class(class_info)?;
         }
         Ok(())

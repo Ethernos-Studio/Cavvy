@@ -53,6 +53,7 @@ impl SemanticAnalyzer {
             Expr::MethodRef(method_ref) => self.infer_method_ref_type(method_ref),
             Expr::Lambda(lambda) => self.infer_lambda_type(lambda),
             Expr::Ternary(ternary) => self.infer_ternary_type(ternary),
+            Expr::InstanceOf(instanceof) => self.infer_instanceof_type(instanceof),
         }
     }
 
@@ -617,7 +618,7 @@ impl SemanticAnalyzer {
     fn infer_ternary_type(&mut self, ternary: &TernaryExpr) -> cayResult<Type> {
         // 推断条件表达式类型
         let cond_type = self.infer_expr_type(&ternary.condition)?;
-        
+
         // 条件必须是布尔类型
         if cond_type != Type::Bool {
             return Err(semantic_error(
@@ -626,11 +627,11 @@ impl SemanticAnalyzer {
                 format!("Ternary operator condition must be boolean, got {}", cond_type)
             ));
         }
-        
+
         // 推断两个分支的类型
         let true_type = self.infer_expr_type(&ternary.true_branch)?;
         let false_type = self.infer_expr_type(&ternary.false_branch)?;
-        
+
         // 两个分支类型必须兼容
         if true_type == false_type {
             Ok(true_type)
@@ -644,6 +645,36 @@ impl SemanticAnalyzer {
                 format!("Ternary operator branches must have compatible types, got {} and {}", true_type, false_type)
             ))
         }
+    }
+
+    /// 推断 instanceof 表达式类型
+    fn infer_instanceof_type(&mut self, instanceof: &InstanceOfExpr) -> cayResult<Type> {
+        // 检查表达式类型
+        let expr_type = self.infer_expr_type(&instanceof.expr)?;
+
+        // 检查目标类型是否存在（类或接口）
+        match &instanceof.target_type {
+            Type::Object(class_name) => {
+                if !self.type_registry.class_exists(class_name) && !self.type_registry.interface_exists(class_name) {
+                    return Err(semantic_error(
+                        instanceof.loc.line,
+                        instanceof.loc.column,
+                        format!("Unknown type in instanceof: {}", class_name)
+                    ));
+                }
+            }
+            _ => {
+                // instanceof 只能用于引用类型
+                return Err(semantic_error(
+                    instanceof.loc.line,
+                    instanceof.loc.column,
+                    format!("instanceof can only be used with reference types, got {}", instanceof.target_type)
+                ));
+            }
+        }
+
+        // instanceof 返回布尔类型
+        Ok(Type::Bool)
     }
 
     /// 辅助方法：检查类型是否为数值类型

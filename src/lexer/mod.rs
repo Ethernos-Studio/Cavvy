@@ -83,7 +83,13 @@ pub enum Token {
     Super,
     #[token("extends")]
     Extends,
-    
+    #[token("implements")]
+    Implements,
+    #[token("interface")]
+    Interface,
+    #[token("instanceof")]
+    InstanceOf,
+
     // 标识符
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
