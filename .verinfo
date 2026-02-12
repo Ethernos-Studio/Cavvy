@@ -1,15 +1,15 @@
 [CAYC]
-version = "0.4.0.1"
-build = 20
+version = "0.4.0.2"
+build = 21
 
 [CAY-IR]
-version = "0.4.0.1"
-build = 20
+version = "0.4.0.2"
+build = 21
 
 [IR2EXE]
-version = "0.4.0.1"
-build = 20
+version = "0.4.0.2"
+build = 21
 
 [CAY-CHECK]
-version = "0.4.0.1"
-build = 12
+version = "0.4.0.2"
+build = 13
