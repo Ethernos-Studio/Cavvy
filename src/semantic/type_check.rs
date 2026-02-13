@@ -42,6 +42,71 @@ impl SemanticAnalyzer {
                     ClassMember::Field(_) => {
                         // 字段类型检查暂不实现
                     }
+                    ClassMember::Constructor(ctor) => {
+                        // 构造函数类型检查
+                        self.symbol_table.enter_scope();
+                        
+                        // 添加 this 到符号表
+                        self.symbol_table.declare(
+                            "this".to_string(),
+                            SemanticSymbolInfo {
+                                name: "this".to_string(),
+                                symbol_type: Type::Object(class.name.clone()),
+                                is_final: true,
+                                is_initialized: true,
+                            }
+                        );
+                        
+                        // 添加参数到符号表
+                        for param in &ctor.params {
+                            self.symbol_table.declare(
+                                param.name.clone(),
+                                SemanticSymbolInfo {
+                                    name: param.name.clone(),
+                                    symbol_type: param.param_type.clone(),
+                                    is_final: false,
+                                    is_initialized: true,
+                                }
+                            );
+                        }
+                        
+                        // 类型检查构造函数体
+                        self.type_check_statement(&Stmt::Block(ctor.body.clone()), Some(&Type::Void))?;
+                        
+                        self.symbol_table.exit_scope();
+                    }
+                    ClassMember::Destructor(dtor) => {
+                        // 析构函数类型检查
+                        self.symbol_table.enter_scope();
+                        
+                        // 添加 this 到符号表
+                        self.symbol_table.declare(
+                            "this".to_string(),
+                            SemanticSymbolInfo {
+                                name: "this".to_string(),
+                                symbol_type: Type::Object(class.name.clone()),
+                                is_final: true,
+                                is_initialized: true,
+                            }
+                        );
+                        
+                        // 类型检查析构函数体
+                        self.type_check_statement(&Stmt::Block(dtor.body.clone()), Some(&Type::Void))?;
+                        
+                        self.symbol_table.exit_scope();
+                    }
+                    ClassMember::InstanceInitializer(block) => {
+                        // 实例初始化块类型检查
+                        self.symbol_table.enter_scope();
+                        self.type_check_statement(&Stmt::Block(block.clone()), Some(&Type::Void))?;
+                        self.symbol_table.exit_scope();
+                    }
+                    ClassMember::StaticInitializer(block) => {
+                        // 静态初始化块类型检查
+                        self.symbol_table.enter_scope();
+                        self.type_check_statement(&Stmt::Block(block.clone()), Some(&Type::Void))?;
+                        self.symbol_table.exit_scope();
+                    }
                 }
             }
             

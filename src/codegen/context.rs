@@ -295,7 +295,7 @@ impl IRGenerator {
     }
 
     /// 生成带参数签名的方法名以支持方法重载
-    /// 格式: ClassName.methodName__param1Type_param2Type
+    /// 格式: ClassName.__methodName_param1Type_param2Type
     /// 注意：LLVM IR 中函数名不能包含 @ 符号，使用 __ 作为分隔符
     pub fn generate_method_name(&self, class_name: &str, method: &crate::ast::MethodDecl) -> String {
         if method.params.is_empty() {
@@ -311,7 +311,7 @@ impl IRGenerator {
     }
 
     /// 将类型转换为方法签名的一部分
-    fn type_to_signature(&self, ty: &crate::types::Type) -> String {
+    pub fn type_to_signature(&self, ty: &crate::types::Type) -> String {
         use crate::types::Type;
         match ty {
             Type::Void => "v".to_string(),

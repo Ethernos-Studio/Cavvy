@@ -1,0 +1,119 @@
+// 测试 0.4.2.x 功能：构造函数、析构函数、初始化块
+// 版本: 0.4.2.0
+
+public class Person {
+    private static int instanceCount;
+    private int age;
+    private String name;
+
+    // 静态初始化块
+    static {
+        instanceCount = 0;
+        println("Static initializer: Person class loaded");
+    }
+
+    // 实例初始化块
+    {
+        instanceCount = instanceCount + 1;
+        println("Instance initializer: Person instance created");
+    }
+
+    // 默认构造函数
+    public Person() {
+        this.age = 0;
+        this.name = "Unknown";
+        println("Default constructor called");
+    }
+
+    // 带参数的构造函数
+    public Person(int age, String name) {
+        this.age = age;
+        this.name = name;
+        println("Parameterized constructor called");
+    }
+
+    // 构造函数链调用
+    public Person(int age) : this(age, "Anonymous") {
+        println("Constructor chain called");
+    }
+
+    // 析构函数
+    ~Person() {
+        instanceCount = instanceCount - 1;
+        println("Destructor called for " + name);
+    }
+
+    public static int getInstanceCount() {
+        return instanceCount;
+    }
+
+    public int getAge() {
+        return age;
+    }
+
+    public String getName() {
+        return name;
+    }
+}
+
+// 测试继承和 super() 调用
+public class Employee extends Person {
+    private int employeeId;
+
+    public Employee() : super() {
+        this.employeeId = 0;
+        println("Employee default constructor");
+    }
+
+    public Employee(int id, int age, String name) : super(age, name) {
+        this.employeeId = id;
+        println("Employee parameterized constructor");
+    }
+
+    public int getEmployeeId() {
+        return employeeId;
+    }
+}
+
+@main
+public class Test042Features {
+    public static void main() {
+        println("=== Testing 0.4.2.x Constructor System ===");
+        println("");
+
+        // 测试默认构造函数
+        println("--- Test 1: Default Constructor ---");
+        Person p1 = new Person();
+        println("Person 1: " + p1.getName() + ", age " + p1.getAge());
+        println("");
+
+        // 测试带参数构造函数
+        println("--- Test 2: Parameterized Constructor ---");
+        Person p2 = new Person(25, "Alice");
+        println("Person 2: " + p2.getName() + ", age " + p2.getAge());
+        println("");
+
+        // 测试构造函数链
+        println("--- Test 3: Constructor Chaining ---");
+        Person p3 = new Person(30);
+        println("Person 3: " + p3.getName() + ", age " + p3.getAge());
+        println("");
+
+        // 测试继承和 super() 调用
+        println("--- Test 4: Inheritance with super() ---");
+        Employee e1 = new Employee();
+        println("Employee 1: " + e1.getName() + ", age " + e1.getAge() + ", ID " + e1.getEmployeeId());
+        println("");
+
+        Employee e2 = new Employee(1001, 35, "Bob");
+        println("Employee 2: " + e2.getName() + ", age " + e2.getAge() + ", ID " + e2.getEmployeeId());
+        println("");
+
+        // 测试实例计数
+        println("--- Test 5: Instance Count ---");
+        println("Total instances created: " + Person.getInstanceCount());
+
+        println("");
+        println("=== All 0.4.2.x Tests Completed ===");
+    }
+}

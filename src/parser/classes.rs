@@ -122,11 +122,29 @@ fn parse_interface_method(parser: &mut Parser) -> cayResult<MethodDecl> {
     })
 }
 
-/// 解析类成员（字段或方法）
+/// 解析类成员（字段、方法、构造函数、析构函数或初始化块）
 pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
-    // 向前看判断是字段或方法
+    // 向前看判断成员类型
     let checkpoint = parser.pos;
-    let _modifiers = parse_modifiers(parser)?;
+    let modifiers = parse_modifiers(parser)?;
+    
+    // 检查是否是静态初始化块 static { ... }
+    if modifiers.contains(&Modifier::Static) && parser.check(&Token::LBrace) {
+        parser.pos = checkpoint;
+        return Ok(ClassMember::StaticInitializer(parse_static_initializer(parser)?));
+    }
+    
+    // 检查是否是初始化块 { ... }
+    if parser.check(&Token::LBrace) {
+        parser.pos = checkpoint;
+        return Ok(ClassMember::InstanceInitializer(parse_instance_initializer(parser)?));
+    }
+    
+    // 检查是否是析构函数 ~ClassName() { ... }
+    if parser.check(&Token::Tilde) {
+        parser.pos = checkpoint;
+        return Ok(ClassMember::Destructor(parse_destructor(parser)?));
+    }
     
     // 如果是void，一定是方法返回类型
     if parser.check(&Token::Void) {
@@ -137,8 +155,8 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
     // 如果是类型关键字，可能是字段或方法
     if is_type_token(parser) {
         // 读取类型
-        let _type = parse_type(parser)?;
-        let _name = parser.consume_identifier("Expected member name")?;
+        let member_type = parse_type(parser)?;
+        let member_name = parser.consume_identifier("Expected member name")?;
         
         if parser.check(&Token::LParen) {
             // 是方法
@@ -149,8 +167,28 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
             parser.pos = checkpoint;
             Ok(ClassMember::Field(parse_field(parser)?))
         }
+    } else if matches!(parser.current_token(), Token::Identifier(_)) {
+        // 可能是构造函数：类名(...)
+        let name = parser.consume_identifier("Expected member name")?;
+        
+        if parser.check(&Token::LParen) {
+            // 检查是否是构造函数（名称与类名相同）
+            // 注意：这里需要在调用处传入类名来验证
+            // 暂时作为方法解析，后续在语义分析中区分
+            parser.pos = checkpoint;
+            // 尝试解析为构造函数
+            if let Ok(ctor) = parse_constructor(parser) {
+                return Ok(ClassMember::Constructor(ctor));
+            }
+            // 否则作为普通方法
+            Ok(ClassMember::Method(parse_method(parser)?))
+        } else {
+            // 是字段（没有类型声明的字段，错误）
+            parser.pos = checkpoint;
+            Err(parser.error("Expected field or method declaration"))
+        }
     } else {
-        Err(parser.error("Expected field or method declaration"))
+        Err(parser.error("Expected field, method, constructor, or destructor declaration"))
     }
 }
 
@@ -214,6 +252,115 @@ pub fn parse_method(parser: &mut Parser) -> cayResult<MethodDecl> {
         body,
         loc,
     })
+}
+
+/// 解析构造函数声明
+/// 格式: [modifiers] ClassName([params]) [throws ...] { body }
+/// 或: [modifiers] ClassName([params]) : this(args) { body }
+/// 或: [modifiers] ClassName([params]) : super(args) { body }
+pub fn parse_constructor(parser: &mut Parser) -> cayResult<ConstructorDecl> {
+    let loc = parser.current_loc();
+    let modifiers = parse_modifiers(parser)?;
+    
+    // 构造函数名（必须与类名相同）
+    let _name = parser.consume_identifier("Expected constructor name")?;
+    
+    parser.consume(&Token::LParen, "Expected '(' after constructor name")?;
+    let params = parse_parameters(parser)?;
+    parser.consume(&Token::RParen, "Expected ')' after constructor parameters")?;
+    
+    // 解析构造链调用 this() 或 super()
+    let constructor_call = parse_constructor_call(parser)?;
+    
+    // 解析构造函数体
+    let body = parse_block(parser)?;
+    
+    Ok(ConstructorDecl {
+        modifiers,
+        params,
+        body,
+        constructor_call,
+        loc,
+    })
+}
+
+/// 解析构造链调用 this() 或 super()
+fn parse_constructor_call(parser: &mut Parser) -> cayResult<Option<ConstructorCall>> {
+    // 检查是否有冒号（C++风格）或直接使用 this/super
+    if parser.match_token(&Token::Colon) {
+        // C++风格: : this(args) 或 : super(args)
+        if parser.match_token(&Token::This) {
+            parser.consume(&Token::LParen, "Expected '(' after 'this'")?;
+            let args = parse_constructor_call_args(parser)?;
+            parser.consume(&Token::RParen, "Expected ')' after 'this' arguments")?;
+            return Ok(Some(ConstructorCall::This(args)));
+        } else if parser.match_token(&Token::Super) {
+            parser.consume(&Token::LParen, "Expected '(' after 'super'")?;
+            let args = parse_constructor_call_args(parser)?;
+            parser.consume(&Token::RParen, "Expected ')' after 'super' arguments")?;
+            return Ok(Some(ConstructorCall::Super(args)));
+        } else {
+            return Err(parser.error("Expected 'this' or 'super' after ':'"));
+        }
+    }
+    
+    // Java风格: this(args) 或 super(args) 作为构造函数体的第一条语句
+    // 这部分在语义分析中处理
+    Ok(None)
+}
+
+/// 解析构造函数调用参数
+fn parse_constructor_call_args(parser: &mut Parser) -> cayResult<Vec<Expr>> {
+    let mut args = Vec::new();
+    
+    if !parser.check(&Token::RParen) {
+        loop {
+            args.push(parse_expression(parser)?);
+            if !parser.match_token(&Token::Comma) {
+                break;
+            }
+        }
+    }
+    
+    Ok(args)
+}
+
+/// 解析析构函数声明
+/// 格式: ~ClassName() { body }
+pub fn parse_destructor(parser: &mut Parser) -> cayResult<DestructorDecl> {
+    let loc = parser.current_loc();
+    let modifiers = parse_modifiers(parser)?;
+    
+    // 消耗 ~
+    parser.consume(&Token::Tilde, "Expected '~' for destructor")?;
+    
+    // 析构函数名（必须与类名相同）
+    let _name = parser.consume_identifier("Expected destructor name")?;
+    
+    parser.consume(&Token::LParen, "Expected '(' after destructor name")?;
+    parser.consume(&Token::RParen, "Expected ')' after destructor parameters")?;
+    
+    // 解析析构函数体
+    let body = parse_block(parser)?;
+    
+    Ok(DestructorDecl {
+        modifiers,
+        body,
+        loc,
+    })
+}
+
+/// 解析实例初始化块
+/// 格式: { statements }
+pub fn parse_instance_initializer(parser: &mut Parser) -> cayResult<Block> {
+    parse_block(parser)
+}
+
+/// 解析静态初始化块
+/// 格式: static { statements }
+pub fn parse_static_initializer(parser: &mut Parser) -> cayResult<Block> {
+    let _modifiers = parse_modifiers(parser)?; // 消耗 static
+    parse_block(parser)
 }
 
 /// 解析修饰符列表（包括注解）

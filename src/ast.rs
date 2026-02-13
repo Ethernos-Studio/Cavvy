@@ -29,6 +29,10 @@ pub struct ClassDecl {
 pub enum ClassMember {
     Method(MethodDecl),
     Field(FieldDecl),
+    Constructor(ConstructorDecl),
+    Destructor(DestructorDecl),
+    InstanceInitializer(Block),  // 实例初始化块 { ... }
+    StaticInitializer(Block),    // 静态初始化块 static { ... }
 }
 
 #[derive(Debug, Clone)]
@@ -47,6 +51,31 @@ pub struct FieldDecl {
     pub field_type: Type,
     pub modifiers: Vec<Modifier>,
     pub initializer: Option<Expr>,
+    pub loc: SourceLocation,
+}
+
+/// 构造函数声明
+#[derive(Debug, Clone)]
+pub struct ConstructorDecl {
+    pub modifiers: Vec<Modifier>,
+    pub params: Vec<crate::types::ParameterInfo>,
+    pub body: Block,
+    pub constructor_call: Option<ConstructorCall>, // this() 或 super() 调用
+    pub loc: SourceLocation,
+}
+
+/// 构造函数调用（this() 或 super()）
+#[derive(Debug, Clone)]
+pub enum ConstructorCall {
+    This(Vec<Expr>),   // this(args)
+    Super(Vec<Expr>),  // super(args)
+}
+
+/// 析构函数声明
+#[derive(Debug, Clone)]
+pub struct DestructorDecl {
+    pub modifiers: Vec<Modifier>,
+    pub body: Block,
     pub loc: SourceLocation,
 }
 

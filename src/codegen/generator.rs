@@ -332,7 +332,7 @@ impl IRGenerator {
         Ok(())
     }
 
-    /// 生成类代码（方法定义）
+    /// 生成类代码（方法、构造函数、析构函数定义）
     fn generate_class(&mut self, class: &ClassDecl) -> cayResult<()> {
         for member in &class.members {
             match member {
@@ -346,6 +346,19 @@ impl IRGenerator {
                     if !field.modifiers.contains(&Modifier::Static) {
                         // 实例字段暂不实现
                     }
+                }
+                ClassMember::Constructor(ctor) => {
+                    self.generate_constructor(&class.name, ctor)?;
+                }
+                ClassMember::Destructor(dtor) => {
+                    self.generate_destructor(&class.name, dtor)?;
+                }
+                ClassMember::InstanceInitializer(block) => {
+                    // 实例初始化块在构造函数中处理
+                }
+                ClassMember::StaticInitializer(block) => {
+                    // 静态初始化块在静态字段初始化后处理
+                    self.generate_static_initializer(&class.name, block)?;
                 }
             }
         }
@@ -410,6 +423,206 @@ impl IRGenerator {
         self.emit_line("");
 
         Ok(())
+    }
+
+    /// 生成构造函数代码
+    fn generate_constructor(&mut self, class_name: &str, ctor: &crate::ast::ConstructorDecl) -> cayResult<()> {
+        // 生成带参数签名的构造函数名
+        let fn_name = self.generate_constructor_name(class_name, ctor);
+        self.current_function = fn_name.clone();
+        self.current_class = class_name.to_string();
+        self.current_return_type = "void".to_string();
+
+        // 重置临时变量计数器
+        self.temp_counter = 0;
+        // 清除变量类型映射（每个构造函数都有自己的作用域）
+        self.var_types.clear();
+        // 重置作用域管理器
+        self.scope_manager.reset();
+        // 清除循环栈
+        self.loop_stack.clear();
+
+        // 函数签名：构造函数返回 void，第一个参数是 this 指针
+        let params: Vec<String> = ctor.params.iter()
+            .map(|p| format!("{} %{}.{}_param", self.type_to_llvm(&p.param_type), class_name, p.name))
+            .collect();
+
+        // 添加 this 指针作为第一个参数
+        let mut all_params = vec![format!("i8* %this")];
+        all_params.extend(params);
+
+        self.emit_line(&format!("define void @{}({}) {{",
+            fn_name, all_params.join(", ")));
+        self.indent += 1;
+
+        // 入口标签
+        self.emit_line("entry:");
+
+        // 为 this 指针分配局部变量
+        let this_llvm_name = self.scope_manager.declare_var("this", "i8*");
+        self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
+        self.emit_line(&format!("  store i8* %this, i8** %{}", this_llvm_name));
+        self.var_types.insert("this".to_string(), "i8*".to_string());
+
+        // 为参数分配局部变量
+        for param in &ctor.params {
+            let param_type = self.type_to_llvm(&param.param_type);
+            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+            self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
+            self.emit_line(&format!("  store {} %{}.{}_param, {}* %{}",
+                param_type, class_name, param.name, param_type, llvm_name));
+            self.var_types.insert(param.name.clone(), param_type);
+        }
+
+        // 处理构造链调用 this() 或 super()
+        if let Some(ref call) = ctor.constructor_call {
+            match call {
+                crate::ast::ConstructorCall::This(args) => {
+                    // 调用同一类的其他构造函数
+                    let target_ctor_name = self.generate_constructor_call_name(class_name, args.len());
+                    let mut arg_strs = vec!["i8* %this".to_string()];
+                    for arg in args {
+                        let arg_val = self.generate_expression(arg)?;
+                        arg_strs.push(arg_val);
+                    }
+                    self.emit_line(&format!("  call void @{}({})",
+                        target_ctor_name, arg_strs.join(", ")));
+                }
+                crate::ast::ConstructorCall::Super(args) => {
+                    // 调用父类构造函数
+                    // 暂时简化处理：直接调用父类的默认构造函数
+                    if let Some(ref registry) = self.type_registry {
+                        if let Some(class_info) = registry.get_class(class_name) {
+                            if let Some(ref parent_name) = class_info.parent {
+                                let parent_ctor_name = format!("{}.__ctor", parent_name);
+                                let mut arg_strs = vec!["i8* %this".to_string()];
+                                for arg in args {
+                                    let arg_val = self.generate_expression(arg)?;
+                                    arg_strs.push(arg_val);
+                                }
+                                self.emit_line(&format!("  call void @{}({})",
+                                    parent_ctor_name, arg_strs.join(", ")));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 生成构造函数体
+        self.generate_block(&ctor.body)?;
+
+        // 添加隐式返回
+        self.emit_line("  ret void");
+
+        self.indent -= 1;
+        self.emit_line("}");
+        self.emit_line("");
+
+        Ok(())
+    }
+
+    /// 生成析构函数代码
+    fn generate_destructor(&mut self, class_name: &str, dtor: &crate::ast::DestructorDecl) -> cayResult<()> {
+        let fn_name = format!("{}.__dtor", class_name);
+        self.current_function = fn_name.clone();
+        self.current_class = class_name.to_string();
+        self.current_return_type = "void".to_string();
+
+        // 重置临时变量计数器
+        self.temp_counter = 0;
+        // 清除变量类型映射
+        self.var_types.clear();
+        // 重置作用域管理器
+        self.scope_manager.reset();
+        // 清除循环栈
+        self.loop_stack.clear();
+
+        // 函数签名：析构函数返回 void，参数是 this 指针
+        self.emit_line(&format!("define void @{}(i8* %this) {{", fn_name));
+        self.indent += 1;
+
+        // 入口标签
+        self.emit_line("entry:");
+
+        // 为 this 指针分配局部变量
+        let this_llvm_name = self.scope_manager.declare_var("this", "i8*");
+        self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
+        self.emit_line(&format!("  store i8* %this, i8** %{}", this_llvm_name));
+        self.var_types.insert("this".to_string(), "i8*".to_string());
+
+        // 生成析构函数体
+        self.generate_block(&dtor.body)?;
+
+        // 添加隐式返回
+        self.emit_line("  ret void");
+
+        self.indent -= 1;
+        self.emit_line("}");
+        self.emit_line("");
+
+        Ok(())
+    }
+
+    /// 生成静态初始化块代码
+    fn generate_static_initializer(&mut self, class_name: &str, block: &crate::ast::Block) -> cayResult<()> {
+        let fn_name = format!("{}.__static_init", class_name);
+        self.current_function = fn_name.clone();
+        self.current_class = class_name.to_string();
+        self.current_return_type = "void".to_string();
+
+        // 重置临时变量计数器
+        self.temp_counter = 0;
+        // 清除变量类型映射
+        self.var_types.clear();
+        // 重置作用域管理器
+        self.scope_manager.reset();
+        // 清除循环栈
+        self.loop_stack.clear();
+
+        // 函数签名：静态初始化块返回 void，无参数
+        self.emit_line(&format!("define void @{}() {{", fn_name));
+        self.indent += 1;
+
+        // 入口标签
+        self.emit_line("entry:");
+
+        // 生成静态初始化块体
+        self.generate_block(block)?;
+
+        // 添加隐式返回
+        self.emit_line("  ret void");
+
+        self.indent -= 1;
+        self.emit_line("}");
+        self.emit_line("");
+
+        Ok(())
+    }
+
+    /// 生成构造函数名
+    fn generate_constructor_name(&self, class_name: &str, ctor: &crate::ast::ConstructorDecl) -> String {
+        if ctor.params.is_empty() {
+            // 无参数构造函数
+            format!("{}.__ctor", class_name)
+        } else {
+            // 有参数构造函数，添加参数类型签名
+            let param_types: Vec<String> = ctor.params.iter()
+                .map(|p| self.type_to_signature(&p.param_type))
+                .collect();
+            format!("{}.__ctor_{}", class_name, param_types.join("_"))
+        }
+    }
+
+    /// 生成构造函数调用名（简化版）
+    fn generate_constructor_call_name(&self, class_name: &str, arg_count: usize) -> String {
+        if arg_count == 0 {
+            format!("{}.__ctor", class_name)
+        } else {
+            // 简化处理：假设参数类型都是 int
+            let param_types: Vec<String> = (0..arg_count).map(|_| "i".to_string()).collect();
+            format!("{}.__ctor_{}", class_name, param_types.join("_"))
+        }
     }
 }
 

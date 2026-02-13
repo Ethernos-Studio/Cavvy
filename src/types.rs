@@ -28,9 +28,20 @@ pub struct ClassInfo {
     pub name: String,
     pub methods: HashMap<String, Vec<MethodInfo>>,  // 支持方法重载：同名方法可以有多个
     pub fields: HashMap<String, FieldInfo>,
+    pub constructors: Vec<ConstructorInfo>,  // 构造函数列表
+    pub has_destructor: bool,  // 是否有析构函数
     pub parent: Option<String>,
     pub interfaces: Vec<String>,  // 实现的接口列表
     pub is_abstract: bool,  // 是否是抽象类
+}
+
+/// 构造函数信息
+#[derive(Debug, Clone)]
+pub struct ConstructorInfo {
+    pub params: Vec<ParameterInfo>,
+    pub is_public: bool,
+    pub is_private: bool,
+    pub is_protected: bool,
 }
 
 #[derive(Debug, Clone)]

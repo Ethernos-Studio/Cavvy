@@ -120,6 +120,8 @@ impl SemanticAnalyzer {
                 name: class.name.clone(),
                 methods: std::collections::HashMap::new(),
                 fields: std::collections::HashMap::new(),
+                constructors: Vec::new(),
+                has_destructor: false,
                 parent: class.parent.clone(),
                 interfaces: class.interfaces.clone(),
                 is_abstract,
@@ -127,16 +129,31 @@ impl SemanticAnalyzer {
 
             // 收集字段信息
             for member in &class.members {
-                if let ClassMember::Field(field) = member {
-                    let field_info = FieldInfo {
-                        name: field.name.clone(),
-                        field_type: field.field_type.clone(),
-                        is_public: field.modifiers.contains(&Modifier::Public),
-                        is_private: field.modifiers.contains(&Modifier::Private),
-                        is_protected: field.modifiers.contains(&Modifier::Protected),
-                        is_static: field.modifiers.contains(&Modifier::Static),
-                    };
-                    class_info.fields.insert(field.name.clone(), field_info);
+                match member {
+                    ClassMember::Field(field) => {
+                        let field_info = FieldInfo {
+                            name: field.name.clone(),
+                            field_type: field.field_type.clone(),
+                            is_public: field.modifiers.contains(&Modifier::Public),
+                            is_private: field.modifiers.contains(&Modifier::Private),
+                            is_protected: field.modifiers.contains(&Modifier::Protected),
+                            is_static: field.modifiers.contains(&Modifier::Static),
+                        };
+                        class_info.fields.insert(field.name.clone(), field_info);
+                    }
+                    ClassMember::Constructor(ctor) => {
+                        let ctor_info = crate::types::ConstructorInfo {
+                            params: ctor.params.clone(),
+                            is_public: ctor.modifiers.contains(&Modifier::Public),
+                            is_private: ctor.modifiers.contains(&Modifier::Private),
+                            is_protected: ctor.modifiers.contains(&Modifier::Protected),
+                        };
+                        class_info.constructors.push(ctor_info);
+                    }
+                    ClassMember::Destructor(_) => {
+                        class_info.has_destructor = true;
+                    }
+                    _ => {}
                 }
             }
 

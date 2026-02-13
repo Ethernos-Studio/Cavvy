@@ -1383,10 +1383,17 @@ endif_directive = "#endif";
 program = { preprocessor_directive | class_declaration };
 
 class_declaration = [ annotation ], [ modifiers ], "class", identifier, 
-                    [ ":", identifier ], "{", { class_member }, "}";
+                    [ extends_clause ], [ implements_clause ], "{", { class_member }, "}";
 
+extends_clause = "extends", identifier | ":", identifier;
+implements_clause = "implements", identifier, { ",", identifier };
 annotation = "@", identifier;
-class_member = field_declaration | method_declaration;
+class_member = field_declaration 
+             | method_declaration 
+             | constructor_declaration 
+             | destructor_declaration
+             | instance_initializer
+             | static_initializer;
 
 (* ----------------------------------------------------------------------------
  * 修饰符
@@ -1405,6 +1412,24 @@ field_declaration = [ modifiers ], type, identifier, [ "=", expression ], ";";
  * ---------------------------------------------------------------------------- *)
 method_declaration = [ modifiers ], ( type | "void" ), identifier, 
                      "(", [ parameter_list ], ")", ( block | ";" );
+
+(* 构造函数声明 *)
+constructor_declaration = [ modifiers ], identifier, 
+                          "(", [ parameter_list ], ")", 
+                          [ constructor_call ], block;
+
+(* 构造链调用：this() 或 super() *)
+constructor_call = ":", ( "this" | "super" ), "(", [ argument_list ], ")";
+
+(* 析构函数声明 *)
+destructor_declaration = [ modifiers ], "~", identifier, 
+                         "(", ")", block;
+
+(* 实例初始化块 *)
+instance_initializer = block;
+
+(* 静态初始化块 *)
+static_initializer = "static", block;
 
 parameter_list = parameter, { ",", parameter } | varargs_parameter;
 parameter = type, identifier;
