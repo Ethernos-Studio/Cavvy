@@ -127,7 +127,7 @@ EOL (Ethernos Object Language) 是一个始终编译为原生机器码的静态�
 - [ ] **`var`, `let` 后置类型声明** - 支持变量声明时类型后置语法
   - `var x: int = 10;` - `var` 关键字声明可变变量，类型后置
   - `let y: String = "hello";` - `let` 与 `var` 完全相同
-    - `
+    - 都可以在前加`final` 关键字，声明不可变变量，类型后置
   - 与现有 `int x = 10;` 语法并存，提供更现代的声明风格
 - [ ] **`auto` 自动类型推断** - 编译器自动推断变量类型
   - `auto x = 10;` - 推断为 `int` 类型
@@ -146,6 +146,9 @@ EOL (Ethernos Object Language) 是一个始终编译为原生机器码的静态�
     }
     ```
   - 与现有的类内 `public static int main(String[] args)` 并存
+    - 并存规则
+      - 优先使用顶层 `main` 函数，避免与类内 `main` 冲突
+      - 如果某类含有`@main`注解，将使用该类的`main`方法作为程序入口点
 
 #### 0.4.4.x 静态与 Final 语义
 - [ ] **final 类/方法** - 禁止继承与重写，允许编译器去虚拟化（devirtualization）
