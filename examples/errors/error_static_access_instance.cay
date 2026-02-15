@@ -1,0 +1,21 @@
+// 错误测试: 静态方法中不能访问非静态成员
+
+public class StaticError {
+    private int instanceValue;  // 非静态字段
+    private static int staticValue = 20;  // 静态字段
+    
+    public void setInstanceValue(int v) {
+        instanceValue = v;
+    }
+    
+    // 静态方法中访问非静态字段 - 应该报错
+    public static void staticMethod() {
+        // 错误: 不能在静态上下文中引用非静态变量 instanceValue
+        int x = instanceValue;
+        println("Value: " + x);
+    }
+    
+    public static void main(String[] args) {
+        staticMethod();
+    }
+}

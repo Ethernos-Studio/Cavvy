@@ -21,6 +21,17 @@ impl IRGenerator {
             }
         }
 
+        // 首先计算所有类的实例布局
+        for class in &program.classes {
+            let instance_fields: Vec<_> = class.members.iter()
+                .filter_map(|m| match m {
+                    ClassMember::Field(f) => Some(f.clone()),
+                    _ => None,
+                })
+                .collect();
+            self.compute_class_layout(&class.name, &instance_fields);
+        }
+
         for class in &program.classes {
             self.collect_static_fields(class)?;
 
@@ -383,15 +394,33 @@ impl IRGenerator {
         self.loop_stack.clear();
 
         let ret_type = self.current_return_type.clone();
-        let params: Vec<String> = method.params.iter()
-            .map(|p| format!("{} %{}.{}", self.type_to_llvm(&p.param_type), class_name, p.name))
-            .collect();
+        let is_static = method.modifiers.contains(&Modifier::Static);
+        
+        let mut params: Vec<String> = Vec::new();
+        
+        // 实例方法添加 this 参数
+        if !is_static {
+            params.push("i8* %this".to_string());
+        }
+        
+        for param in &method.params {
+            params.push(format!("{} %{}.{}", self.type_to_llvm(&param.param_type), class_name, param.name));
+        }
 
         self.emit_line(&format!("define {} @{}({}) {{",
             ret_type, fn_name, params.join(", ")));
         self.indent += 1;
 
         self.emit_line("entry:");
+        
+        // 实例方法声明 this 变量
+        if !is_static {
+            // 使用 this_ptr 作为变量名，避免与参数 %this 冲突
+            let this_llvm_name = self.scope_manager.declare_var("this_ptr", "i8*");
+            self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
+            self.emit_line(&format!("  store i8* %this, i8** %{}", this_llvm_name));
+            self.var_types.insert("this".to_string(), "i8*".to_string());
+        }
 
         for param in &method.params {
             let param_type = self.type_to_llvm(&param.param_type);

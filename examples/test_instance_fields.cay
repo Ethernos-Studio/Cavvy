@@ -1,0 +1,33 @@
+// 测试实例字段的各种类型
+public class InstanceFieldTest {
+    private int intField;
+    private long longField;
+    private string stringField;
+    
+    public void init(int i, long l, string s) {
+        this.intField = i;
+        this.longField = l;
+        this.stringField = s;
+    }
+    
+    public int getInt() {
+        return intField;
+    }
+    
+    public long getLong() {
+        return longField;
+    }
+    
+    public string getString() {
+        return stringField;
+    }
+    
+    public static void main() {
+        InstanceFieldTest obj = new InstanceFieldTest();
+        obj.init(42, 123456789L, "Hello");
+        
+        println("Int: " + obj.getInt());
+        println("Long: " + obj.getLong());
+        println("String: " + obj.getString());
+    }
+}

@@ -29,7 +29,7 @@ impl IRGenerator {
         }
     }
 
-    /// 生成成员赋值（静态字段赋值）
+    /// 生成成员赋值（静态字段或实例字段赋值）
     fn generate_member_assignment(&mut self, member: &MemberAccessExpr, value_type: &str, val: &str, value: &str) -> cayResult<String> {
         // 检查是否是静态字段赋值: ClassName.fieldName = value
         if let Expr::Identifier(class_name) = &*member.object {
@@ -64,6 +64,87 @@ impl IRGenerator {
                 return Ok(value.to_string());
             }
         }
+        
+        // 处理实例字段赋值: this.fieldName = value 或 obj.fieldName = value
+        
+        // 确定对象所属的类
+        let class_name_opt: Option<String> = if let Expr::Identifier(name) = &*member.object {
+            if name == "this" {
+                Some(self.current_class.clone())
+            } else {
+                self.var_class_map.get(name).cloned()
+            }
+        } else {
+            None
+        };
+        
+        if let Some(class_name) = class_name_opt {
+            if let Some(field_info) = self.get_instance_field(&class_name, &member.member).cloned() {
+                // 实例字段赋值
+                let align = self.get_type_align(&field_info.llvm_type);
+                
+                // 获取对象指针
+                // 对于 this，从作用域管理器获取 this_ptr 的 LLVM 名称；对于其他变量，加载其值
+                let obj_ptr = if let Expr::Identifier(name) = &*member.object {
+                    if name == "this" {
+                        // 从作用域管理器获取 this_ptr 的 LLVM 名称，然后加载其值
+                        let this_llvm_name = self.scope_manager.get_llvm_name("this_ptr")
+                            .unwrap_or_else(|| "this_ptr_s1".to_string());
+                        let temp = self.new_temp();
+                        self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
+                            temp, this_llvm_name));
+                        temp
+                    } else {
+                        // 其他变量：生成表达式并提取值
+                        let obj = self.generate_expression(&member.object)?;
+                        let (_, obj_val) = self.parse_typed_value(&obj);
+                        obj_val
+                    }
+                } else {
+                    let obj = self.generate_expression(&member.object)?;
+                    let (_, obj_val) = self.parse_typed_value(&obj);
+                    obj_val
+                };
+                
+                // 计算字段地址: obj_ptr + offset
+                let field_ptr_i8 = self.new_temp();
+                self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}", 
+                    field_ptr_i8, obj_ptr, field_info.offset));
+                
+                // 将字段指针转换为正确类型的指针
+                let field_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to {}*", 
+                    field_ptr, field_ptr_i8, field_info.llvm_type));
+                
+                // 如果值类型与字段类型不匹配，需要转换
+                let final_val = if value_type != field_info.llvm_type {
+                    let temp = self.new_temp();
+                    if value_type.starts_with("i") && field_info.llvm_type.starts_with("i") {
+                        let from_bits: u32 = value_type.trim_start_matches('i').parse().unwrap_or(64);
+                        let to_bits: u32 = field_info.llvm_type.trim_start_matches('i').parse().unwrap_or(64);
+                        if to_bits > from_bits {
+                            self.emit_line(&format!("  {} = sext {} {} to {}",
+                                temp, value_type, val, field_info.llvm_type));
+                        } else {
+                            self.emit_line(&format!("  {} = trunc {} {} to {}",
+                                temp, value_type, val, field_info.llvm_type));
+                        }
+                    } else {
+                        // 其他类型转换，直接使用原值
+                        self.emit_line(&format!("  {} = {} {}", temp, value_type, val));
+                    }
+                    temp
+                } else {
+                    val.to_string()
+                };
+                
+                // 存储值到字段
+                self.emit_line(&format!("  store {} {}, {}* {}, align {}", 
+                    field_info.llvm_type, final_val, field_info.llvm_type, field_ptr, align));
+                return Ok(value.to_string());
+            }
+        }
+        
         Err(codegen_error("Invalid member access assignment target".to_string()))
     }
 

@@ -21,6 +21,31 @@ pub struct StaticFieldInfo {
     pub field_name: String,     // 字段名
 }
 
+/// 实例字段信息
+#[derive(Debug, Clone)]
+pub struct InstanceFieldInfo {
+    pub name: String,           // 字段名
+    pub llvm_type: String,      // LLVM 类型
+    pub field_type: crate::types::Type,  // 原始类型
+    pub offset: usize,          // 在对象中的偏移量（字节）
+    pub size: usize,            // 大小（字节）
+}
+
+/// 类实例布局信息
+#[derive(Debug, Clone)]
+pub struct ClassLayoutInfo {
+    pub class_name: String,
+    pub total_size: usize,      // 对象总大小（字节）
+    pub fields: HashMap<String, InstanceFieldInfo>,  // 字段名 -> 字段信息
+}
+
+impl ClassLayoutInfo {
+    /// 计算字段的 GEP 索引（以 i8 为单位的偏移）
+    pub fn get_field_gep_offset(&self, field_name: &str) -> Option<usize> {
+        self.fields.get(field_name).map(|f| f.offset)
+    }
+}
+
 /// 变量作用域信息
 #[derive(Debug, Clone)]
 pub struct VarScope {
@@ -145,6 +170,7 @@ pub struct IRGenerator {
     pub method_declarations: Vec<String>,
     pub type_id_map: HashMap<String, TypeIdInfo>,
     pub type_id_counter: usize,
+    pub class_layouts: HashMap<String, ClassLayoutInfo>,  // 类实例布局信息
 }
 
 impl IRGenerator {
@@ -176,6 +202,7 @@ impl IRGenerator {
             method_declarations: Vec::new(),
             type_id_map: HashMap::new(),
             type_id_counter: 0,
+            class_layouts: HashMap::new(),
         }
     }
 
@@ -310,6 +337,7 @@ impl IRGenerator {
     /// 生成带参数签名的方法名以支持方法重载
     /// 格式: ClassName.__methodName_param1Type_param2Type
     /// 注意：LLVM IR 中函数名不能包含 @ 符号，使用 __ 作为分隔符
+    /// 注意：函数名不包含 this 参数，this 在 IR 层面处理
     pub fn generate_method_name(&self, class_name: &str, method: &crate::ast::MethodDecl) -> String {
         if method.params.is_empty() {
             // 无参数方法，使用简单名称
@@ -417,5 +445,63 @@ impl IRGenerator {
             ));
         }
         result
+    }
+
+    /// 计算类的实例布局
+    /// 
+    /// 对象内存布局: [type_id: i32][padding: i32][field1][field2]...
+    /// 返回对象总大小（字节）
+    pub fn compute_class_layout(&mut self, class_name: &str, fields: &[crate::ast::FieldDecl]) -> usize {
+        // 对象头大小：type_id (4 bytes) + padding (4 bytes) = 8 bytes
+        let header_size = 8usize;
+        let mut current_offset = header_size;
+        let mut field_map = HashMap::new();
+
+        for field in fields {
+            // 跳过静态字段
+            if field.modifiers.contains(&crate::ast::Modifier::Static) {
+                continue;
+            }
+
+            let llvm_type = self.type_to_llvm(&field.field_type);
+            let size = field.field_type.size_in_bytes();
+            
+            // 对齐处理
+            let align = self.get_type_align(&llvm_type) as usize;
+            current_offset = (current_offset + align - 1) & !(align - 1);
+
+            let field_info = InstanceFieldInfo {
+                name: field.name.clone(),
+                llvm_type: llvm_type.clone(),
+                field_type: field.field_type.clone(),
+                offset: current_offset,
+                size,
+            };
+
+            field_map.insert(field.name.clone(), field_info);
+            current_offset += size;
+        }
+
+        // 最终对齐到 8 字节边界
+        let total_size = (current_offset + 7) & !7;
+
+        let layout = ClassLayoutInfo {
+            class_name: class_name.to_string(),
+            total_size,
+            fields: field_map,
+        };
+
+        self.class_layouts.insert(class_name.to_string(), layout);
+        total_size
+    }
+
+    /// 获取类布局信息
+    pub fn get_class_layout(&self, class_name: &str) -> Option<&ClassLayoutInfo> {
+        self.class_layouts.get(class_name)
+    }
+
+    /// 获取实例字段信息
+    pub fn get_instance_field(&self, class_name: &str, field_name: &str) -> Option<&InstanceFieldInfo> {
+        self.class_layouts.get(class_name)?.fields.get(field_name)
     }
 }

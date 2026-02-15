@@ -1,0 +1,53 @@
+// 测试 0.4.4.x 版本: 静态成员语义
+// 静态成员存储在 BSS/data 段
+
+public class StaticTest {
+    // 静态字段
+    private static int counter;
+    private static final int MAX_COUNT = 100;
+    
+    // 实例字段
+    private int id;
+    
+    public void init() {
+        counter = counter + 1;
+        this.id = counter;
+    }
+    
+    // 静态方法 - 只能访问静态成员
+    public static int getCounter() {
+        return counter;
+    }
+    
+    public static int getMaxCount() {
+        return MAX_COUNT;
+    }
+    
+    // 实例方法 - 可以访问所有成员
+    public int getId() {
+        return id;
+    }
+    
+    public static void main(String[] args) {
+        // 测试静态字段访问
+        println("Initial counter: " + getCounter());
+        println("Max count: " + getMaxCount());
+        
+        // 创建多个实例
+        StaticTest obj1 = new StaticTest();
+        StaticTest obj2 = new StaticTest();
+        StaticTest obj3 = new StaticTest();
+        
+        obj1.init();
+        obj2.init();
+        obj3.init();
+        
+        // 验证静态计数器
+        println("After 3 instances, counter: " + getCounter());
+        
+        // 验证实例ID
+        println("Obj1 ID: " + obj1.getId());
+        println("Obj2 ID: " + obj2.getId());
+        println("Obj3 ID: " + obj3.getId());
+    }
+}

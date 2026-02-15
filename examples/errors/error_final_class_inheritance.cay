@@ -1,0 +1,19 @@
+// 错误测试: final 类不能被继承
+
+public final class FinalBase {
+    public void method() {
+        println("FinalBase method");
+    }
+}
+
+// 这个应该报错: 不能继承 final 类
+public class Derived extends FinalBase {
+    public void anotherMethod() {
+        println("Derived method");
+    }
+    
+    public static void main(String[] args) {
+        Derived d = new Derived();
+        d.method();
+    }
+}

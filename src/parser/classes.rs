@@ -169,20 +169,39 @@ pub fn parse_class_member(parser: &mut Parser) -> cayResult<ClassMember> {
         }
     } else if matches!(parser.current_token(), Token::Identifier(_)) {
         // 可能是构造函数：类名(...)
-        let name = parser.consume_identifier("Expected member name")?;
+        // 向前看：检查下一个token是否是 '('
+        let current_pos = parser.pos;
+        parser.advance(); // 跳过标识符
         
         if parser.check(&Token::LParen) {
-            // 检查是否是构造函数（名称与类名相同）
-            // 注意：这里需要在调用处传入类名来验证
-            // 暂时作为方法解析，后续在语义分析中区分
+            // 是构造函数 - 回溯到checkpoint并解析
             parser.pos = checkpoint;
-            // 尝试解析为构造函数
-            if let Ok(ctor) = parse_constructor(parser) {
-                return Ok(ClassMember::Constructor(ctor));
-            }
-            // 否则作为普通方法
-            Ok(ClassMember::Method(parse_method(parser)?))
+            
+            // 直接解析构造函数
+            let loc = parser.current_loc();
+            let ctor_modifiers = parse_modifiers(parser)?;
+            let _ctor_name = parser.consume_identifier("Expected constructor name")?;
+            
+            parser.consume(&Token::LParen, "Expected '(' after constructor name")?;
+            let ctor_params = parse_parameters(parser)?;
+            parser.consume(&Token::RParen, "Expected ')' after constructor parameters")?;
+            
+            // 解析构造链调用 this() 或 super()
+            let constructor_call = parse_constructor_call(parser)?;
+            
+            // 解析构造函数体
+            let ctor_body = parse_block(parser)?;
+            
+            return Ok(ClassMember::Constructor(ConstructorDecl {
+                modifiers: ctor_modifiers,
+                params: ctor_params,
+                body: ctor_body,
+                constructor_call,
+                loc,
+            }));
         } else {
+            // 不是构造函数，回退位置
+            parser.pos = current_pos;
             // 是字段（没有类型声明的字段，错误）
             parser.pos = checkpoint;
             Err(parser.error("Expected field or method declaration"))

@@ -15,9 +15,13 @@ impl IRGenerator {
         let class_name = &new_expr.class_name;
         let type_id_value = self.get_type_id_value(class_name).unwrap_or(0);
 
-        let size = 16i64;
+        // 获取类布局信息，确定对象大小
+        let obj_size = self.get_class_layout(class_name)
+            .map(|layout| layout.total_size as i64)
+            .unwrap_or(8i64); // 默认最小大小
+
         let calloc_temp = self.new_temp();
-        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, size));
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", calloc_temp, obj_size));
 
         let type_id_ptr = self.new_temp();
         self.emit_line(&format!("  {} = bitcast i8* {} to i32*", type_id_ptr, calloc_temp));

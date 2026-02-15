@@ -1,0 +1,33 @@
+// 测试 0.4.4.x 版本: 编译期常量
+// static final 字段可以作为编译期常量
+
+public class ConstExprTest {
+    // 编译期常量
+    private static final int SIZE = 10;
+    private static final int WIDTH = 5;
+    private static final int HEIGHT = 3;
+    
+    // 使用常量定义数组大小
+    private static int[] array = new int[SIZE];
+    private static int[][] matrix = new int[WIDTH][HEIGHT];
+    
+    public static void main(String[] args) {
+        // 初始化数组
+        for (int i = 0; i < SIZE; i++) {
+            array[i] = i * i;
+        }
+        
+        // 打印数组
+        println("Array values:");
+        for (int i = 0; i < SIZE; i++) {
+            print(array[i]);
+            if (i < SIZE - 1) {
+                print(" ");
+            }
+        }
+        println("");
+        
+        // 打印矩阵维度
+        println("Matrix dimensions: " + WIDTH + "x" + HEIGHT);
+    }
+}

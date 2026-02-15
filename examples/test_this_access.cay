@@ -1,0 +1,29 @@
+// 测试 this 关键字的各种用法
+public class ThisAccessTest {
+    private int value;
+    
+    public void init(int v) {
+        // 使用 this 区分参数和字段
+        this.value = v;
+    }
+    
+    public void printValue() {
+        // 隐式访问实例字段
+        println("Value (implicit): " + value);
+        // 显式使用 this 访问
+        println("Value (explicit): " + this.value);
+    }
+    
+    public int getValue() {
+        return this.value;
+    }
+    
+    public static void main() {
+        ThisAccessTest obj = new ThisAccessTest();
+        obj.init(42);
+        obj.printValue();
+        
+        // 测试 getValue
+        println("Get value: " + obj.getValue());
+    }
+}

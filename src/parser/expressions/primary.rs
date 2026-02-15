@@ -61,6 +61,10 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
             parser.advance();
             Ok(Expr::Literal(LiteralValue::Null))
         }
+        crate::lexer::Token::This => {
+            parser.advance();
+            Ok(Expr::Identifier("this".to_string()))
+        }
         crate::lexer::Token::Identifier(name) => {
             let name = name.clone();
             parser.advance();

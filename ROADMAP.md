@@ -150,11 +150,17 @@ EOL (Ethernos Object Language) 是一个始终编译为原生机器码的静态�
       - 优先使用顶层 `main` 函数，避免与类内 `main` 冲突
       - 如果某类含有`@main`注解，将使用该类的`main`方法作为程序入口点
 
-#### 0.4.4.x 静态与 Final 语义
-- [ ] **final 类/方法** - 禁止继承与重写，允许编译器去虚拟化（devirtualization）
-- [ ] **静态成员** - `static` 字段与方法，明确静态存储期（BSS/data 段）
-- [ ] **静态初始化** - `static { ... }` 块，定义模块加载时的初始化顺序（解决循环依赖检测）
-- [ ] **常量表达式** - `static final` 编译期常量，用于数组大小等（类似 C++ 的 `constexpr` 基础）
+#### 0.4.4.x 静态与 Final 语义（已完成）
+- [x] **final 类/方法** - 禁止继承与重写，允许编译器去虚拟化（devirtualization）
+- [x] **静态成员** - `static` 字段与方法，明确静态存储期（BSS/data 段）
+- [x] **静态初始化** - `static { ... }` 块，定义模块加载时的初始化顺序（解决循环依赖检测）
+- [x] **常量表达式** - `static final` 编译期常量，用于数组大小等（类似 C++ 的 `constexpr` 基础）
+
+**0.4.4.x 特性说明：**
+1. **final 类语义**：声明为 `final class` 的类不能被继承，子类尝试继承会报错 "Class 'X' cannot inherit from final class 'Y'"
+2. **final 方法语义**：声明为 `final` 的方法不能被重写，子类尝试重写会报错 "Method 'X' cannot override final method from class 'Y'"
+3. **静态方法访问限制**：静态方法中访问非静态成员会报错 "non-static variable X cannot be referenced from a static context"
+4. **编译期常量**：`static final` 修饰的字段且初始化值为字面量时，会被标记为编译期常量
 
 **阶段交付物**：可编写典型的资源管理类（如文件句柄包装器、网络连接管理器），支持基本的 RAII 模式。
 

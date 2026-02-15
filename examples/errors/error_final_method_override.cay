@@ -1,0 +1,21 @@
+// 错误测试: final 方法不能被重写
+
+public class Base {
+    public final void finalMethod() {
+        println("This is a final method");
+    }
+}
+
+// 这个应该报错: 不能重写 final 方法
+public class Derived extends Base {
+    // 错误: 试图重写 final 方法
+    @Override
+    public void finalMethod() {
+        println("Trying to override final method");
+    }
+    
+    public static void main(String[] args) {
+        Derived d = new Derived();
+        d.finalMethod();
+    }
+}

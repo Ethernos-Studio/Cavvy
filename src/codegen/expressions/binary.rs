@@ -68,6 +68,38 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, char_as_string, right_val));
             return Ok(format!("i8* {}", temp));
+        } else if left_type == "i8*" && right_type.starts_with("i") {
+            // 字符串 + 整数：先将整数转换为字符串，然后拼接
+            let int_as_string = self.new_temp();
+            // 如果是 i32，先扩展到 i64
+            let int_val = if right_type == "i32" {
+                let extended = self.new_temp();
+                self.emit_line(&format!("  {} = sext i32 {} to i64", extended, right_val));
+                extended
+            } else {
+                right_val.to_string()
+            };
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
+                int_as_string, int_val));
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, left_val, int_as_string));
+            return Ok(format!("i8* {}", temp));
+        } else if left_type.starts_with("i") && right_type == "i8*" {
+            // 整数 + 字符串：先将整数转换为字符串，然后拼接
+            let int_as_string = self.new_temp();
+            // 如果是 i32，先扩展到 i64
+            let int_val = if left_type == "i32" {
+                let extended = self.new_temp();
+                self.emit_line(&format!("  {} = sext i32 {} to i64", extended, left_val));
+                extended
+            } else {
+                left_val.to_string()
+            };
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
+                int_as_string, int_val));
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, int_as_string, right_val));
+            return Ok(format!("i8* {}", temp));
         } else if left_type.starts_with("i") && right_type.starts_with("i") {
             // 整数加法，需要类型提升
             let (promoted_type, promoted_left, promoted_right) = self.promote_integer_operands(left_type, left_val, right_type, right_val);

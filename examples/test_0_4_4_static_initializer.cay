@@ -1,0 +1,32 @@
+// 测试 0.4.4.x 版本: 静态初始化块
+
+public class StaticInitTest {
+    // 静态字段
+    private static int[] data;
+    private static int sum;
+    
+    // 静态初始化块
+    static {
+        data = new int[5];
+        data[0] = 1;
+        data[1] = 2;
+        data[2] = 3;
+        data[3] = 4;
+        data[4] = 5;
+        
+        // 计算总和
+        sum = 0;
+        for (int i = 0; i < data.length; i++) {
+            sum = sum + data[i];
+        }
+    }
+    
+    public static int getSum() {
+        return sum;
+    }
+    
+    public static void main(String[] args) {
+        println("Sum of array: " + getSum());
+        println("Expected: 15");
+    }
+}

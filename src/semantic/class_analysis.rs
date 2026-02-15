@@ -106,6 +106,7 @@ impl SemanticAnalyzer {
                     is_static: false,
                     is_native: false,
                     is_override: false,
+                    is_final: false,  // 接口方法不是final
                 };
                 interface_info.add_method(method_info);
             }
@@ -116,6 +117,7 @@ impl SemanticAnalyzer {
         // 然后收集类定义
         for class in &program.classes {
             let is_abstract = class.modifiers.contains(&Modifier::Abstract);
+            let is_final = class.modifiers.contains(&Modifier::Final);
             let mut class_info = ClassInfo {
                 name: class.name.clone(),
                 methods: std::collections::HashMap::new(),
@@ -125,19 +127,28 @@ impl SemanticAnalyzer {
                 parent: class.parent.clone(),
                 interfaces: class.interfaces.clone(),
                 is_abstract,
+                is_final,
             };
 
             // 收集字段信息
             for member in &class.members {
                 match member {
                     ClassMember::Field(field) => {
+                        let is_final = field.modifiers.contains(&Modifier::Final);
+                        let is_static = field.modifiers.contains(&Modifier::Static);
+                        // static final 字段且初始化值为字面量时，标记为编译期常量
+                        let is_const_expr = is_static && is_final && field.initializer.as_ref().map_or(false, |e| {
+                            matches!(e, crate::ast::Expr::Literal(_))
+                        });
                         let field_info = FieldInfo {
                             name: field.name.clone(),
                             field_type: field.field_type.clone(),
                             is_public: field.modifiers.contains(&Modifier::Public),
                             is_private: field.modifiers.contains(&Modifier::Private),
                             is_protected: field.modifiers.contains(&Modifier::Protected),
-                            is_static: field.modifiers.contains(&Modifier::Static),
+                            is_static,
+                            is_final,
+                            is_const_expr,
                         };
                         class_info.fields.insert(field.name.clone(), field_info);
                     }
@@ -180,6 +191,7 @@ impl SemanticAnalyzer {
                         is_static: method.modifiers.contains(&Modifier::Static),
                         is_native: method.modifiers.contains(&Modifier::Native),
                         is_override: method.modifiers.contains(&Modifier::Override),
+                        is_final: method.modifiers.contains(&Modifier::Final),
                     };
 
                     if let Some(class_info) = self.type_registry.classes.get_mut(&class.name) {
@@ -193,8 +205,10 @@ impl SemanticAnalyzer {
 
     /// 检查继承关系
     /// 1. 验证父类是否存在
-    /// 2. 检测循环继承
-    /// 3. 验证 @Override 注解
+    /// 2. 检查 final 类不能被继承
+    /// 3. 检测循环继承
+    /// 4. 验证 @Override 注解
+    /// 5. 检查 final 方法不能被重写
     pub fn check_inheritance(&mut self, program: &Program) -> cayResult<()> {
         // 第一遍：验证所有父类存在
         for class in &program.classes {
@@ -209,14 +223,30 @@ impl SemanticAnalyzer {
             }
         }
 
-        // 第二遍：检测循环继承
+        // 第二遍：检查 final 类不能被继承
+        for class in &program.classes {
+            if let Some(ref parent_name) = class.parent {
+                if let Some(parent_class) = self.type_registry.get_class(parent_name) {
+                    if parent_class.is_final {
+                        return Err(semantic_error(
+                            class.loc.line,
+                            class.loc.column,
+                            format!("Class '{}' cannot inherit from final class '{}'", class.name, parent_name)
+                        ));
+                    }
+                }
+            }
+        }
+
+        // 第三遍：检测循环继承
         for class in &program.classes {
             self.check_circular_inheritance(&class.name, &class.name, &mut Vec::new())?;
         }
 
-        // 第三遍：验证 @Override 注解
+        // 第四遍：验证 @Override 注解 和 final 方法检查
         for class in &program.classes {
             self.check_override_methods(class)?;
+            self.check_final_method_override(class)?;
         }
 
         Ok(())
@@ -301,6 +331,82 @@ impl SemanticAnalyzer {
         }
 
         false
+    }
+
+    /// 检查 final 方法是否被重写
+    fn check_final_method_override(&self, class: &crate::ast::ClassDecl) -> cayResult<()> {
+        // 获取父类名
+        let parent_name = match &class.parent {
+            Some(p) => p,
+            None => return Ok(()), // 没有父类，不需要检查
+        };
+
+        // 检查类中是否有方法重写了父类的 final 方法
+        for member in &class.members {
+            if let ClassMember::Method(method) = member {
+                let param_types: Vec<Type> = method.params.iter().map(|p| p.param_type.clone()).collect();
+                
+                // 在父类及其祖先中查找同名的 final 方法
+                if let Err(e) = self.check_final_method_in_ancestors(
+                    parent_name,
+                    &method.name,
+                    &param_types,
+                    method.loc.line,
+                    method.loc.column
+                ) {
+                    return Err(e);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 递归检查父类中的 final 方法
+    fn check_final_method_in_ancestors(
+        &self,
+        parent_name: &str,
+        method_name: &str,
+        param_types: &[Type],
+        line: usize,
+        column: usize
+    ) -> cayResult<()> {
+        if let Some(parent_class) = self.type_registry.get_class(parent_name) {
+            // 在父类中查找方法
+            if let Some(methods) = parent_class.methods.get(method_name) {
+                for method in methods {
+                    // 检查参数类型是否匹配
+                    if method.params.len() == param_types.len() {
+                        let parent_param_types: Vec<Type> = method.params.iter()
+                            .map(|p| p.param_type.clone())
+                            .collect();
+                        
+                        if self.types_match(&parent_param_types, param_types) {
+                            // 找到匹配的方法，检查是否是 final
+                            if method.is_final {
+                                return Err(semantic_error(
+                                    line,
+                                    column,
+                                    format!(
+                                        "Method '{}' cannot override final method from class '{}'",
+                                        method_name, parent_name
+                                    )
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 递归检查父类的父类
+            if let Some(ref grandparent) = parent_class.parent {
+                return self.check_final_method_in_ancestors(
+                    grandparent, method_name, param_types, line, column
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// 检查类型列表是否匹配

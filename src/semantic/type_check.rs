@@ -16,7 +16,24 @@ impl SemanticAnalyzer {
                 match member {
                     ClassMember::Method(method) => {
                         self.current_method = Some(method.name.clone());
+                        self.current_method_is_static = method.modifiers.contains(&Modifier::Static);
+                        self.current_method_is_constructor = false;
                         self.symbol_table.enter_scope();
+                        
+                        // 非静态方法需要添加 this
+                        if !self.current_method_is_static {
+                            if let Some(current_class) = &self.current_class {
+                                self.symbol_table.declare(
+                                    "this".to_string(),
+                                    SemanticSymbolInfo {
+                                        name: "this".to_string(),
+                                        symbol_type: Type::Object(current_class.clone()),
+                                        is_final: true,
+                                        is_initialized: true,
+                                    }
+                                );
+                            }
+                        }
                         
                         // 添加参数到符号表
                         for param in &method.params {
@@ -38,12 +55,15 @@ impl SemanticAnalyzer {
                         
                         self.symbol_table.exit_scope();
                         self.current_method = None;
+                        self.current_method_is_static = false;
                     }
                     ClassMember::Field(_) => {
                         // 字段类型检查暂不实现
                     }
                     ClassMember::Constructor(ctor) => {
                         // 构造函数类型检查
+                        self.current_method_is_static = false;
+                        self.current_method_is_constructor = true;
                         self.symbol_table.enter_scope();
                         
                         // 添加 this 到符号表
@@ -74,9 +94,12 @@ impl SemanticAnalyzer {
                         self.type_check_statement(&Stmt::Block(ctor.body.clone()), Some(&Type::Void))?;
                         
                         self.symbol_table.exit_scope();
+                        self.current_method_is_constructor = false;
                     }
                     ClassMember::Destructor(dtor) => {
                         // 析构函数类型检查
+                        self.current_method_is_static = false;
+                        self.current_method_is_constructor = false;
                         self.symbol_table.enter_scope();
                         
                         // 添加 this 到符号表
@@ -97,15 +120,20 @@ impl SemanticAnalyzer {
                     }
                     ClassMember::InstanceInitializer(block) => {
                         // 实例初始化块类型检查
+                        self.current_method_is_static = false;
+                        self.current_method_is_constructor = false;
                         self.symbol_table.enter_scope();
                         self.type_check_statement(&Stmt::Block(block.clone()), Some(&Type::Void))?;
                         self.symbol_table.exit_scope();
                     }
                     ClassMember::StaticInitializer(block) => {
                         // 静态初始化块类型检查
+                        self.current_method_is_static = true;
+                        self.current_method_is_constructor = false;
                         self.symbol_table.enter_scope();
                         self.type_check_statement(&Stmt::Block(block.clone()), Some(&Type::Void))?;
                         self.symbol_table.exit_scope();
+                        self.current_method_is_static = false;
                     }
                 }
             }

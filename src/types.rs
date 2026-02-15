@@ -34,6 +34,7 @@ pub struct ClassInfo {
     pub parent: Option<String>,
     pub interfaces: Vec<String>,  // 实现的接口列表
     pub is_abstract: bool,  // 是否是抽象类
+    pub is_final: bool,  // 是否是final类（禁止继承）
 }
 
 /// 构造函数信息
@@ -144,6 +145,7 @@ pub struct MethodInfo {
     pub is_static: bool,
     pub is_native: bool,
     pub is_override: bool,  // 标记是否是重写方法
+    pub is_final: bool,  // 是否是final方法（禁止重写）
 }
 
 #[derive(Debug, Clone)]
@@ -154,6 +156,8 @@ pub struct FieldInfo {
     pub is_private: bool,
     pub is_protected: bool,
     pub is_static: bool,
+    pub is_final: bool,  // 是否是final字段（编译期常量）
+    pub is_const_expr: bool,  // 是否是编译期常量（static final且初始化值为常量）
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

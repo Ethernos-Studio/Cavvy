@@ -34,12 +34,13 @@ impl IRGenerator {
 
         // 处理普通函数调用（支持方法重载和可变参数）
         // 先确定方法信息（类名和方法名）
-        let (class_name, method_name) = match call.callee.as_ref() {
+        // 对于实例方法调用，还需要保存对象表达式以获取 this 指针
+        let (class_name, method_name, obj_expr) = match call.callee.as_ref() {
             Expr::Identifier(name) => {
                 if !self.current_class.is_empty() {
-                    (self.current_class.clone(), name.clone())
+                    (self.current_class.clone(), name.clone(), None)
                 } else {
-                    (String::new(), name.clone())
+                    (String::new(), name.clone(), None)
                 }
             }
             Expr::MemberAccess(member) => {
@@ -47,7 +48,7 @@ impl IRGenerator {
                     let class_name = self.var_class_map.get(obj_name)
                         .cloned()
                         .unwrap_or_else(|| obj_name.clone());
-                    (class_name, member.member.clone())
+                    (class_name, member.member.clone(), Some(member.object.clone()))
                 } else {
                     return Err(codegen_error("Invalid method call".to_string()));
                 }
@@ -80,15 +81,39 @@ impl IRGenerator {
             (arg_results, false)
         };
 
-        // 生成函数名 - 使用类型注册表获取方法定义的参数类型
-        let fn_name = self.generate_function_name(&class_name, &method_name, &processed_args, has_varargs_array);
-
-        // 转换参数类型
-        let mut converted_args = Vec::new();
-        for arg_str in &processed_args {
-            // 保持参数类型不变，不进行转换
-            converted_args.push(arg_str.clone());
+        // 检查是否是实例方法（需要传递 this）
+        let is_instance_method = self.is_instance_method(&class_name, &method_name);
+        
+        // 为实例方法添加 this 参数
+        let mut final_args = Vec::new();
+        
+        if is_instance_method {
+            // 获取 this 指针
+            if let Some(obj) = obj_expr {
+                // 通过对象表达式获取 this 指针（如 obj1.getId()）
+                let obj_result = self.generate_expression(&obj)?;
+                let (_, obj_val) = self.parse_typed_value(&obj_result);
+                final_args.push(format!("i8* {}", obj_val));
+            } else if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this_ptr") {
+                // 通过当前方法的 this_ptr 获取（如在实例方法中调用其他实例方法）
+                let this_temp = self.new_temp();
+                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
+                    this_temp, this_llvm_name));
+                final_args.push(format!("i8* {}", this_temp));
+            } else {
+                // 在静态方法中调用实例方法且没有对象表达式，使用 null 作为 this
+                final_args.push("i8* null".to_string());
+            }
         }
+        
+        // 添加其他参数
+        for arg_str in &processed_args {
+            final_args.push(arg_str.clone());
+        }
+
+        // 生成函数名 - 使用类型注册表获取方法定义的参数类型
+        // 注意：函数名不包含 this 参数，this 只在 IR 调用时传递
+        let fn_name = self.generate_function_name(&class_name, &method_name, &processed_args, has_varargs_array);
 
         // 获取方法的返回类型
         let ret_type = self.get_method_return_type(&class_name, &method_name, &processed_args, has_varargs_array);
@@ -97,12 +122,12 @@ impl IRGenerator {
         if llvm_ret_type == "void" {
             // void 方法调用不需要命名结果
             self.emit_line(&format!("  call void @{}({})",
-                fn_name, converted_args.join(", ")));
+                fn_name, final_args.join(", ")));
             Ok("void %dummy".to_string())
         } else {
             let temp = self.new_temp();
             self.emit_line(&format!("  {} = call {} @{}({})",
-                temp, llvm_ret_type, fn_name, converted_args.join(", ")));
+                temp, llvm_ret_type, fn_name, final_args.join(", ")));
             Ok(format!("{} {}", llvm_ret_type, temp))
         }
     }
@@ -314,6 +339,25 @@ impl IRGenerator {
             }
         }
         // 默认返回false，避免将普通方法误认为可变参数方法
+        false
+    }
+
+    /// 检查方法是否是实例方法（非静态方法）
+    fn is_instance_method(&self, class_name: &str, method_name: &str) -> bool {
+        // 查询类型注册表
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                if let Some(methods) = class_info.methods.get(method_name) {
+                    // 检查是否有任何方法是实例方法（非静态）
+                    for method in methods {
+                        if !method.is_static {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        // 默认返回false
         false
     }
 

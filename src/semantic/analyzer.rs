@@ -11,6 +11,8 @@ pub struct SemanticAnalyzer {
     pub(super) symbol_table: SemanticSymbolTable,
     pub(super) current_class: Option<String>,
     pub(super) current_method: Option<String>,
+    pub(super) current_method_is_static: bool,  // 当前方法是否是静态方法
+    pub(super) current_method_is_constructor: bool,  // 当前是否是构造函数
     pub(super) errors: Vec<String>,
 }
 
@@ -21,6 +23,8 @@ impl SemanticAnalyzer {
             symbol_table: SemanticSymbolTable::new(),
             current_class: None,
             current_method: None,
+            current_method_is_static: false,
+            current_method_is_constructor: false,
             errors: Vec::new(),
         };
         

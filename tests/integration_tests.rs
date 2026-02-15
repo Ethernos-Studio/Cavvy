@@ -2055,6 +2055,83 @@ fn test_0_4_3_basic() {
             "Should output 9999 (final marker), got: {}", output);
 }
 
+// ========== 0.4.4.x 静态与 Final 语义测试 ==========
+
+#[test]
+fn test_0_4_4_static_member() {
+    let output = compile_and_run_eol("examples/test_0_4_4_static_member.cay")
+        .expect("0.4.4 static member should compile and run");
+    assert!(output.contains("Initial counter: 0"),
+            "Should output initial counter, got: {}", output);
+    assert!(output.contains("Max count: 100"),
+            "Should output max count, got: {}", output);
+    assert!(output.contains("After 3 instances, counter: 3"),
+            "Should output counter after 3 instances, got: {}", output);
+    assert!(output.contains("Obj1 ID: 1"),
+            "Should output obj1 ID, got: {}", output);
+    assert!(output.contains("Obj2 ID: 2"),
+            "Should output obj2 ID, got: {}", output);
+    assert!(output.contains("Obj3 ID: 3"),
+            "Should output obj3 ID, got: {}", output);
+}
+
+#[test]
+fn test_instance_fields() {
+    let output = compile_and_run_eol("examples/test_instance_fields.cay")
+        .expect("Instance fields test should compile and run");
+    assert!(output.contains("Int: 42"),
+            "Should output int field, got: {}", output);
+    assert!(output.contains("Long: 123456789"),
+            "Should output long field, got: {}", output);
+    assert!(output.contains("String: Hello"),
+            "Should output string field, got: {}", output);
+}
+
+#[test]
+fn test_this_access() {
+    let output = compile_and_run_eol("examples/test_this_access.cay")
+        .expect("This access test should compile and run");
+    assert!(output.contains("Value (implicit): 42"),
+            "Should output implicit value, got: {}", output);
+    assert!(output.contains("Value (explicit): 42"),
+            "Should output explicit value, got: {}", output);
+    assert!(output.contains("Get value: 42"),
+            "Should output get value, got: {}", output);
+}
+
+#[test]
+fn test_error_final_class_inheritance() {
+    let error = compile_eol_expect_error("examples/errors/error_final_class_inheritance.cay")
+        .expect("final class inheritance should fail to compile");
+    assert!(
+        error.contains("cannot inherit from final") || error.contains("final class"),
+        "Should report final class inheritance error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_final_method_override() {
+    let error = compile_eol_expect_error("examples/errors/error_final_method_override.cay")
+        .expect("final method override should fail to compile");
+    assert!(
+        error.contains("cannot override final") || error.contains("final method"),
+        "Should report final method override error, got: {}",
+        error
+    );
+}
+
+#[test]
+fn test_error_static_access_instance() {
+    let error = compile_eol_expect_error("examples/errors/error_static_access_instance.cay")
+        .expect("static access instance should fail to compile");
+    assert!(
+        error.contains("non-static") || error.contains("static context"),
+        "Should report non-static access from static context error, got: {}",
+        error
+    );
+}
+
 #[test]
 fn test_0_4_3_simple() {
     let output = compile_and_run_eol("examples/test_0_4_3_simple.cay").expect("0.4.3 simple should compile and run");

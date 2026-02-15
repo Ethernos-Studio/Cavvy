@@ -1,0 +1,20 @@
+// 测试 0.4.4.x 版本: final 类
+// final 类不能被继承
+
+public final class FinalClass {
+    private int value;
+    
+    public void setValue(int v) {
+        value = v;
+    }
+    
+    public int getValue() {
+        return value;
+    }
+    
+    public static void main(String[] args) {
+        FinalClass obj = new FinalClass();
+        obj.setValue(42);
+        println("FinalClass value: " + obj.getValue());
+    }
+}

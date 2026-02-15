@@ -1,0 +1,36 @@
+// 测试 0.4.4.x 版本: final 方法
+// final 方法不能被重写
+
+public class BaseClass {
+    private int value;
+    
+    public void setValue(int v) {
+        value = v;
+    }
+    
+    // final 方法 - 子类不能重写
+    public final int getValue() {
+        return value;
+    }
+    
+    // 普通方法 - 子类可以重写
+    public void printValue() {
+        println("Base value: " + value);
+    }
+}
+
+public class DerivedClass extends BaseClass {
+    
+    // 重写普通方法
+    @Override
+    public void printValue() {
+        println("Derived value: " + getValue());
+    }
+    
+    public static void main(String[] args) {
+        DerivedClass obj = new DerivedClass();
+        obj.setValue(100);
+        obj.printValue();
+        println("Final method returns: " + obj.getValue());
+    }
+}

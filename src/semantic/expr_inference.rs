@@ -21,22 +21,39 @@ impl SemanticAnalyzer {
                 LiteralValue::Null => Ok(Type::Object("Object".to_string())),
             }
             Expr::Identifier(name) => {
+                // 检查是否在静态上下文中访问 this
+                if self.current_method_is_static && name == "this" {
+                    return Err(semantic_error(
+                        0, 0,
+                        format!("non-static variable this cannot be referenced from a static context")
+                    ));
+                }
+                
+                // 首先检查是否是当前类的字段（包括静态和非静态）
+                if let Some(current_class_name) = &self.current_class {
+                    if let Some(class_info) = self.type_registry.get_class(current_class_name) {
+                        if let Some(field_info) = class_info.fields.get(name) {
+                            if field_info.is_static {
+                                return Ok(field_info.field_type.clone());
+                            } else if self.current_method_is_static {
+                                // 静态方法中不能访问非静态字段
+                                return Err(semantic_error(
+                                    0, 0,
+                                    format!("non-static variable {} cannot be referenced from a static context", name)
+                                ));
+                            }
+                            // 非静态方法中返回字段类型
+                            return Ok(field_info.field_type.clone());
+                        }
+                    }
+                }
+                
                 if let Some(info) = self.symbol_table.lookup(name) {
                     Ok(info.symbol_type.clone())
                 } else if self.type_registry.class_exists(name) {
                     // 标识符是类名，返回类类型（用于静态成员访问）
                     Ok(Type::Object(name.clone()))
                 } else {
-                    // 检查是否是当前类的静态字段
-                    if let Some(current_class_name) = &self.current_class {
-                        if let Some(class_info) = self.type_registry.get_class(current_class_name) {
-                            if let Some(field_info) = class_info.fields.get(name) {
-                                if field_info.is_static {
-                                    return Ok(field_info.field_type.clone());
-                                }
-                            }
-                        }
-                    }
                     Err(semantic_error(0, 0, format!("Undefined variable: {}", name)))
                 }
             }
@@ -379,10 +396,38 @@ impl SemanticAnalyzer {
             }
         }
 
+        // 检查静态方法中是否访问非静态成员
+        if self.current_method_is_static {
+            // 检查是否是 this 访问
+            if let Expr::Identifier(name) = &*member.object {
+                if name == "this" {
+                    return Err(semantic_error(
+                        member.loc.line,
+                        member.loc.column,
+                        format!("non-static variable {} cannot be referenced from a static context", member.member)
+                    ));
+                }
+            }
+        }
+
         // 类成员访问
         if let Type::Object(class_name) = obj_type {
             if let Some(class_info) = self.type_registry.get_class(&class_name) {
                 if let Some(field_info) = class_info.fields.get(&member.member) {
+                    // 检查静态方法中是否访问非静态字段
+                    if self.current_method_is_static && !field_info.is_static {
+                        // 检查是否是当前类的实例字段
+                        if let Some(current_class) = &self.current_class {
+                            if current_class == &class_name {
+                                return Err(semantic_error(
+                                    member.loc.line,
+                                    member.loc.column,
+                                    format!("non-static variable {} cannot be referenced from a static context", member.member)
+                                ));
+                            }
+                        }
+                    }
+                    
                     // 检查私有字段访问权限
                     if !field_info.is_public {
                         if let Some(current_class) = &self.current_class {
