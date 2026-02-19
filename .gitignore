@@ -26,3 +26,6 @@
 !/lib/mingw64/x86_64-w64-mingw32/lib/*.o
 
 target/
+
+#太大了
+llvm-minimal/bin-linux/*
