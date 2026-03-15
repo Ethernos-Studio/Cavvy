@@ -506,9 +506,172 @@ impl SemanticAnalyzer {
     }
 
     /// 推断类型转换表达式类型
+    ///
+    /// 验证类型转换的合法性并返回目标类型。
+    /// 支持的转换类型：
+    /// - 数值类型之间的转换（int <-> float，精度可能损失）
+    /// - 引用类型之间的转换（继承层次结构内）
+    /// - char 与 int 之间的转换
+    ///
+    /// # Arguments
+    /// * `cast` - 类型转换表达式
+    ///
+    /// # Returns
+    /// 成功时返回目标类型，失败时返回语义错误
+    ///
+    /// # Type Conversion Rules
+    /// 1. 相同类型：允许（无实际效果）
+    /// 2. 数值类型之间：允许（可能精度损失）
+    /// 3. 引用类型之间：仅当存在继承关系时允许
+    /// 4. char <-> int：允许
+    /// 5. 数组类型之间：仅当元素类型兼容时允许
+    /// 6. 其他组合：非法转换
     fn infer_cast_type(&mut self, cast: &CastExpr) -> cayResult<Type> {
-        // TODO: 检查转换是否合法
-        Ok(cast.target_type.clone())
+        let source_type = self.infer_expr_type(&cast.expr)?;
+        let target_type = &cast.target_type;
+        
+        // 相同类型，无需转换
+        if source_type == *target_type {
+            return Ok(target_type.clone());
+        }
+        
+        // 检查转换是否合法
+        if self.is_valid_cast(&source_type, target_type) {
+            Ok(target_type.clone())
+        } else {
+            Err(semantic_error(
+                cast.loc.line,
+                cast.loc.column,
+                format!("Invalid cast from {} to {}", source_type, target_type)
+            ))
+        }
+    }
+    
+    /// 检查类型转换是否合法
+    ///
+    /// # Arguments
+    /// * `from` - 源类型
+    /// * `to` - 目标类型
+    ///
+    /// # Returns
+    /// 如果转换合法返回 true
+    fn is_valid_cast(&self, from: &Type, to: &Type) -> bool {
+        use crate::types::Type;
+        
+        match (from, to) {
+            // 相同类型
+            (a, b) if a == b => true,
+            
+            // 数值类型之间的转换（所有组合都允许，可能精度损失）
+            (Type::Int32, Type::Int64) |
+            (Type::Int32, Type::Float32) |
+            (Type::Int32, Type::Float64) |
+            (Type::Int64, Type::Int32) |
+            (Type::Int64, Type::Float32) |
+            (Type::Int64, Type::Float64) |
+            (Type::Float32, Type::Int32) |
+            (Type::Float32, Type::Int64) |
+            (Type::Float32, Type::Float64) |
+            (Type::Float64, Type::Int32) |
+            (Type::Float64, Type::Int64) |
+            (Type::Float64, Type::Float32) => true,
+            
+            // char 与数值类型之间的转换
+            (Type::Char, Type::Int32) |
+            (Type::Char, Type::Int64) |
+            (Type::Int32, Type::Char) |
+            (Type::Int64, Type::Char) => true,
+            
+            // 任何基本类型都可以转换为 string
+            (Type::Int32, Type::String) |
+            (Type::Int64, Type::String) |
+            (Type::Float32, Type::String) |
+            (Type::Float64, Type::String) |
+            (Type::Char, Type::String) |
+            (Type::Bool, Type::String) => true,
+            
+            // 引用类型之间的转换：需要继承关系
+            (Type::Object(from_name), Type::Object(to_name)) => {
+                // 检查是否存在继承关系（双向）
+                self.is_related_type(from_name, to_name)
+            }
+            
+            // 数组类型之间的转换：元素类型兼容
+            (Type::Array(from_elem), Type::Array(to_elem)) => {
+                self.is_valid_cast(from_elem, to_elem)
+            }
+            
+            // null 可以转换为任何引用类型
+            (Type::Object(obj_name), Type::Object(_)) if obj_name == "Object" => true,
+            
+            // 其他组合都不合法
+            _ => false,
+        }
+    }
+    
+    /// 检查两个类型是否存在继承关系（双向）
+    ///
+    /// 用于类型转换检查，允许向上转型（子类->父类）和向下转型（父类->子类）
+    fn is_related_type(&self, type_a: &str, type_b: &str) -> bool {
+        // 相同类型
+        if type_a == type_b {
+            return true;
+        }
+        
+        // 检查 type_a 是否是 type_b 的子类型
+        if self.is_subtype_of_by_name(type_a, type_b) {
+            return true;
+        }
+        
+        // 检查 type_b 是否是 type_a 的子类型
+        if self.is_subtype_of_by_name(type_b, type_a) {
+            return true;
+        }
+        
+        false
+    }
+    
+    /// 通过类型名称检查子类型关系
+    ///
+    /// 辅助函数，用于检查一个类型是否是另一个类型的子类型
+    fn is_subtype_of_by_name(&self, subtype: &str, supertype: &str) -> bool {
+        // 相同类型
+        if subtype == supertype {
+            return true;
+        }
+        
+        // 所有类都是 Object 的子类型
+        if supertype == "Object" {
+            return self.type_registry.class_exists(subtype)
+                || subtype == "String"
+                || subtype == "Function";
+        }
+        
+        // 迭代遍历继承链
+        let mut current = subtype.to_string();
+        let mut visited = std::collections::HashSet::new();
+        
+        loop {
+            // 防止循环继承导致的无限循环
+            if !visited.insert(current.clone()) {
+                return false;
+            }
+            
+            if let Some(class_info) = self.type_registry.get_class(&current) {
+                match &class_info.parent {
+                    Some(parent) => {
+                        if parent == supertype {
+                            return true;
+                        }
+                        current = parent.clone();
+                    }
+                    None => return false,
+                }
+            } else {
+                // 内置类型检查
+                return (subtype == "String" || subtype == "Function") && supertype == "Object";
+            }
+        }
     }
 
     /// 推断数组创建表达式类型

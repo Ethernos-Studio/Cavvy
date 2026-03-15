@@ -7,6 +7,9 @@ use super::analyzer::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     /// 检查类型兼容性
+    ///
+    /// 验证源类型是否可以赋值给目标类型。
+    /// 对于引用类型（Object），检查继承关系：子类可以赋值给父类。
     pub fn types_compatible(&self, from: &Type, to: &Type) -> bool {
         if from == to {
             return true;
@@ -28,7 +31,10 @@ impl SemanticAnalyzer {
             (Type::Int64, Type::Float64) => true,
             (Type::Float32, Type::Float64) => true,
             (Type::Float64, Type::Float32) => true, // 允许double到float转换（可能有精度损失）
-            (Type::Object(_), Type::Object(_)) => true, // TODO: 继承检查
+            (Type::Object(from_name), Type::Object(to_name)) => {
+                // 检查继承关系：from_name 是否是 to_name 的子类
+                self.is_subtype_of(from_name, to_name)
+            }
             // char 可以赋值给 int (ASCII 码值)
             (Type::Char, Type::Int32) => true,
             (Type::Char, Type::Int64) => true,
@@ -57,6 +63,63 @@ impl SemanticAnalyzer {
     /// 检查类型是否为数值类型
     pub fn is_numeric_type(ty: &Type) -> bool {
         matches!(ty, Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char)
+    }
+
+    /// 检查 subtype 是否是 supertype 的子类型
+    ///
+    /// 通过递归遍历继承层次结构来确定类型兼容性。
+    /// 子类可以赋值给父类（里氏替换原则）。
+    ///
+    /// # Arguments
+    /// * `subtype` - 待检查的子类型名称
+    /// * `supertype` - 目标父类型名称
+    ///
+    /// # Returns
+    /// 如果 subtype 是 supertype 的子类型则返回 true
+    ///
+    /// # Algorithm
+    /// 时间复杂度: O(h)，其中 h 是继承链的高度
+    /// 空间复杂度: O(1)，迭代实现避免递归栈溢出
+    fn is_subtype_of(&self, subtype: &str, supertype: &str) -> bool {
+        // 相同类型必然是子类型
+        if subtype == supertype {
+            return true;
+        }
+        
+        // 特殊处理：所有类都是 Object 的子类型
+        if supertype == "Object" {
+            // 检查 subtype 是否是一个有效的类名（不是内置类型别名）
+            return self.type_registry.class_exists(subtype)
+                || subtype == "String"
+                || subtype == "Function";
+        }
+        
+        // 迭代遍历继承链
+        let mut current = subtype.to_string();
+        let mut visited = std::collections::HashSet::new();
+        
+        loop {
+            // 防止循环继承导致的无限循环
+            if !visited.insert(current.clone()) {
+                return false; // 检测到循环继承
+            }
+            
+            if let Some(class_info) = self.type_registry.get_class(&current) {
+                match &class_info.parent {
+                    Some(parent) => {
+                        if parent == supertype {
+                            return true;
+                        }
+                        current = parent.clone();
+                    }
+                    None => return false, // 到达继承链顶端
+                }
+            } else {
+                // 如果不是类，检查内置类型关系
+                // String 是 Object 的子类型，但其他内置类型不是
+                return (subtype == "String" || subtype == "Function") && supertype == "Object";
+            }
+        }
     }
 
     /// 整数类型提升
