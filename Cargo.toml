@@ -1,6 +1,6 @@
 [package]
 name = "cavvy"
-version = "0.4.6"
+version = "0.4.7"
 edition = "2024"
 
 [dependencies]
@@ -30,9 +30,9 @@ name = "cay-run"
 path = "src/bin/cay-run.rs"
 
 [[bin]]
-name = "cay-dll"
-path = "src/bin/cay-dll.rs"
-
-[[bin]]
 name = "cay-rcpl"
 path = "src/bin/cay-rcpl.rs"
+
+[[bin]]
+name = "cay-bcgen"
+path = "src/bin/cay-bcgen.rs"

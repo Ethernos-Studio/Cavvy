@@ -7,6 +7,7 @@ pub mod parser;
 pub mod semantic;
 pub mod codegen;
 pub mod rcpl;
+pub mod bytecode;
 
 use std::path::{Path, PathBuf};
 use error::cayResult;

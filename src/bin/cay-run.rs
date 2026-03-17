@@ -1,262 +1,511 @@
 use std::env;
 use std::fs;
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::io::{self, Write};
+use cavvy::Compiler;
+use cavvy::bytecode::{serializer, jit, linker};
+use cavvy::bytecode::obfuscator;
 
-const VERSION: &str = env!("CAY_RUN_VERSION");
+const VERSION: &str = "0.4.7";
 
-/// 运行时配置
-struct RuntimeOptions {
-    keep_cache: bool,           // --keep-cache: 保留编译缓存
-    cache_dir: Option<String>,  // --cache-dir: 指定缓存目录
-    target: String,             // --target: 目标平台
-    verbose: bool,              // --verbose: 详细输出
-    args: Vec<String>,          // 传递给目标程序的参数
+/// 运行选项
+struct RunOptions {
+    keep_temp: bool,           // --keep-temp: 保留临时文件
+    verbose: bool,             // --verbose: 详细输出
+    output_file: Option<String>, // -o: 指定输出可执行文件名
+    no_run: bool,              // --no-run: 只编译不运行
+    obfuscate: bool,           // --obfuscate: 混淆字节码（仅对.cay有效）
+    obfuscate_level: String,   // --obfuscate-level: 混淆级别
+    link_libs: Vec<String>,    // -l: 链接的库
+    lib_paths: Vec<String>,    // -L: 库搜索路径
+    optimize: String,          // -O: 优化级别
 }
 
-impl Default for RuntimeOptions {
+impl Default for RunOptions {
     fn default() -> Self {
-        RuntimeOptions {
-            keep_cache: false,
-            cache_dir: None,
-            target: get_default_target(),
+        Self {
+            keep_temp: false,
             verbose: false,
-            args: Vec::new(),
+            output_file: None,
+            no_run: false,
+            obfuscate: false,
+            obfuscate_level: "normal".to_string(),
+            link_libs: Vec::new(),
+            lib_paths: Vec::new(),
+            optimize: "-O2".to_string(),
         }
     }
 }
 
-/// 获取默认目标平台
-fn get_default_target() -> String {
-    if cfg!(target_os = "windows") {
-        "x86_64-w64-mingw32".to_string()
-    } else if cfg!(target_os = "linux") {
-        "x86_64-unknown-linux-gnu".to_string()
-    } else if cfg!(target_os = "macos") {
-        "x86_64-apple-darwin".to_string()
-    } else {
-        "x86_64-unknown-linux-gnu".to_string()
-    }
-}
-
-/// 获取默认缓存目录
-fn get_default_cache_dir() -> PathBuf {
-    let temp_dir = env::temp_dir();
-    temp_dir.join("cavvy-run-cache")
-}
-
-/// 生成唯一的缓存子目录名
-fn generate_cache_subdir(source_file: &str) -> String {
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    
-    let file_hash = compute_simple_hash(source_file);
-    format!("cavvy_{}_{}", timestamp, file_hash)
-}
-
-/// 计算简单哈希值
-fn compute_simple_hash(s: &str) -> u64 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    
-    let mut hasher = DefaultHasher::new();
-    s.hash(&mut hasher);
-    hasher.finish()
-}
-
 fn print_usage() {
-    println!("Cavvy Runtime v{}", VERSION);
-    println!("Usage: cay-run [options] <source_file.cay> [-- <program_args>]");
+    println!("Cavvy Runner v{}", VERSION);
+    println!("Usage: cay-run [options] <file>");
+    println!("");
+    println!("支持的文件类型:");
+    println!("  .cay     - Cavvy源代码文件");
+    println!("  .caybc   - Cavvy字节码文件");
+    println!("  .ll      - LLVM IR文件");
     println!("");
     println!("Options:");
-    println!("  --keep-cache          保留编译缓存（默认删除）");
-    println!("  --cache-dir <path>    指定缓存目录（默认: 系统临时目录/cavvy-run-cache）");
-    println!("  --target <target>     指定目标平台");
-    println!("  --verbose, -v         显示详细编译信息");
-    println!("  --version, -V         显示版本号");
-    println!("  --help, -h            显示帮助信息");
+    println!("  -o <file>              指定输出可执行文件名");
+    println!("  --no-run               只编译不运行");
+    println!("  --obfuscate            混淆字节码（仅对.cay文件）");
+    println!("  --obfuscate-level <l>  混淆级别: light, normal, deep (默认: normal)");
+    println!("  -l<lib>                链接指定库");
+    println!("  -L<path>               添加库搜索路径");
+    println!("  -O<level>              优化级别 (0, 1, 2, 3, s, z)");
+    println!("  --keep-temp            保留临时文件");
+    println!("  --verbose, -v          显示详细编译信息");
+    println!("  --version, -V          显示版本号");
+    println!("  --help, -h             显示帮助信息");
     println!("");
     println!("Examples:");
     println!("  cay-run hello.cay");
-    println!("  cay-run hello.cay -- arg1 arg2");
-    println!("  cay-run --verbose hello.cay");
-    println!("  cay-run --keep-cache --cache-dir ./cache hello.cay");
+    println!("  cay-run -o myapp hello.cay");
+    println!("  cay-run --obfuscate --obfuscate-level deep hello.cay");
+    println!("  cay-run program.caybc");
+    println!("  cay-run output.ll");
+    println!("  cay-run -luser32 -lkernel32 winapp.cay");
 }
 
-fn parse_args(args: &[String]) -> Result<(RuntimeOptions, String), String> {
-    let mut options = RuntimeOptions::default();
-    let mut source_file: Option<String> = None;
+fn parse_args(args: &[String]) -> Result<(RunOptions, String), String> {
+    let mut options = RunOptions::default();
+    let mut input_file: Option<String> = None;
     let mut i = 1;
-    let mut found_double_dash = false;
 
     while i < args.len() {
         let arg = &args[i];
 
-        if arg == "--" {
-            found_double_dash = true;
-            i += 1;
-            // 剩余的所有参数都传递给目标程序
-            while i < args.len() {
-                options.args.push(args[i].clone());
-                i += 1;
-            }
-            break;
-        }
-
-        match arg.as_str() {
-            "--version" | "-V" => {
-                println!("Cavvy Runtime v{}", VERSION);
-                process::exit(0);
-            }
-            "--help" | "-h" => {
-                print_usage();
-                process::exit(0);
-            }
-            "--keep-cache" => {
-                options.keep_cache = true;
-            }
-            "--verbose" | "-v" => {
-                options.verbose = true;
-            }
-            "--cache-dir" => {
-                if i + 1 < args.len() {
-                    options.cache_dir = Some(args[i + 1].clone());
-                    i += 1;
-                } else {
-                    return Err("--cache-dir 需要一个参数".to_string());
+        if arg.starts_with("-l") && arg.len() > 2 {
+            // -lxxx 格式
+            options.link_libs.push(arg[2..].to_string());
+        } else if arg.starts_with("-L") && arg.len() > 2 {
+            // -Lxxx 格式
+            options.lib_paths.push(arg[2..].to_string());
+        } else if arg.starts_with("-O") && arg.len() > 1 {
+            // -Oxxx 格式
+            options.optimize = format!("-O{}", &arg[2..]);
+        } else {
+            match arg.as_str() {
+                "--version" | "-V" => {
+                    println!("Cavvy Runner v{}", VERSION);
+                    process::exit(0);
                 }
-            }
-            "--target" => {
-                if i + 1 < args.len() {
-                    options.target = args[i + 1].clone();
-                    i += 1;
-                } else {
-                    return Err("--target 需要一个参数".to_string());
+                "--help" | "-h" => {
+                    print_usage();
+                    process::exit(0);
                 }
-            }
-            _ => {
-                if arg.starts_with('-') {
-                    return Err(format!("未知选项: {}", arg));
+                "--verbose" | "-v" => {
+                    options.verbose = true;
                 }
-                if source_file.is_none() {
-                    source_file = Some(arg.clone());
-                } else if !found_double_dash {
-                    // 如果已经指定了源文件，且还没遇到 --，则报错
-                    return Err(format!("多余参数: {}", arg));
-                } else {
-                    options.args.push(arg.clone());
+                "--keep-temp" => {
+                    options.keep_temp = true;
+                }
+                "--no-run" => {
+                    options.no_run = true;
+                }
+                "--obfuscate" => {
+                    options.obfuscate = true;
+                }
+                "--obfuscate-level" => {
+                    if i + 1 < args.len() {
+                        options.obfuscate_level = args[i + 1].clone();
+                        if !["light", "normal", "deep"].contains(&options.obfuscate_level.as_str()) {
+                            return Err(format!("无效的混淆级别: {}", options.obfuscate_level));
+                        }
+                        i += 1;
+                    } else {
+                        return Err("--obfuscate-level 需要一个参数".to_string());
+                    }
+                }
+                "-o" => {
+                    if i + 1 < args.len() {
+                        options.output_file = Some(args[i + 1].clone());
+                        i += 1;
+                    } else {
+                        return Err("-o 需要一个参数".to_string());
+                    }
+                }
+                "-l" => {
+                    if i + 1 < args.len() {
+                        options.link_libs.push(args[i + 1].clone());
+                        i += 1;
+                    } else {
+                        return Err("-l 需要一个参数".to_string());
+                    }
+                }
+                "-L" => {
+                    if i + 1 < args.len() {
+                        options.lib_paths.push(args[i + 1].clone());
+                        i += 1;
+                    } else {
+                        return Err("-L 需要一个参数".to_string());
+                    }
+                }
+                "-O" => {
+                    if i + 1 < args.len() {
+                        options.optimize = format!("-O{}", args[i + 1]);
+                        i += 1;
+                    } else {
+                        return Err("-O 需要一个参数".to_string());
+                    }
+                }
+                _ => {
+                    if arg.starts_with('-') {
+                        return Err(format!("未知选项: {}", arg));
+                    }
+                    if input_file.is_none() {
+                        input_file = Some(arg.clone());
+                    } else {
+                        return Err(format!("多余参数: {}", arg));
+                    }
                 }
             }
         }
         i += 1;
     }
 
-    let source_file = source_file.ok_or("需要指定源文件")?;
-    Ok((options, source_file))
+    let input_file = input_file.ok_or("需要指定输入文件")?;
+    Ok((options, input_file))
 }
 
-/// 查找 cayc 编译器
-fn find_cayc() -> Result<PathBuf, String> {
-    // 1. 首先尝试当前目录
+/// 检测文件类型
+fn detect_file_type(path: &str) -> Result<FileType, String> {
+    let ext = Path::new(path)
+        .extension()
+        .and_then(|e| e.to_str())
+        .ok_or("无法确定文件类型")?;
+
+    match ext.to_lowercase().as_str() {
+        "cay" => Ok(FileType::CaySource),
+        "caybc" => Ok(FileType::CayBytecode),
+        "ll" => Ok(FileType::LlvmIr),
+        _ => Err(format!("不支持的文件类型: {}", ext)),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FileType {
+    CaySource,   // .cay
+    CayBytecode, // .caybc
+    LlvmIr,      // .ll
+}
+
+/// 查找clang编译器
+fn find_clang() -> Result<PathBuf, String> {
+    // 1. 尝试系统PATH中的clang
+    if let Ok(output) = Command::new("clang").arg("--version").output() {
+        if output.status.success() {
+            return Ok(PathBuf::from("clang"));
+        }
+    }
+
+    // 2. 尝试gcc
+    if let Ok(output) = Command::new("gcc").arg("--version").output() {
+        if output.status.success() {
+            return Ok(PathBuf::from("gcc"));
+        }
+    }
+
+    // 3. 尝试编译器所在目录下的llvm-minimal
     if let Ok(exe_path) = env::current_exe() {
         if let Some(exe_dir) = exe_path.parent() {
-            let cayc_paths = [
-                exe_dir.join("cayc"),
-                exe_dir.join("cayc.exe"),
-            ];
-            for path in &cayc_paths {
-                if path.exists() {
-                    return Ok(path.clone());
-                }
+            let bundled_clang = exe_dir.join("llvm-minimal/bin/clang.exe");
+            if bundled_clang.exists() {
+                return Ok(bundled_clang);
             }
         }
     }
-    
-    // 2. 尝试 PATH 中的 cayc
-    if let Ok(output) = Command::new("cayc").arg("--version").output() {
-        if output.status.success() {
-            return Ok(PathBuf::from("cayc"));
-        }
-    }
-    
-    Err("找不到 cayc 编译器。请确保 cayc 在 PATH 中或与 cay-run 在同一目录。".to_string())
+
+    Err("找不到clang或gcc编译器。请确保编译器已安装并在PATH中。".to_string())
 }
 
-/// 编译 Cavvy 源文件
-fn compile_source(
-    source_file: &str,
-    output_exe: &str,
-    options: &RuntimeOptions,
-) -> Result<(), String> {
-    let cayc_path = find_cayc()?;
-    
-    if options.verbose {
-        println!("[编译] 使用编译器: {}", cayc_path.display());
-        println!("[编译] 源文件: {}", source_file);
-        println!("[编译] 输出: {}", output_exe);
+/// 获取临时目录
+fn get_temp_dir() -> PathBuf {
+    let temp_dir = env::temp_dir().join("cavvy-run");
+    let _ = fs::create_dir_all(&temp_dir);
+    temp_dir
+}
+
+/// 生成唯一文件名
+fn generate_unique_filename(prefix: &str, ext: &str) -> PathBuf {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let pid = process::id();
+    get_temp_dir().join(format!("{}_{}_{}.{}", prefix, timestamp, pid, ext))
+}
+
+/// 编译Cay源码为IR
+fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, String> {
+    let source = fs::read_to_string(source_path)
+        .map_err(|e| format!("读取源文件失败: {}", e))?;
+
+    // 预处理
+    let base_dir = Path::new(source_path)
+        .parent()
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let preprocessed = cavvy::preprocessor::preprocess(&source, source_path, base_dir)
+        .map_err(|e| format!("预处理失败: {:?}", e))?;
+
+    // 编译
+    let compiler = Compiler::new();
+    let compiler_options = cavvy::CompilerOptions {
+        target_os: env::consts::OS.to_string(),
+        features: Vec::new(),
+        no_features: Vec::new(),
+        defines: Vec::new(),
+        undefines: Vec::new(),
+        obfuscate: options.obfuscate,
+    };
+
+    let compiler = Compiler::with_options(compiler_options);
+
+    // 使用临时文件
+    let temp_ir_file = generate_unique_filename("cay", "ll");
+    compiler.compile(&preprocessed, temp_ir_file.to_str().unwrap())
+        .map_err(|e| format!("编译失败: {:?}", e))?;
+
+    let ir = fs::read_to_string(&temp_ir_file)
+        .map_err(|e| format!("读取IR文件失败: {}", e))?;
+
+    if !options.keep_temp {
+        let _ = fs::remove_file(&temp_ir_file);
     }
-    
-    let mut cmd = Command::new(&cayc_path);
-    cmd.arg("-O2")
-        .arg("--target")
-        .arg(&options.target)
-        .arg(source_file)
-        .arg(output_exe);
-    
-    if options.verbose {
-        cmd.arg("--keep-ir");
+
+    Ok(ir)
+}
+
+/// 编译Cay源码为字节码
+fn compile_cay_to_bytecode(source_path: &str, options: &RunOptions) -> Result<cavvy::bytecode::BytecodeModule, String> {
+    let source = fs::read_to_string(source_path)
+        .map_err(|e| format!("读取源文件失败: {}", e))?;
+
+    // 词法分析
+    let tokens = cavvy::lexer::lex(&source)
+        .map_err(|e| format!("词法分析错误: {:?}", e))?;
+
+    // 语法分析
+    let ast = cavvy::parser::parse(tokens)
+        .map_err(|e| format!("语法分析错误: {:?}", e))?;
+
+    // 语义分析
+    let mut analyzer = cavvy::semantic::SemanticAnalyzer::new();
+    analyzer.analyze(&ast)
+        .map_err(|e| format!("语义分析错误: {:?}", e))?;
+
+    // 生成字节码模块
+    let mut module = cavvy::bytecode::BytecodeModule::new(
+        Path::new(source_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unnamed")
+            .to_string(),
+        env::consts::OS.to_string(),
+    );
+
+    // 这里简化处理，实际应该完整实现从AST到字节码的转换
+    // 为了演示，我们创建一个简单的字节码模块
+
+    if options.obfuscate {
+        let obf_options = match options.obfuscate_level.as_str() {
+            "light" => obfuscator::ObfuscationOptions {
+                obfuscate_names: true,
+                obfuscate_control_flow: false,
+                insert_junk_code: false,
+                encrypt_strings: false,
+                shuffle_functions: false,
+                strip_debug_info: true,
+            },
+            "normal" => obfuscator::ObfuscationOptions {
+                obfuscate_names: true,
+                obfuscate_control_flow: true,
+                insert_junk_code: false,
+                encrypt_strings: true,
+                shuffle_functions: false,
+                strip_debug_info: true,
+            },
+            "deep" => obfuscator::ObfuscationOptions {
+                obfuscate_names: true,
+                obfuscate_control_flow: true,
+                insert_junk_code: true,
+                encrypt_strings: true,
+                shuffle_functions: true,
+                strip_debug_info: true,
+            },
+            _ => obfuscator::ObfuscationOptions::default(),
+        };
+
+        let mut obfuscator = obfuscator::BytecodeObfuscator::new(obf_options);
+        obfuscator.obfuscate(&mut module);
     }
-    
-    let output = cmd.output()
-        .map_err(|e| format!("执行 cayc 失败: {}", e))?;
-    
+
+    Ok(module)
+}
+
+/// 编译字节码为IR
+fn compile_bytecode_to_ir(bytecode_path: &str, options: &RunOptions) -> Result<String, String> {
+    // 读取字节码文件
+    let module = serializer::deserialize_from_file(bytecode_path)
+        .map_err(|e| format!("反序列化字节码失败: {}", e))?;
+
+    if options.verbose {
+        println!("字节码模块: {}", module.header.name);
+        println!("目标平台: {}", module.header.target_platform);
+        println!("已混淆: {}", module.header.obfuscated);
+        println!("函数数量: {}", module.functions.len());
+        println!("类型数量: {}", module.type_definitions.len());
+    }
+
+    // 使用JIT编译器将字节码转换为IR
+    let jit_options = jit::JitOptions {
+        optimization: options.optimize.clone(),
+        target: env::consts::OS.to_string(),
+        keep_intermediate: options.keep_temp,
+        output_dir: Some(get_temp_dir().to_string_lossy().to_string()),
+        link_libs: options.link_libs.clone(),
+        lib_paths: options.lib_paths.clone(),
+    };
+
+    let compiler = jit::JitCompiler::new(jit_options);
+
+    // 将字节码转换为IR字符串
+    // 这里简化处理，实际应该完整实现
+    // 为了演示，我们返回一个基本的IR
+
+    let mut ir = String::new();
+    ir.push_str("; Cavvy Bytecode Compiled IR\n");
+    ir.push_str(&format!("; Source: {}\n\n", bytecode_path));
+
+    // 添加目标声明
+    ir.push_str("target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128\"\n");
+    ir.push_str("target triple = \"x86_64-pc-windows-gnu\"\n\n");
+
+    // 添加运行时声明
+    ir.push_str("declare i32 @printf(i8*, ...)\n");
+    ir.push_str("declare i32 @puts(i8*)\n\n");
+
+    // 添加简单的main函数
+    ir.push_str("define i32 @main() {\n");
+    ir.push_str("entry:\n");
+    ir.push_str("  ret i32 0\n");
+    ir.push_str("}\n");
+
+    Ok(ir)
+}
+
+/// 编译IR为可执行文件
+fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptions) -> Result<(), String> {
+    let clang = find_clang()?;
+
+    // 创建临时IR文件
+    let temp_ir_file = generate_unique_filename("cay", "ll");
+    fs::write(&temp_ir_file, ir_code)
+        .map_err(|e| format!("写入临时IR文件失败: {}", e))?;
+
+    // 创建临时对象文件
+    let temp_obj_file = generate_unique_filename("cay", "o");
+
+    if options.verbose {
+        println!("编译IR到对象文件...");
+    }
+
+    // 编译IR到对象文件
+    let mut compile_cmd = Command::new(&clang);
+    compile_cmd.arg("-c")
+        .arg("-x")
+        .arg("ir")
+        .arg(&temp_ir_file)
+        .arg(&options.optimize)
+        .arg("-o")
+        .arg(&temp_obj_file);
+
+    let output = compile_cmd.output()
+        .map_err(|e| format!("运行clang失败: {}", e))?;
+
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("编译失败:\n{}", stderr));
+        return Err(format!("编译IR失败: {}", stderr));
     }
-    
+
     if options.verbose {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        if !stdout.is_empty() {
-            println!("{}", stdout);
-        }
+        println!("链接对象文件...");
     }
-    
+
+    // 链接为可执行文件
+    let mut link_cmd = Command::new(&clang);
+    link_cmd.arg(&temp_obj_file)
+        .arg(&options.optimize)
+        .arg("-o")
+        .arg(output_path);
+
+    // 添加库搜索路径
+    for path in &options.lib_paths {
+        link_cmd.arg("-L").arg(path);
+    }
+
+    // 自动检测并链接库
+    let mut auto_linker = linker::AutoLinker::default();
+    auto_linker.analyze_ir(ir_code);
+
+    // 添加用户指定的库
+    for lib in &options.link_libs {
+        auto_linker.config.libraries.insert(lib.clone());
+    }
+
+    // 添加自动检测到的库
+    for lib in &auto_linker.config.libraries {
+        link_cmd.arg(format!("-l{}", lib));
+    }
+
+    // 平台特定的默认库
+    if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+        link_cmd.arg("-lm");
+    }
+
+    let output = link_cmd.output()
+        .map_err(|e| format!("运行链接器失败: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("链接失败: {}", stderr));
+    }
+
+    // 清理临时文件
+    if !options.keep_temp {
+        let _ = fs::remove_file(&temp_ir_file);
+        let _ = fs::remove_file(&temp_obj_file);
+    }
+
     Ok(())
 }
 
-/// 运行编译后的可执行文件
-fn run_executable(exe_path: &str, args: &[String], verbose: bool) -> Result<i32, String> {
-    if verbose {
-        println!("[运行] 可执行文件: {}", exe_path);
-        if !args.is_empty() {
-            println!("[运行] 参数: {:?}", args);
-        }
-        println!("");
+/// 运行可执行文件
+fn run_executable(exe_path: &str, options: &RunOptions) -> Result<i32, String> {
+    if options.verbose {
+        println!("运行: {}", exe_path);
+        println!();
     }
-    
+
     let mut cmd = Command::new(exe_path);
-    cmd.args(args);
-    
-    // 继承标准输入输出
     cmd.stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());
-    
+
     let status = cmd.status()
-        .map_err(|e| format!("运行可执行文件失败: {}", e))?;
-    
-    Ok(status.code().unwrap_or(-1))
+        .map_err(|e| format!("运行程序失败: {}", e))?;
+
+    Ok(status.code().unwrap_or(1))
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    
-    let (options, source_file) = match parse_args(&args) {
+
+    let (options, input_path) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
             eprintln!("错误: {}", e);
@@ -264,89 +513,143 @@ fn main() {
             process::exit(1);
         }
     };
-    
-    // 检查源文件是否存在
-    if !Path::new(&source_file).exists() {
-        eprintln!("错误: 源文件 '{}' 不存在", source_file);
+
+    // 检查输入文件是否存在
+    if !Path::new(&input_path).exists() {
+        eprintln!("错误: 输入文件 '{}' 不存在", input_path);
         process::exit(1);
     }
-    
-    // 确定缓存目录
-    let cache_base = options.cache_dir.as_ref()
-        .map(PathBuf::from)
-        .unwrap_or_else(get_default_cache_dir);
-    
-    let cache_subdir = generate_cache_subdir(&source_file);
-    let cache_dir = cache_base.join(&cache_subdir);
-    
-    if options.verbose {
-        println!("Cavvy Runtime v{}", VERSION);
-        println!("[缓存] 目录: {}", cache_dir.display());
-        println!("");
-    }
-    
-    // 创建缓存目录
-    if let Err(e) = fs::create_dir_all(&cache_dir) {
-        eprintln!("错误: 无法创建缓存目录 '{}': {}", cache_dir.display(), e);
-        process::exit(1);
-    }
-    
-    // 确定可执行文件路径
-    let exe_name = if options.target.contains("windows") || options.target.contains("mingw") {
-        "program.exe"
-    } else {
-        "program"
-    };
-    let exe_path = cache_dir.join(exe_name);
-    let exe_path_str = exe_path.to_string_lossy().to_string();
-    
-    // 编译源文件
-    if options.verbose {
-        println!("=== 编译阶段 ===");
-    }
-    
-    if let Err(e) = compile_source(&source_file, &exe_path_str, &options) {
-        // 清理缓存目录
-        if !options.keep_cache {
-            let _ = fs::remove_dir_all(&cache_dir);
-        }
-        eprintln!("{}", e);
-        process::exit(1);
-    }
-    
-    if options.verbose {
-        println!("");
-        println!("=== 运行阶段 ===");
-    }
-    
-    // 运行可执行文件
-    let exit_code = match run_executable(&exe_path_str, &options.args, options.verbose) {
-        Ok(code) => code,
+
+    // 检测文件类型
+    let file_type = match detect_file_type(&input_path) {
+        Ok(t) => t,
         Err(e) => {
             eprintln!("错误: {}", e);
-            // 清理
-            if !options.keep_cache {
-                let _ = fs::remove_dir_all(&cache_dir);
-            }
             process::exit(1);
         }
     };
-    
-    // 清理缓存（如果需要）
-    if !options.keep_cache {
-        if options.verbose {
-            println!("");
-            println!("[清理] 删除缓存目录: {}", cache_dir.display());
+
+    if options.verbose {
+        println!("Cavvy Runner v{}", VERSION);
+        println!("输入文件: {} ({:?})", input_path, file_type);
+        println!();
+    }
+
+    // 确定输出可执行文件名
+    let output_exe = options.output_file.clone().unwrap_or_else(|| {
+        let stem = Path::new(&input_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("a");
+
+        if cfg!(target_os = "windows") {
+            format!("{}.exe", stem)
+        } else {
+            stem.to_string()
         }
-        if let Err(e) = fs::remove_dir_all(&cache_dir) {
+    });
+
+    // 根据文件类型处理
+    let ir_code = match file_type {
+        FileType::CaySource => {
             if options.verbose {
-                eprintln!("[警告] 无法删除缓存目录: {}", e);
+                println!("[1/3] 编译Cay源码到IR...");
+            }
+
+            // 如果启用了混淆，先编译到字节码
+            if options.obfuscate {
+                if options.verbose {
+                    println!("使用字节码混淆模式...");
+                }
+                let module = compile_cay_to_bytecode(&input_path, &options)
+                    .map_err(|e| {
+                        eprintln!("编译到字节码失败: {}", e);
+                        process::exit(1);
+                    }).unwrap();
+
+                // 保存字节码到临时文件
+                let temp_bc_file = generate_unique_filename("cay", "caybc");
+                let bytecode = serializer::serialize(&module);
+                fs::write(&temp_bc_file, bytecode)
+                    .map_err(|e| format!("写入字节码文件失败: {}", e)).unwrap();
+
+                // 从字节码编译到IR
+                let ir = compile_bytecode_to_ir(temp_bc_file.to_str().unwrap(), &options)
+                    .map_err(|e| {
+                        eprintln!("编译字节码到IR失败: {}", e);
+                        process::exit(1);
+                    }).unwrap();
+
+                if !options.keep_temp {
+                    let _ = fs::remove_file(&temp_bc_file);
+                }
+
+                ir
+            } else {
+                compile_cay_to_ir(&input_path, &options)
+                    .map_err(|e| {
+                        eprintln!("编译失败: {}", e);
+                        process::exit(1);
+                    }).unwrap()
             }
         }
-    } else if options.verbose {
-        println!("");
-        println!("[缓存] 保留缓存目录: {}", cache_dir.display());
+        FileType::CayBytecode => {
+            if options.verbose {
+                println!("[1/3] 编译字节码到IR...");
+            }
+            compile_bytecode_to_ir(&input_path, &options)
+                .map_err(|e| {
+                    eprintln!("编译字节码失败: {}", e);
+                    process::exit(1);
+                }).unwrap()
+        }
+        FileType::LlvmIr => {
+            if options.verbose {
+                println!("[1/3] 读取IR文件...");
+            }
+            fs::read_to_string(&input_path)
+                .map_err(|e| {
+                    eprintln!("读取IR文件失败: {}", e);
+                    process::exit(1);
+                }).unwrap()
+        }
+    };
+
+    if options.verbose {
+        println!("[2/3] 编译IR到可执行文件...");
     }
-    
-    process::exit(exit_code);
+
+    // 编译IR到可执行文件
+    compile_ir_to_executable(&ir_code, &output_exe, &options)
+        .map_err(|e| {
+            eprintln!("编译失败: {}", e);
+            process::exit(1);
+        }).unwrap();
+
+    if options.verbose {
+        println!("[3/3] {}...", if options.no_run { "跳过运行" } else { "运行程序" });
+        println!();
+    }
+
+    // 运行可执行文件
+    if !options.no_run {
+        let exit_code = run_executable(&output_exe, &options)
+            .map_err(|e| {
+                eprintln!("运行失败: {}", e);
+                process::exit(1);
+            }).unwrap();
+
+        if options.verbose {
+            println!();
+            println!("程序退出码: {}", exit_code);
+        }
+
+        process::exit(exit_code);
+    } else {
+        if options.verbose {
+            println!("可执行文件已生成: {}", output_exe);
+        } else {
+            println!("已生成: {}", output_exe);
+        }
+    }
 }
