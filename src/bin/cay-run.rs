@@ -387,45 +387,45 @@ fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptio
     fs::write(&temp_ir_file, ir_code)
         .map_err(|e| format!("写入临时IR文件失败: {}", e))?;
 
-    // 创建临时对象文件
-    let temp_obj_file = generate_unique_filename("cay", "o");
-
     if options.verbose {
-        println!("编译IR到对象文件...");
+        println!("编译IR到可执行文件...");
     }
 
-    // 编译IR到对象文件
-    let mut compile_cmd = Command::new(&clang);
-    compile_cmd.arg("-c")
-        .arg("-x")
-        .arg("ir")
-        .arg(&temp_ir_file)
-        .arg(&options.optimize)
+    // 获取可执行文件所在目录
+    let exe_dir = env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    // 根据目标平台选择库路径
+    let lib_paths: Vec<PathBuf> = if cfg!(target_os = "windows") {
+        vec![
+            exe_dir.join("lib/mingw64/x86_64-w64-mingw32/lib"),
+            exe_dir.join("lib/mingw64/lib"),
+            exe_dir.join("lib/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0"),
+        ]
+    } else {
+        vec![]
+    };
+
+    // 直接编译IR到可执行文件（一步完成）
+    let mut cmd = Command::new(&clang);
+    cmd.arg(&temp_ir_file)
         .arg("-o")
-        .arg(&temp_obj_file);
-
-    let output = compile_cmd.output()
-        .map_err(|e| format!("运行clang失败: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("编译IR失败: {}", stderr));
-    }
-
-    if options.verbose {
-        println!("链接对象文件...");
-    }
-
-    // 链接为可执行文件
-    let mut link_cmd = Command::new(&clang);
-    link_cmd.arg(&temp_obj_file)
+        .arg(output_path)
         .arg(&options.optimize)
-        .arg("-o")
-        .arg(output_path);
+        .arg("-Wno-override-module");
 
-    // 添加库搜索路径
+    // 添加库路径
+    for lib_path in &lib_paths {
+        if lib_path.exists() {
+            cmd.arg("-L").arg(lib_path);
+        }
+    }
+
+    // 用户指定的库路径
     for path in &options.lib_paths {
-        link_cmd.arg("-L").arg(path);
+        cmd.arg("-L").arg(path);
     }
 
     // 自动检测并链接库
@@ -437,28 +437,34 @@ fn compile_ir_to_executable(ir_code: &str, output_path: &str, options: &RunOptio
         auto_linker.config.libraries.insert(lib.clone());
     }
 
-    // 添加自动检测到的库
-    for lib in &auto_linker.config.libraries {
-        link_cmd.arg(format!("-l{}", lib));
-    }
+    // 使用 lld 链接器
+    cmd.arg("-fuse-ld=lld");
 
     // 平台特定的默认库
-    if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
-        link_cmd.arg("-lm");
+    if cfg!(target_os = "windows") {
+        cmd.arg("-lkernel32")
+            .arg("-lmsvcrt")
+            .arg("-ladvapi32");
+    } else if cfg!(target_os = "linux") || cfg!(target_os = "macos") {
+        cmd.arg("-lc").arg("-lm");
     }
 
-    let output = link_cmd.output()
-        .map_err(|e| format!("运行链接器失败: {}", e))?;
+    // 添加自动检测到的库
+    for lib in &auto_linker.config.libraries {
+        cmd.arg(format!("-l{}", lib));
+    }
+
+    let output = cmd.output()
+        .map_err(|e| format!("运行clang失败: {}", e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("链接失败: {}", stderr));
+        return Err(format!("编译IR失败: {}", stderr));
     }
 
     // 清理临时文件
     if !options.keep_temp {
         let _ = fs::remove_file(&temp_ir_file);
-        let _ = fs::remove_file(&temp_obj_file);
     }
 
     Ok(())

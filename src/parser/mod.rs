@@ -12,6 +12,7 @@ mod utils;
 use crate::lexer::TokenWithLocation;
 use crate::ast::Program;
 use crate::error::cayResult;
+use crate::diagnostic::DiagnosticCollector;
 
 /// 语法分析器
 pub struct Parser {
@@ -19,12 +20,23 @@ pub struct Parser {
     pub tokens: Vec<TokenWithLocation>,
     /// 当前解析位置
     pub pos: usize,
+    /// 诊断收集器
+    pub diagnostics: DiagnosticCollector,
 }
 
 impl Parser {
     /// 创建新的语法分析器
     pub fn new(tokens: Vec<TokenWithLocation>) -> Self {
-        Self { tokens, pos: 0 }
+        Self { 
+            tokens, 
+            pos: 0,
+            diagnostics: DiagnosticCollector::new(),
+        }
+    }
+
+    /// 获取诊断收集器
+    pub fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
     }
 
     /// 解析整个程序

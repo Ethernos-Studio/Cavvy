@@ -1,11 +1,12 @@
 use logos::Logos;
 use crate::error::{cayResult, lexer_error};
 use crate::error::SourceLocation;
+use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, CompilationPhase, SourceSpan, FixSuggestion};
 
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\f]+")]
 #[logos(skip r"//[^\n]*")]
-#[logos(skip r"/\*([^*]|\*[^/])*\*\*/")]
+#[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum Token {
     // 关键字
     #[token("public")]
@@ -307,11 +308,25 @@ pub struct TokenWithLocation {
     pub loc: SourceLocation,
 }
 
+/// 词法分析错误类型
+#[derive(Debug, Clone)]
+pub enum LexerErrorType {
+    InvalidCharacter,
+    UnterminatedString,
+    InvalidEscapeSequence,
+    InvalidNumberLiteral,
+    UnterminatedComment,
+    InvalidIdentifier,
+}
+
+/// 增强的词法分析器，支持诊断收集
 pub struct Lexer<'a> {
     source: &'a str,
     inner: logos::Lexer<'a, Token>,
     line: usize,
     column: usize,
+    diagnostics: DiagnosticCollector,
+    collect_all_errors: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -321,6 +336,91 @@ impl<'a> Lexer<'a> {
             inner: Token::lexer(source),
             line: 1,
             column: 1,
+            diagnostics: DiagnosticCollector::new(),
+            collect_all_errors: false,
+        }
+    }
+
+    /// 启用多错误收集模式
+    pub fn with_collect_all_errors(mut self) -> Self {
+        self.collect_all_errors = true;
+        self
+    }
+
+    /// 获取诊断收集器
+    pub fn diagnostics(&self) -> &DiagnosticCollector {
+        &self.diagnostics
+    }
+
+    /// 创建详细的词法错误诊断
+    fn create_lexer_diagnostic(&self, error_type: LexerErrorType, span: std::ops::Range<usize>) -> Diagnostic {
+        let error_char = &self.source[span.clone()];
+        let location = crate::diagnostic::SourceLocation::new(self.line, self.column);
+
+        match error_type {
+            LexerErrorType::InvalidCharacter => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_INVALID_CHARACTER,
+                    CompilationPhase::Lexer,
+                    format!("非法字符: '{}'", error_char),
+                    location,
+                )
+                .with_details(format!(
+                    "字符 '{}' 不是Cavvy语言支持的有效字符。Cavvy只支持标准ASCII字符集。",
+                    error_char
+                ))
+                .with_suggestion(FixSuggestion::new("删除该字符或使用支持的字符替换"))
+            }
+            LexerErrorType::UnterminatedString => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_UNTERMINATED_STRING,
+                    CompilationPhase::Lexer,
+                    "未闭合的字符串字面量",
+                    location,
+                )
+                .with_details("字符串字面量以双引号开始，但没有找到配对的结束双引号。")
+                .with_suggestion(FixSuggestion::new("在字符串末尾添加双引号 (\")"))
+            }
+            LexerErrorType::InvalidEscapeSequence => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_INVALID_ESCAPE_SEQUENCE,
+                    CompilationPhase::Lexer,
+                    format!("无效的转义序列: '{}'", error_char),
+                    location,
+                )
+                .with_details("Cavvy支持以下转义序列: \\n (换行), \\t (制表符), \\\" (双引号), \\\\ (反斜杠), \\' (单引号), \\0 (空字符)")
+                .with_suggestion(FixSuggestion::new("使用有效的转义序列替换"))
+            }
+            LexerErrorType::InvalidNumberLiteral => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_INVALID_NUMBER_LITERAL,
+                    CompilationPhase::Lexer,
+                    format!("无效的数字字面量: '{}'", error_char),
+                    location,
+                )
+                .with_details("数字字面量格式不正确。支持的格式: 十进制(123), 十六进制(0xFF), 二进制(0b101), 八进制(0o77)")
+                .with_suggestion(FixSuggestion::new("检查数字格式，确保使用正确的进制前缀"))
+            }
+            LexerErrorType::UnterminatedComment => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_UNTERMINATED_COMMENT,
+                    CompilationPhase::Lexer,
+                    "未闭合的注释",
+                    location,
+                )
+                .with_details("块注释以 /* 开始，但没有找到配对的结束标记 */。")
+                .with_suggestion(FixSuggestion::new("添加 */ 结束注释，或将块注释改为行注释 //"))
+            }
+            LexerErrorType::InvalidIdentifier => {
+                Diagnostic::error(
+                    ErrorCodes::LEXER_INVALID_IDENTIFIER,
+                    CompilationPhase::Lexer,
+                    format!("无效的标识符: '{}'", error_char),
+                    location,
+                )
+                .with_details("标识符必须以字母或下划线开头，后面可以跟字母、数字或下划线。")
+                .with_suggestion(FixSuggestion::new("使用有效的标识符名称"))
+            }
         }
     }
 
@@ -350,13 +450,36 @@ impl<'a> Lexer<'a> {
                 Err(_) => {
                     let span = self.inner.span();
                     let error_char = &self.source[span.clone()];
-                    return Err(lexer_error(
-                        self.line,
-                        self.column,
-                        format!("Unexpected character: '{}'", error_char)
-                    ));
+                    
+                    if self.collect_all_errors {
+                        // 收集错误但继续分析
+                        let diagnostic = self.create_lexer_diagnostic(
+                            LexerErrorType::InvalidCharacter,
+                            span.clone()
+                        );
+                        self.diagnostics.add(diagnostic);
+                        
+                        // 跳过这个字符继续
+                        self.column += span.end - span.start;
+                    } else {
+                        // 立即返回错误（保持向后兼容）
+                        return Err(lexer_error(
+                            self.line,
+                            self.column,
+                            format!("Unexpected character: '{}'", error_char)
+                        ));
+                    }
                 }
             }
+        }
+        
+        // 检查是否有收集到的错误
+        if self.diagnostics.has_errors() {
+            return Err(lexer_error(
+                self.line,
+                self.column,
+                format!("词法分析发现 {} 个错误", self.diagnostics.error_count())
+            ));
         }
         
         // 添加EOF标记 - 使用Identifier作为哨兵值
@@ -370,11 +493,99 @@ impl<'a> Lexer<'a> {
         
         Ok(tokens)
     }
+
+    /// 检查未闭合的字符串字面量
+    pub fn check_unterminated_strings(&mut self) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        let mut in_string = false;
+        let mut string_start_line = 0;
+        let mut string_start_col = 0;
+        let mut chars = self.source.chars().peekable();
+        let mut line = 1;
+        let mut col = 1;
+
+        while let Some(c) = chars.next() {
+            match c {
+                '"' if !in_string => {
+                    in_string = true;
+                    string_start_line = line;
+                    string_start_col = col;
+                }
+                '"' if in_string => {
+                    // 检查是否是转义的引号
+                    let mut backslash_count = 0;
+                    let mut check_col = col - 1;
+                    for ch in self.source.lines().nth(line - 1).unwrap_or("").chars().rev() {
+                        if check_col == 0 { break; }
+                        if ch == '\\' {
+                            backslash_count += 1;
+                            check_col -= 1;
+                        } else {
+                            break;
+                        }
+                    }
+                    if backslash_count % 2 == 0 {
+                        in_string = false;
+                    }
+                }
+                '\n' if in_string => {
+                    // 字符串跨行是错误
+                    diagnostics.push(
+                        Diagnostic::error(
+                            ErrorCodes::LEXER_UNTERMINATED_STRING,
+                            CompilationPhase::Lexer,
+                            "字符串字面量不能跨行",
+                            crate::diagnostic::SourceLocation::new(line, col),
+                        )
+                        .with_related_info(
+                            "字符串开始位置",
+                            crate::diagnostic::SourceLocation::new(string_start_line, string_start_col)
+                        )
+                    );
+                    in_string = false;
+                }
+                '\n' => {
+                    line += 1;
+                    col = 0;
+                }
+                _ => {}
+            }
+            col += 1;
+        }
+
+        // 检查文件结束时是否还在字符串中
+        if in_string {
+            diagnostics.push(
+                Diagnostic::error(
+                    ErrorCodes::LEXER_UNTERMINATED_STRING,
+                    CompilationPhase::Lexer,
+                    "未闭合的字符串字面量（到达文件末尾）",
+                    crate::diagnostic::SourceLocation::new(string_start_line, string_start_col),
+                )
+            );
+        }
+
+        diagnostics
+    }
 }
 
 pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
     let mut lexer = Lexer::new(source);
     lexer.tokenize()
+}
+
+/// 使用诊断收集的词法分析
+pub fn lex_with_diagnostics(source: &str) -> (cayResult<Vec<TokenWithLocation>>, DiagnosticCollector) {
+    let mut lexer = Lexer::new(source).with_collect_all_errors();
+    
+    // 首先检查未闭合的字符串
+    let string_diagnostics = lexer.check_unterminated_strings();
+    for diag in string_diagnostics {
+        lexer.diagnostics.add(diag);
+    }
+    
+    let result = lexer.tokenize();
+    (result, lexer.diagnostics)
 }
 
 /// 处理字符串中的转义序列
@@ -422,5 +633,32 @@ fn process_char_escape(s: &str) -> Option<char> {
         }
     } else {
         s.chars().next()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lexer_basic() {
+        let source = r#"int x = 42;"#;
+        let tokens = lex(source).unwrap();
+        assert!(tokens.len() >= 5);
+    }
+
+    #[test]
+    fn test_lexer_invalid_character() {
+        let source = "int x = 42 @;";
+        let result = lex(source);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lexer_unterminated_string() {
+        let source = r#"String s = "hello;"#;
+        let (_, diagnostics) = lex_with_diagnostics(source);
+        // 应该检测到未闭合的字符串
+        assert!(diagnostics.diagnostics().iter().any(|d| d.code == ErrorCodes::LEXER_UNTERMINATED_STRING));
     }
 }
