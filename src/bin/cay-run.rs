@@ -374,28 +374,8 @@ fn compile_bytecode_to_ir(bytecode_path: &str, options: &RunOptions) -> Result<S
     let compiler = jit::JitCompiler::new(jit_options);
 
     // 将字节码转换为IR字符串
-    // 这里简化处理，实际应该完整实现
-    // 为了演示，我们返回一个基本的IR
-
-    let mut ir = String::new();
-    ir.push_str("; Cavvy Bytecode Compiled IR\n");
-    ir.push_str(&format!("; Source: {}\n\n", bytecode_path));
-
-    // 添加目标声明
-    ir.push_str("target datalayout = \"e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128\"\n");
-    ir.push_str("target triple = \"x86_64-pc-windows-gnu\"\n\n");
-
-    // 添加运行时声明
-    ir.push_str("declare i32 @printf(i8*, ...)\n");
-    ir.push_str("declare i32 @puts(i8*)\n\n");
-
-    // 添加简单的main函数
-    ir.push_str("define i32 @main() {\n");
-    ir.push_str("entry:\n");
-    ir.push_str("  ret i32 0\n");
-    ir.push_str("}\n");
-
-    Ok(ir)
+    compiler.bytecode_to_ir(&module)
+        .map_err(|e| format!("字节码转IR失败: {}", e))
 }
 
 /// 编译IR为可执行文件

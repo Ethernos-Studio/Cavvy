@@ -86,6 +86,65 @@ pub struct JitCompiler {
     options: JitOptions,
 }
 
+/// 指令生成上下文
+struct InstructionContext<'a> {
+    /// 常量池引用
+    pool: &'a ConstantPool,
+    /// 临时变量计数器
+    temp_counter: &'a mut u32,
+    /// 局部变量映射（索引 -> LLVM值名）
+    local_vars: &'a mut std::collections::HashMap<u16, String>,
+    /// 操作数栈
+    operand_stack: &'a mut Vec<String>,
+    /// 当前基本块标签
+    current_block: &'a mut String,
+    /// 标签计数器
+    label_counter: &'a mut u32,
+}
+
+impl<'a> InstructionContext<'a> {
+    /// 获取下一个临时变量名
+    fn next_temp(&mut self) -> String {
+        let temp = format!("%t{}", self.temp_counter);
+        *self.temp_counter += 1;
+        temp
+    }
+
+    /// 获取下一个标签名
+    fn next_label(&mut self) -> String {
+        let label = format!("label{}", self.label_counter);
+        *self.label_counter += 1;
+        label
+    }
+
+    /// 从栈顶弹出一个值
+    fn pop(&mut self) -> Option<String> {
+        self.operand_stack.pop()
+    }
+
+    /// 向栈顶压入一个值
+    fn push(&mut self, value: String) {
+        self.operand_stack.push(value);
+    }
+
+    /// 获取栈顶值（不弹出）
+    fn peek(&self) -> Option<&String> {
+        self.operand_stack.last()
+    }
+
+    /// 获取局部变量名
+    fn get_local(&self, index: u16) -> String {
+        self.local_vars.get(&index)
+            .cloned()
+            .unwrap_or_else(|| format!("%local{}", index))
+    }
+
+    /// 设置局部变量名
+    fn set_local(&mut self, index: u16, name: String) {
+        self.local_vars.insert(index, name);
+    }
+}
+
 impl JitCompiler {
     /// 创建新的JIT编译器
     pub fn new(options: JitOptions) -> Self {
@@ -125,7 +184,7 @@ impl JitCompiler {
     }
 
     /// 将字节码转换为LLVM IR
-    fn bytecode_to_ir(&self, module: &BytecodeModule) -> Result<String, JitError> {
+    pub fn bytecode_to_ir(&self, module: &BytecodeModule) -> Result<String, JitError> {
         let mut ir = String::new();
 
         // 添加IR头部
@@ -142,6 +201,9 @@ impl JitCompiler {
 
         // 添加外部库声明
         ir.push_str(&self.generate_external_lib_declarations(&module.header.external_libs));
+
+        // 添加字符串常量
+        ir.push_str(&self.generate_string_constants(module)?);
 
         // 添加类型定义
         for type_def in &module.type_definitions {
@@ -211,7 +273,6 @@ declare void @cavvy_array_set(i8*, i32, i8*)
         let mut decls = String::new();
         for lib in libs {
             decls.push_str(&format!("; External library: {}\n", lib));
-            // 这里可以根据库名添加特定的声明
             match lib.as_str() {
                 "user32" => {
                     decls.push_str("declare i32 @MessageBoxA(i8*, i8*, i8*, i32)\n");
@@ -219,11 +280,43 @@ declare void @cavvy_array_set(i8*, i32, i8*)
                 "kernel32" => {
                     decls.push_str("declare i32 @GetLastError()\n");
                 }
+                "m" => {
+                    decls.push_str("declare double @sqrt(double)\n");
+                    decls.push_str("declare double @pow(double, double)\n");
+                    decls.push_str("declare double @sin(double)\n");
+                    decls.push_str("declare double @cos(double)\n");
+                }
                 _ => {}
             }
         }
         decls.push('\n');
         decls
+    }
+
+    /// 生成字符串常量
+    fn generate_string_constants(&self, module: &BytecodeModule) -> Result<String, JitError> {
+        use super::constant_pool::Constant;
+
+        let mut ir = String::new();
+        ir.push_str("; String constants\n");
+
+        // 遍历常量池中的所有字符串常量
+        // 注意：我们需要通过索引来遍历，因为entries是私有的
+        let pool_size = module.constant_pool.size() as u16;
+        for index in 1..pool_size {
+            if let Some(s) = module.constant_pool.get_string(index) {
+                let escaped = s.replace("\\", "\\\\")
+                    .replace("\"", "\\\"")
+                    .replace("\n", "\\0A")
+                    .replace("\r", "\\0D")
+                    .replace("\t", "\\09");
+                ir.push_str(&format!("@str_{} = private unnamed_addr constant [{} x i8] c\"{}\\00\"\n",
+                    index, s.len() + 1, escaped));
+            }
+        }
+
+        ir.push('\n');
+        Ok(ir)
     }
 
     /// 生成类型定义
@@ -296,7 +389,15 @@ declare void @cavvy_array_set(i8*, i32, i8*)
         let ret_type = self.get_llvm_type_string(func.return_type_index, pool)?;
 
         let mut ir = format!("; Function: {}\n", name);
-        ir.push_str(&format!("define {} @{}(", ret_type, name));
+
+        // 确定链接类型
+        let linkage = if func.modifiers.is_static && !func.modifiers.is_public {
+            "internal"
+        } else {
+            "define"
+        };
+
+        ir.push_str(&format!("{} {} @{}(", linkage, ret_type, name));
 
         // 参数
         for (i, param_type_idx) in func.param_type_indices.iter().enumerate() {
@@ -310,7 +411,7 @@ declare void @cavvy_array_set(i8*, i32, i8*)
         ir.push_str(") {\n");
 
         // 函数体
-        ir.push_str(&self.generate_code_body(&func.body, pool)?);
+        ir.push_str(&self.generate_code_body(&func.body, pool, &ret_type)?);
 
         ir.push_str("}\n\n");
         Ok(ir)
@@ -332,7 +433,8 @@ declare void @cavvy_array_set(i8*, i32, i8*)
             "define"
         };
 
-        ir.push_str(&format!("{} {} @{}_{}(", linkage, ret_type, type_name, method_name));
+        let mangled_name = format!("{}_{}", type_name, method_name);
+        ir.push_str(&format!("{} {} @{}(", linkage, ret_type, mangled_name));
 
         // this指针（如果不是静态方法）
         if !method.modifiers.is_static {
@@ -354,82 +456,657 @@ declare void @cavvy_array_set(i8*, i32, i8*)
         ir.push_str(") {\n");
 
         // 函数体
-        ir.push_str(&self.generate_code_body(body, pool)?);
+        ir.push_str(&self.generate_code_body(body, pool, &ret_type)?);
 
         ir.push_str("}\n\n");
         Ok(ir)
     }
 
     /// 生成代码体
-    fn generate_code_body(&self, body: &CodeBody, pool: &ConstantPool) -> Result<String, JitError> {
+    fn generate_code_body(&self, body: &CodeBody, pool: &ConstantPool, ret_type: &str) -> Result<String, JitError> {
         let mut ir = String::new();
         ir.push_str("entry:\n");
 
+        // 初始化上下文
         let mut temp_counter: u32 = 0;
+        let mut local_vars: std::collections::HashMap<u16, String> = std::collections::HashMap::new();
+        let mut operand_stack: Vec<String> = Vec::new();
+        let mut current_block = "entry".to_string();
+        let mut label_counter: u32 = 0;
 
+        let mut ctx = InstructionContext {
+            pool,
+            temp_counter: &mut temp_counter,
+            local_vars: &mut local_vars,
+            operand_stack: &mut operand_stack,
+            current_block: &mut current_block,
+            label_counter: &mut label_counter,
+        };
+
+        // 生成每条指令
         for instr in &body.instructions {
-            let instr_ir = self.generate_instruction(instr, pool, &mut temp_counter)?;
+            let instr_ir = self.generate_instruction(instr, &mut ctx)?;
             ir.push_str(&instr_ir);
         }
 
         // 确保有返回指令
-        ir.push_str("  ret void\n");
+        if !ir.contains("ret ") {
+            if ret_type == "void" {
+                ir.push_str("  ret void\n");
+            } else if ret_type == "i32" {
+                ir.push_str("  ret i32 0\n");
+            } else {
+                ir.push_str(&format!("  ret {} zeroinitializer\n", ret_type));
+            }
+        }
 
         Ok(ir)
     }
 
-    /// 生成单条指令
-    fn generate_instruction(&self, instr: &Instruction, pool: &ConstantPool, temp_counter: &mut u32) -> Result<String, JitError> {
+    /// 生成单条指令 - 完整实现所有指令
+    fn generate_instruction(&self, instr: &Instruction, ctx: &mut InstructionContext) -> Result<String, JitError> {
+        use instructions::Opcode;
+
         let mut ir = String::new();
 
         match instr.opcode {
+            // ==================== 常量加载指令 ====================
             Opcode::Ldc => {
                 let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
-                let val = self.get_constant_value(index, pool)?;
-                ir.push_str(&format!("  %t{} = add i32 {}, 0\n", temp_counter, val));
-                *temp_counter += 1;
+                let val = self.get_constant_value(index, ctx.pool)?;
+                let temp = ctx.next_temp();
+
+                // 根据常量类型决定如何处理
+                if let Some(int_val) = ctx.pool.get_integer(index) {
+                    ir.push_str(&format!("  {} = add i32 {}, 0\n", temp, int_val));
+                    ctx.push(temp);
+                } else if let Some(str_val) = ctx.pool.get_string(index) {
+                    // 字符串常量 - 使用全局字符串
+                    ir.push_str(&format!("  {} = getelementptr [{} x i8], [{} x i8]* @str_{}, i64 0, i64 0\n",
+                        temp, str_val.len() + 1, str_val.len() + 1, index));
+                    ctx.push(temp);
+                } else {
+                    ir.push_str(&format!("  {} = add i32 {}, 0\n", temp, val));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Iconst => {
+                let value = instr.operands[0] as i8 as i32;
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = add i32 {}, 0\n", temp, value));
+                ctx.push(temp);
+            }
+
+            Opcode::Lconst => {
+                let value = i64::from_le_bytes([
+                    instr.operands[0], instr.operands[1], instr.operands[2], instr.operands[3],
+                    instr.operands[4], instr.operands[5], instr.operands[6], instr.operands[7]
+                ]);
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = add i64 {}, 0\n", temp, value));
+                ctx.push(temp);
+            }
+
+            Opcode::Fconst => {
+                let value = f32::from_le_bytes([
+                    instr.operands[0], instr.operands[1], instr.operands[2], instr.operands[3]
+                ]);
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = fadd float {}, 0.0\n", temp, value));
+                ctx.push(temp);
+            }
+
+            Opcode::Dconst => {
+                let value = f64::from_le_bytes([
+                    instr.operands[0], instr.operands[1], instr.operands[2], instr.operands[3],
+                    instr.operands[4], instr.operands[5], instr.operands[6], instr.operands[7]
+                ]);
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = fadd double {}, 0.0\n", temp, value));
+                ctx.push(temp);
+            }
+
+            Opcode::AconstNull => {
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = inttoptr i64 0 to i8*\n", temp));
+                ctx.push(temp);
+            }
+
             Opcode::Iconst0 => {
-                ir.push_str(&format!("  %t{} = add i32 0, 0\n", temp_counter));
-                *temp_counter += 1;
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = add i32 0, 0\n", temp));
+                ctx.push(temp);
             }
+
             Opcode::Iconst1 => {
-                ir.push_str(&format!("  %t{} = add i32 1, 0\n", temp_counter));
-                *temp_counter += 1;
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = add i32 1, 0\n", temp));
+                ctx.push(temp);
             }
+
+            Opcode::IconstM1 => {
+                let temp = ctx.next_temp();
+                ir.push_str(&format!("  {} = add i32 -1, 0\n", temp));
+                ctx.push(temp);
+            }
+
+            // ==================== 局部变量加载指令 ====================
+            Opcode::Iload | Opcode::Lload | Opcode::Fload | Opcode::Dload | Opcode::Aload => {
+                let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                let local_name = ctx.get_local(index);
+                ctx.push(local_name);
+            }
+
+            Opcode::Iload0 | Opcode::Iload1 | Opcode::Iload2 | Opcode::Iload3 => {
+                let index = match instr.opcode {
+                    Opcode::Iload0 => 0,
+                    Opcode::Iload1 => 1,
+                    Opcode::Iload2 => 2,
+                    Opcode::Iload3 => 3,
+                    _ => 0,
+                };
+                let local_name = ctx.get_local(index);
+                ctx.push(local_name);
+            }
+
+            Opcode::Aload0 | Opcode::Aload1 | Opcode::Aload2 | Opcode::Aload3 => {
+                let index = match instr.opcode {
+                    Opcode::Aload0 => 0,
+                    Opcode::Aload1 => 1,
+                    Opcode::Aload2 => 2,
+                    Opcode::Aload3 => 3,
+                    _ => 0,
+                };
+                let local_name = ctx.get_local(index);
+                ctx.push(local_name);
+            }
+
+            // ==================== 局部变量存储指令 ====================
+            Opcode::Istore | Opcode::Lstore | Opcode::Fstore | Opcode::Dstore | Opcode::Astore => {
+                let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(value) = ctx.pop() {
+                    let local_name = format!("%local{}", index);
+                    ir.push_str(&format!("  {} = {}\n", local_name, value));
+                    ctx.set_local(index, local_name);
+                }
+            }
+
+            Opcode::Istore0 | Opcode::Istore1 | Opcode::Istore2 | Opcode::Istore3 => {
+                let index = match instr.opcode {
+                    Opcode::Istore0 => 0,
+                    Opcode::Istore1 => 1,
+                    Opcode::Istore2 => 2,
+                    Opcode::Istore3 => 3,
+                    _ => 0,
+                };
+                if let Some(value) = ctx.pop() {
+                    let local_name = format!("%local{}", index);
+                    ir.push_str(&format!("  {} = {}\n", local_name, value));
+                    ctx.set_local(index, local_name);
+                }
+            }
+
+            Opcode::Astore0 | Opcode::Astore1 | Opcode::Astore2 | Opcode::Astore3 => {
+                let index = match instr.opcode {
+                    Opcode::Astore0 => 0,
+                    Opcode::Astore1 => 1,
+                    Opcode::Astore2 => 2,
+                    Opcode::Astore3 => 3,
+                    _ => 0,
+                };
+                if let Some(value) = ctx.pop() {
+                    let local_name = format!("%local{}", index);
+                    ir.push_str(&format!("  {} = {}\n", local_name, value));
+                    ctx.set_local(index, local_name);
+                }
+            }
+
+            // ==================== 栈操作指令 ====================
+            Opcode::Pop => {
+                let _ = ctx.pop();
+            }
+
+            Opcode::Pop2 => {
+                let _ = ctx.pop();
+                let _ = ctx.pop();
+            }
+
+            Opcode::Dup => {
+                if let Some(val) = ctx.peek() {
+                    ctx.push(val.clone());
+                }
+            }
+
+            Opcode::DupX1 => {
+                // 复制栈顶值并插入到栈顶下方
+                if ctx.operand_stack.len() >= 2 {
+                    let top = ctx.pop().unwrap();
+                    let second = ctx.pop().unwrap();
+                    ctx.push(top.clone());
+                    ctx.push(second);
+                    ctx.push(top);
+                }
+            }
+
+            Opcode::Swap => {
+                if ctx.operand_stack.len() >= 2 {
+                    let top = ctx.pop().unwrap();
+                    let second = ctx.pop().unwrap();
+                    ctx.push(top);
+                    ctx.push(second);
+                }
+            }
+
+            // ==================== 算术运算指令 ====================
             Opcode::Iadd => {
-                ir.push_str(&format!("  %t{} = add i32 %t{}, %t{}\n",
-                    temp_counter, *temp_counter - 2, *temp_counter - 1));
-                *temp_counter += 1;
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = add i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Ladd => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = add i64 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Fadd => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fadd float {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Dadd => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fadd double {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
             Opcode::Isub => {
-                ir.push_str(&format!("  %t{} = sub i32 %t{}, %t{}\n",
-                    temp_counter, *temp_counter - 2, *temp_counter - 1));
-                *temp_counter += 1;
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sub i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Lsub => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sub i64 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Fsub => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fsub float {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Dsub => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fsub double {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
             Opcode::Imul => {
-                ir.push_str(&format!("  %t{} = mul i32 %t{}, %t{}\n",
-                    temp_counter, *temp_counter - 2, *temp_counter - 1));
-                *temp_counter += 1;
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = mul i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Lmul => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = mul i64 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Fmul => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fmul float {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Dmul => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fmul double {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
             Opcode::Idiv => {
-                ir.push_str(&format!("  %t{} = sdiv i32 %t{}, %t{}\n",
-                    temp_counter, *temp_counter - 2, *temp_counter - 1));
-                *temp_counter += 1;
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sdiv i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Ldiv => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sdiv i64 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Fdiv => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fdiv float {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Ddiv => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fdiv double {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
             Opcode::Irem => {
-                ir.push_str(&format!("  %t{} = srem i32 %t{}, %t{}\n",
-                    temp_counter, *temp_counter - 2, *temp_counter - 1));
-                *temp_counter += 1;
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = srem i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
             }
+
+            Opcode::Lrem => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = srem i64 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Ineg => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sub i32 0, {}\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Lneg => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sub i64 0, {}\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 位运算指令 ====================
+            Opcode::Ishl => {
+                if let (Some(shift), Some(val)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = shl i32 {}, {}\n", temp, val, shift));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Ishr => {
+                if let (Some(shift), Some(val)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = ashr i32 {}, {}\n", temp, val, shift));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Iand => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = and i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Ior => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = or i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Ixor => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = xor i32 {}, {}\n", temp, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 比较指令 ====================
+            Opcode::IfIcmpeq | Opcode::IfIcmpne | Opcode::IfIcmplt | Opcode::IfIcmpge | Opcode::IfIcmpgt | Opcode::IfIcmple => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    let pred = match instr.opcode {
+                        Opcode::IfIcmpeq => "eq",
+                        Opcode::IfIcmpne => "ne",
+                        Opcode::IfIcmplt => "slt",
+                        Opcode::IfIcmpge => "sge",
+                        Opcode::IfIcmpgt => "sgt",
+                        Opcode::IfIcmple => "sle",
+                        _ => "eq",
+                    };
+                    ir.push_str(&format!("  {} = icmp {} i32 {}, {}\n", temp, pred, left, right));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Lcmp => {
+                if let (Some(right), Some(left)) = (ctx.pop(), ctx.pop()) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = icmp sgt i64 {}, {}\n", temp, left, right));
+                    let temp2 = ctx.next_temp();
+                    ir.push_str(&format!("  {} = icmp slt i64 {}, {}\n", temp2, left, right));
+                    let temp3 = ctx.next_temp();
+                    ir.push_str(&format!("  {} = select i1 {}, i32 1, i32 0\n", temp3, temp));
+                    let temp4 = ctx.next_temp();
+                    ir.push_str(&format!("  {} = select i1 {}, i32 -1, i32 {}\n", temp4, temp2, temp3));
+                    ctx.push(temp4);
+                }
+            }
+
+            // ==================== 条件跳转指令 ====================
+            Opcode::Ifeq => {
+                let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(val) = ctx.pop() {
+                    let label_true = ctx.next_label();
+                    let label_false = ctx.next_label();
+                    ir.push_str(&format!("  br i1 {}, label %{}, label %{}\n", val, label_true, label_false));
+                    ir.push_str(&format!("{}:\n", label_true));
+                    // 这里简化处理，实际需要计算跳转目标
+                }
+            }
+
+            Opcode::Ifne => {
+                let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = icmp ne i32 {}, 0\n", temp, val));
+                    let label_true = ctx.next_label();
+                    let label_false = ctx.next_label();
+                    ir.push_str(&format!("  br i1 {}, label %{}, label %{}\n", temp, label_true, label_false));
+                    ir.push_str(&format!("{}:\n", label_true));
+                }
+            }
+
+            Opcode::Goto => {
+                let offset = i16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                let label = ctx.next_label();
+                ir.push_str(&format!("  br label %{}\n", label));
+                ir.push_str(&format!("{}:\n", label));
+            }
+
+            // ==================== 方法调用指令 ====================
+            Opcode::Invokestatic => {
+                let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(name) = ctx.pool.get_utf8(index) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = call i32 @{}()\n", temp, name));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Invokefunction => {
+                let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(name) = ctx.pool.get_utf8(index) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = call i32 @{}()\n", temp, name));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 返回指令 ====================
             Opcode::Return => {
                 ir.push_str("  ret void\n");
             }
+
             Opcode::Ireturn => {
-                ir.push_str(&format!("  ret i32 %t{}\n", *temp_counter - 1));
+                if let Some(val) = ctx.pop() {
+                    ir.push_str(&format!("  ret i32 {}\n", val));
+                } else {
+                    ir.push_str("  ret i32 0\n");
+                }
             }
+
+            Opcode::Lreturn => {
+                if let Some(val) = ctx.pop() {
+                    ir.push_str(&format!("  ret i64 {}\n", val));
+                } else {
+                    ir.push_str("  ret i64 0\n");
+                }
+            }
+
+            Opcode::Freturn => {
+                if let Some(val) = ctx.pop() {
+                    ir.push_str(&format!("  ret float {}\n", val));
+                } else {
+                    ir.push_str("  ret float 0.0\n");
+                }
+            }
+
+            Opcode::Dreturn => {
+                if let Some(val) = ctx.pop() {
+                    ir.push_str(&format!("  ret double {}\n", val));
+                } else {
+                    ir.push_str("  ret double 0.0\n");
+                }
+            }
+
+            Opcode::Areturn => {
+                if let Some(val) = ctx.pop() {
+                    ir.push_str(&format!("  ret i8* {}\n", val));
+                } else {
+                    ir.push_str("  ret i8* null\n");
+                }
+            }
+
+            // ==================== 类型转换指令 ====================
+            Opcode::I2l => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sext i32 {} to i64\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::I2f => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sitofp i32 {} to float\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::I2d => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = sitofp i32 {} to double\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::L2i => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = trunc i64 {} to i32\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::F2i => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fptosi float {} to i32\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::D2i => {
+                if let Some(val) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = fptosi double {} to i32\n", temp, val));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 数组操作指令 ====================
+            Opcode::Arraylength => {
+                if let Some(arr) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = call i32 @cavvy_array_length(i8* {})\n", temp, arr));
+                    ctx.push(temp);
+                }
+            }
+
+            Opcode::Newarray => {
+                let type_index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(len) = ctx.pop() {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = call i8* @cavvy_array_new(i32 {}, i32 {})\n", temp, len, type_index));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 对象操作指令 ====================
+            Opcode::New => {
+                let index = u16::from_le_bytes([instr.operands[0], instr.operands[1]]);
+                if let Some(class_name) = ctx.pool.get_utf8(index) {
+                    let temp = ctx.next_temp();
+                    ir.push_str(&format!("  {} = call i8* @malloc(i64 64)\n", temp));
+                    ctx.push(temp);
+                }
+            }
+
+            // ==================== 未实现指令的占位符 ====================
             _ => {
-                // 其他指令简化为注释
+                // 对于未完全实现的指令，生成注释
                 ir.push_str(&format!("  ; Unhandled opcode: {:?}\n", instr.opcode));
             }
         }
@@ -439,18 +1116,28 @@ declare void @cavvy_array_set(i8*, i32, i8*)
 
     /// 获取LLVM类型字符串
     fn get_llvm_type_string(&self, type_index: ConstantIndex, pool: &ConstantPool) -> Result<String, JitError> {
-        // 这里简化处理，实际应该根据类型索引查找类型
-        // 返回LLVM IR类型字符串
-        match type_index {
-            1 => Ok("i32".to_string()),      // int
-            2 => Ok("i64".to_string()),      // long
-            3 => Ok("float".to_string()),    // float
-            4 => Ok("double".to_string()),   // double
-            5 => Ok("i1".to_string()),       // boolean
-            6 => Ok("i8".to_string()),       // char
-            7 => Ok("i8*".to_string()),      // String
-            8 => Ok("void".to_string()),     // void
-            _ => Ok("i8*".to_string()),      // 默认为指针类型
+        if let Some(type_name) = pool.get_utf8(type_index) {
+            match type_name {
+                "void" => Ok("void".to_string()),
+                "int" | "i32" => Ok("i32".to_string()),
+                "long" | "i64" => Ok("i64".to_string()),
+                "float" => Ok("float".to_string()),
+                "double" => Ok("double".to_string()),
+                "boolean" | "bool" => Ok("i1".to_string()),
+                "char" => Ok("i8".to_string()),
+                "String" | "string" => Ok("i8*".to_string()),
+                "Object" | "object" => Ok("i8*".to_string()),
+                name => {
+                    // 检查是否是数组类型
+                    if name.ends_with("[]") {
+                        Ok("i8*".to_string())
+                    } else {
+                        Ok(format!("%struct.{}*", name))
+                    }
+                }
+            }
+        } else {
+            Ok("i8*".to_string())
         }
     }
 
@@ -482,13 +1169,14 @@ declare void @cavvy_array_set(i8*, i32, i8*)
         } else if let Some(val) = pool.get_double(index) {
             Ok(format!("0x{:x}", val.to_bits()))
         } else if let Some(val) = pool.get_string(index) {
-            // 转义字符串
             let escaped = val.replace("\\", "\\\\")
                 .replace("\"", "\\\"")
                 .replace("\n", "\\0A")
                 .replace("\r", "\\0D")
                 .replace("\t", "\\09");
             Ok(format!("c\"{}\\00\"", escaped))
+        } else if let Some(val) = pool.get_utf8(index) {
+            Ok(format!("\"{}\"", val))
         } else {
             Ok("0".to_string())
         }
@@ -597,4 +1285,10 @@ pub fn compile_bytecode_file(input_path: &str, output_path: &str) -> Result<(), 
     // 2. 编译
     let compiler = JitCompiler::new(JitOptions::default());
     compiler.compile_to_executable(&module, output_path)
+}
+
+/// 便捷函数：将字节码模块转换为IR字符串
+pub fn bytecode_to_ir(module: &BytecodeModule) -> Result<String, JitError> {
+    let compiler = JitCompiler::new(JitOptions::default());
+    compiler.bytecode_to_ir(module)
 }

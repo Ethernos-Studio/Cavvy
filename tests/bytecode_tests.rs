@@ -577,3 +577,99 @@ fn test_complex_bytecode_generation() {
     assert_eq!(deserialized.type_definitions.len(), 1);
     assert_eq!(deserialized.header.external_libs.len(), 2);
 }
+
+/// 测试JIT编译器 - 将字节码转换为IR
+#[test]
+fn test_jit_bytecode_to_ir() {
+    use cavvy::bytecode::*;
+    use cavvy::bytecode::instructions::*;
+    use cavvy::bytecode::jit::*;
+    
+    // 创建一个字节码模块
+    let mut module = BytecodeModule::new(
+        "jit_test".to_string(),
+        "windows".to_string(),
+    );
+    
+    // 添加一个简单函数
+    let func_name_index = module.constant_pool.add_utf8("main");
+    let return_type_index = module.constant_pool.add_utf8("int");
+    
+    let body = CodeBody {
+        instructions: vec![
+            Instruction::iconst(42),
+            Instruction::new(Opcode::Ireturn),
+        ],
+        exception_table: Vec::new(),
+        line_number_table: Vec::new(),
+    };
+    
+    let function = FunctionDefinition {
+        name_index: func_name_index,
+        return_type_index,
+        param_type_indices: Vec::new(),
+        param_name_indices: Vec::new(),
+        modifiers: MethodModifiers::default(),
+        body,
+        max_locals: 1,
+        max_stack: 1,
+    };
+    
+    module.add_function(function);
+    
+    // 使用JIT编译器转换为IR
+    let ir = bytecode_to_ir(&module).expect("Failed to convert bytecode to IR");
+    
+    // 验证IR包含预期内容
+    assert!(ir.contains("define i32 @main()"), "IR should contain main function definition");
+    assert!(ir.contains("ret i32"), "IR should contain return statement");
+}
+
+/// 测试JIT编译器 - 完整编译流程
+#[test]
+fn test_jit_full_compilation() {
+    use cavvy::bytecode::*;
+    use cavvy::bytecode::instructions::*;
+    use cavvy::bytecode::jit::*;
+    
+    // 创建一个字节码模块
+    let mut module = BytecodeModule::new(
+        "full_test".to_string(),
+        "windows".to_string(),
+    );
+    
+    // 添加一个简单函数
+    let func_name_index = module.constant_pool.add_utf8("add");
+    let return_type_index = module.constant_pool.add_utf8("int");
+    
+    let body = CodeBody {
+        instructions: vec![
+            Instruction::iconst(10),
+            Instruction::iconst(20),
+            Instruction::new(Opcode::Iadd),
+            Instruction::new(Opcode::Ireturn),
+        ],
+        exception_table: Vec::new(),
+        line_number_table: Vec::new(),
+    };
+    
+    let function = FunctionDefinition {
+        name_index: func_name_index,
+        return_type_index,
+        param_type_indices: Vec::new(),
+        param_name_indices: Vec::new(),
+        modifiers: MethodModifiers::default(),
+        body,
+        max_locals: 2,
+        max_stack: 2,
+    };
+    
+    module.add_function(function);
+    
+    // 使用JIT编译器转换为IR
+    let ir = bytecode_to_ir(&module).expect("Failed to convert bytecode to IR");
+    
+    // 验证IR包含预期内容
+    assert!(ir.contains("define i32 @add()"), "IR should contain add function definition");
+    assert!(ir.contains("add i32"), "IR should contain add instruction");
+}
