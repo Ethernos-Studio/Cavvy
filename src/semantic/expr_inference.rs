@@ -465,7 +465,15 @@ impl SemanticAnalyzer {
 
     /// 推断 new 表达式类型
     fn infer_new_type(&mut self, new_expr: &NewExpr) -> cayResult<Type> {
-        if self.type_registry.class_exists(&new_expr.class_name) {
+        if let Some(class_info) = self.type_registry.get_class(&new_expr.class_name) {
+            // 检查是否是抽象类
+            if class_info.is_abstract {
+                return Err(semantic_error(
+                    new_expr.loc.line,
+                    new_expr.loc.column,
+                    format!("Cannot instantiate abstract class '{}'", new_expr.class_name)
+                ));
+            }
             Ok(Type::Object(new_expr.class_name.clone()))
         } else {
             Err(semantic_error(
