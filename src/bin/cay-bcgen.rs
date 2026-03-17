@@ -29,6 +29,7 @@ impl Default for BcgenOptions {
 
 fn print_usage() {
     println!("Cavvy Bytecode Generator v{}", VERSION);
+    println!("警告：此工具为实验性版本，可能包含严重错误和不稳定性。");
     println!("Usage: cay-bcgen [options] <source_file.cay>");
     println!("");
     println!("Options:");
