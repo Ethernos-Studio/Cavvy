@@ -2,10 +2,11 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{self, Command, Stdio};
-use std::io::{self, Write};
 use cavvy::Compiler;
-use cavvy::bytecode::{serializer, jit, linker};
+use cavvy::bytecode::{serializer, jit};
 use cavvy::bytecode::obfuscator;
+use cavvy::error::print_error_with_context;
+use cavvy::error::cayError;
 
 const VERSION: &str = "0.4.7";
 
@@ -210,9 +211,9 @@ fn generate_unique_filename(prefix: &str, ext: &str) -> PathBuf {
 }
 
 /// 编译Cay源码为IR
-fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, String> {
+fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, cayError> {
     let source = fs::read_to_string(source_path)
-        .map_err(|e| format!("读取源文件失败: {}", e))?;
+        .map_err(|e| cayError::Io(format!("读取源文件失败: {}", e)))?;
 
     // 预处理
     let base_dir = Path::new(source_path)
@@ -221,10 +222,14 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
         .unwrap_or_else(|| PathBuf::from("."));
 
     let preprocessed = cavvy::preprocessor::preprocess(&source, source_path, base_dir)
-        .map_err(|e| format!("预处理失败: {:?}", e))?;
+        .map_err(|e| cayError::Preprocessor { 
+            line: 0, 
+            column: 0, 
+            message: format!("预处理失败: {:?}", e),
+            suggestion: "请检查预处理指令".to_string(),
+        })?;
 
     // 编译
-    let compiler = Compiler::new();
     let compiler_options = cavvy::CompilerOptions {
         target_os: env::consts::OS.to_string(),
         features: Vec::new(),
@@ -238,11 +243,10 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
 
     // 使用临时文件
     let temp_ir_file = generate_unique_filename("cay", "ll");
-    compiler.compile(&preprocessed, temp_ir_file.to_str().unwrap())
-        .map_err(|e| format!("编译失败: {:?}", e))?;
+    compiler.compile(&preprocessed, temp_ir_file.to_str().unwrap())?;
 
     let ir = fs::read_to_string(&temp_ir_file)
-        .map_err(|e| format!("读取IR文件失败: {}", e))?;
+        .map_err(|e| cayError::Io(format!("读取IR文件失败: {}", e)))?;
 
     if !options.keep_temp {
         let _ = fs::remove_file(&temp_ir_file);
@@ -538,11 +542,14 @@ fn main() {
 
                 ir
             } else {
-                compile_cay_to_ir(&input_path, &options)
-                    .map_err(|e| {
-                        eprintln!("编译失败: {}", e);
+                match compile_cay_to_ir(&input_path, &options) {
+                    Ok(ir) => ir,
+                    Err(e) => {
+                        let source = fs::read_to_string(&input_path).unwrap_or_default();
+                        print_error_with_context(&e, &source, &input_path);
                         process::exit(1);
-                    }).unwrap()
+                    }
+                }
             }
         }
         FileType::CayBytecode => {
