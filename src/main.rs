@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::process;
 use cavvy::Compiler;
+use cavvy::error::print_miette_error;
 
 fn print_usage() {
     println!("Usage: cayc <source_file.cay> [output_file.ll]");
@@ -34,7 +35,11 @@ fn main() {
     let source = match fs::read_to_string(source_path) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("Error reading source file '{}': {}", source_path, e);
+            print_miette_error(
+                "cavvy::io_error",
+                &format!("无法读取源文件 '{}': {}", source_path, e),
+                Some("请检查文件路径是否正确，文件是否存在")
+            );
             process::exit(1);
         }
     };
@@ -53,7 +58,11 @@ fn main() {
             
         }
         Err(e) => {
-            eprintln!("Compilation error: {}", e);
+            print_miette_error(
+                "cavvy::compile_error",
+                &format!("编译错误: {}", e),
+                Some("请检查代码语法和语义是否正确")
+            );
             process::exit(1);
         }
     }

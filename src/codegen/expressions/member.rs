@@ -57,11 +57,12 @@ impl IRGenerator {
         
         // 确定对象所属的类
         let class_name_opt: Option<String> = if let Expr::Identifier(name) = &*member.object {
-            if name == "this" {
+            let name_str = name.as_ref();
+            if name_str == "this" {
                 Some(self.current_class.clone())
             } else {
                 // 尝试从变量类型推断类名
-                self.var_class_map.get(name).cloned()
+                self.var_class_map.get(name_str).cloned()
             }
         } else {
             None

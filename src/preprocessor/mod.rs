@@ -379,8 +379,8 @@ impl Preprocessor {
             }
             Directive::Warning(message) => {
                 if !self.skipping {
-                    // 警告通过 eprintln 输出但不中断编译
-                    eprintln!("warning: {}", message);
+                    // 使用标准警告输出函数
+                    crate::error::print_warning(&format!("预处理器警告: {}", message));
                 }
             }
         }

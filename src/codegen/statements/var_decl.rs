@@ -23,7 +23,7 @@ impl IRGenerator {
             },
             Expr::Identifier(name) => {
                 // 从变量类型映射中查找
-                self.var_types.get(name).and_then(|llvm_type| {
+                self.var_types.get(name.as_ref()).and_then(|llvm_type| {
                     self.llvm_type_to_cay_type(llvm_type)
                 })
             },

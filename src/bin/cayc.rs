@@ -3,7 +3,7 @@ use std::fs;
 use std::process;
 use std::path::{Path, PathBuf};
 use cavvy::Compiler;
-use cavvy::error::{print_error_with_context, cayError};
+use cavvy::error::{print_error_with_context, print_miette_error, print_tool_error, print_warning};
 
 /// 根据平台获取 llvm-minimal 下的 clang 路径
 #[cfg(target_os = "windows")]
@@ -407,7 +407,11 @@ fn main() {
     let (options, source_path, exe_output) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::argument_error",
+                &e,
+                Some("请检查命令行参数是否正确")
+            );
             print_usage();
             process::exit(1);
         }
@@ -486,7 +490,11 @@ fn main() {
     let source = match fs::read_to_string(&source_path) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("错误读取源文件 '{}': {}", source_path, e);
+            print_miette_error(
+                "cavvy::io_error",
+                &format!("无法读取源文件 '{}': {}", source_path, e),
+                Some("请检查文件路径是否正确，文件是否存在")
+            );
             process::exit(1);
         }
     };
@@ -511,8 +519,8 @@ fn main() {
                 println!("  [+] IR 优化完成");
             }
             Err(e) => {
-                eprintln!("  [W] IR 优化失败: {}", e);
-                eprintln!("  [I] 继续编译未优化的 IR");
+                print_warning(&format!("IR 优化失败: {}", e));
+                println!("  [I] 继续编译未优化的 IR");
             }
         }
     }
@@ -525,13 +533,21 @@ fn main() {
     let current_exe = match env::current_exe() {
         Ok(path) => path,
         Err(_) => {
-            eprintln!("无法获取当前执行路径");
+            print_miette_error(
+                "cavvy::internal_error",
+                "无法获取当前执行路径",
+                Some("请尝试重新运行编译器")
+            );
             process::exit(1);
         }
     };
 
     let bin_dir = current_exe.parent().unwrap_or_else(|| {
-        eprintln!("无法获取执行目录");
+        print_miette_error(
+            "cavvy::internal_error",
+            "无法获取执行目录",
+            Some("请检查编译器安装")
+        );
         process::exit(1);
     });
 
@@ -544,10 +560,15 @@ fn main() {
     let ir2exe_path = match ir2exe_paths.iter().find(|path| path.exists()) {
         Some(path) => path,
         None => {
-            eprintln!("错误: 找不到 ir2exe 或 ir2exe.exe 在以下位置:");
-            for path in &ir2exe_paths {
-                eprintln!("  {:?}", path);
-            }
+            let paths_str = ir2exe_paths.iter()
+                .map(|p| format!("  {:?}", p))
+                .collect::<Vec<_>>()
+                .join("\n");
+            print_miette_error(
+                "cavvy::tool_not_found",
+                &format!("找不到 ir2exe 或 ir2exe.exe\n搜索位置:\n{}", paths_str),
+                Some("请确保 ir2exe 与 cayc 在同一目录下")
+            );
             let _ = fs::remove_file(&ir_file);
             process::exit(1);
         }
@@ -676,7 +697,7 @@ fn main() {
         .args(&ir2exe_args)
         .output()
         .unwrap_or_else(|e| {
-            eprintln!("执行ir2exe失败: {}", e);
+            print_tool_error("ir2exe", &format!("执行失败: {}", e), Some("请检查 ir2exe 是否正确安装"));
             if !options.keep_ir {
                 let _ = fs::remove_file(&ir_file);
             }
@@ -685,10 +706,7 @@ fn main() {
 
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
-        eprintln!("IR→EXE编译失败");
-        if !error_msg.is_empty() {
-            eprintln!("错误: {}", error_msg);
-        }
+        print_tool_error("ir2exe", "IR→EXE编译失败", Some(&error_msg));
         if !options.keep_ir {
             let _ = fs::remove_file(&ir_file);
         }
@@ -698,7 +716,7 @@ fn main() {
     // 清理IR文件（如果不保留）
     if !options.keep_ir {
         if let Err(e) = fs::remove_file(&ir_file) {
-            eprintln!("警告: 无法清理临时文件 {}: {}", ir_file, e);
+            print_warning(&format!("无法清理临时文件 {}: {}", ir_file, e));
         }
     } else {
         println!("");

@@ -46,8 +46,8 @@ fn test_error_undefined_variable() {
     let error = compile_eol_expect_error("examples/errors/error_undefined_variable.cay")
         .expect("undefined variable should fail to compile");
     assert!(
-        error.contains("undefined") || error.contains("not found") || error.contains("Undeclared"),
-        "Should report undefined variable error, got: {}",
+        error.contains("未定义标识符: 'y'"),
+        "Should report '未定义标识符: y' error, got: {}",
         error
     );
 }
@@ -148,8 +148,8 @@ fn test_error_duplicate_class() {
     let error = compile_eol_expect_error("examples/errors/error_duplicate_class.cay")
         .expect("duplicate class should fail to compile");
     assert!(
-        error.contains("class") || error.contains("duplicate") || error.contains("redefined"),
-        "Should report duplicate class error, got: {}",
+        error.contains("Class 'TestDuplicateClass' already defined"),
+        "Should report 'Class 'TestDuplicateClass' already defined' error, got: {}",
         error
     );
 }
@@ -302,7 +302,8 @@ fn test_error_incompatible_types() {
     let error = compile_eol_expect_error("examples/errors/error_incompatible_types.cay")
         .expect("incompatible types should fail to compile");
     assert!(
-        error.contains("type") || error.contains("incompatible") || error.contains("mismatch"),
+        error.contains("type") || error.contains("incompatible") || error.contains("mismatch")
+            || error.contains("Cannot assign"),
         "Should report incompatible types error, got: {}",
         error
     );

@@ -153,23 +153,24 @@ impl IRGenerator {
     pub fn get_lvalue_info(&mut self, expr: &Expr) -> cayResult<(String, String)> {
         match expr {
             Expr::Identifier(name) => {
+                let name_str = name.as_ref();
                 // 优先使用作用域管理器获取变量类型
-                let (var_type, llvm_name) = if let Some(scope_type) = self.scope_manager.get_var_type(name) {
-                    let llvm_name = self.scope_manager.get_llvm_name(name).unwrap_or_else(|| name.clone());
+                let (var_type, llvm_name) = if let Some(scope_type) = self.scope_manager.get_var_type(name_str) {
+                    let llvm_name = self.scope_manager.get_llvm_name(name_str).unwrap_or_else(|| name_str.to_string());
                     (scope_type, llvm_name)
                 } else {
                     // 检查是否是当前类的静态字段
                     if !self.current_class.is_empty() {
-                        let static_key = format!("{}.{}", self.current_class, name);
+                        let static_key = format!("{}.{}", self.current_class, name_str);
                         if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
                             return Ok((field_info.llvm_type, field_info.name));
                         }
                     }
                     // 回退到旧系统
-                    let var_type = self.var_types.get(name)
-                        .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name)))?
+                    let var_type = self.var_types.get(name_str)
+                        .ok_or_else(|| codegen_error(format!("Variable '{}' not found", name_str)))?
                         .clone();
-                    (var_type, name.clone())
+                    (var_type, name_str.to_string())
                 };
                 Ok((var_type, format!("%{}", llvm_name)))
             }

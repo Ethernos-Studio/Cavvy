@@ -20,7 +20,7 @@ impl IRGenerator {
                 self.generate_member_assignment(member, &value_type, &val, &value)
             }
             Expr::Identifier(name) => {
-                self.generate_variable_assignment(name, &value_type, &val, &value)
+                self.generate_variable_assignment(name.as_ref(), &value_type, &val, &value)
             }
             Expr::ArrayAccess(arr_access) => {
                 self.generate_array_assignment(arr_access, &value_type, &val, &value)
@@ -69,10 +69,11 @@ impl IRGenerator {
         
         // 确定对象所属的类
         let class_name_opt: Option<String> = if let Expr::Identifier(name) = &*member.object {
-            if name == "this" {
+            let name_str = name.as_ref();
+            if name_str == "this" {
                 Some(self.current_class.clone())
             } else {
-                self.var_class_map.get(name).cloned()
+                self.var_class_map.get(name_str).cloned()
             }
         } else {
             None

@@ -2,6 +2,7 @@ use std::env;
 use std::process;
 use std::path::{Path, PathBuf, Component};
 use std::fs;
+use cavvy::error::{print_miette_error, print_tool_error, print_warning};
 
 /// 规范化路径，去除 . 和 ..
 fn normalize_path(path: &Path) -> PathBuf {
@@ -499,7 +500,11 @@ fn main() {
     let (options, input_file, output_file) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::argument_error",
+                &e,
+                Some("请检查命令行参数是否正确")
+            );
             print_usage();
             process::exit(1);
         }
@@ -513,7 +518,11 @@ fn main() {
         env::current_dir()
             .map_err(|e| format!("无法获取当前目录: {}", e))
             .unwrap_or_else(|e| {
-                eprintln!("错误: {}", e);
+                print_miette_error(
+                    "cavvy::io_error",
+                    &e,
+                    Some("请检查当前目录权限")
+                );
                 process::exit(1);
             })
             .join(input_path)
@@ -530,7 +539,11 @@ fn main() {
         env::current_dir()
             .map_err(|e| format!("无法获取当前目录: {}", e))
             .unwrap_or_else(|e| {
-                eprintln!("错误: {}", e);
+                print_miette_error(
+                    "cavvy::io_error",
+                    &e,
+                    Some("请检查当前目录权限")
+                );
                 process::exit(1);
             })
             .join(output_path)
@@ -545,7 +558,11 @@ fn main() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("无法创建输出目录: {}", e))
                 .unwrap_or_else(|e| {
-                    eprintln!("错误: {}", e);
+                    print_miette_error(
+                        "cavvy::io_error",
+                        &e,
+                        Some("请检查输出目录权限")
+                    );
                     process::exit(1);
                 });
         }
@@ -643,7 +660,7 @@ fn main() {
     let clang_exe = match find_clang() {
         Ok(path) => path,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_tool_error("clang", &e, Some("请确保 LLVM/Clang 已正确安装"));
             process::exit(1);
         }
     };
@@ -777,8 +794,15 @@ fn main() {
         cmd.arg(flag);
     }
 
-    // 使用 lld 链接器
-    cmd.arg("-fuse-ld=lld");
+    // 使用 lld 链接器（仅在非内置clang时使用，内置clang需要确保lld在PATH中）
+    // 检测是否使用内置clang
+    let is_bundled_clang = clang_exe.to_string_lossy().contains("llvm-minimal");
+    
+    if !is_bundled_clang {
+        // 系统clang可以使用 -fuse-ld=lld
+        cmd.arg("-fuse-ld=lld");
+    }
+    // 内置clang使用默认链接器（它会自动找到同目录下的lld-link）
 
     // 根据目标平台选择默认库
     if options.target.contains("windows") || options.target.contains("mingw") {
@@ -813,20 +837,23 @@ fn main() {
 
     let output = cmd.output()
         .unwrap_or_else(|e| {
-            eprintln!("执行clang失败: {}", e);
+            print_tool_error("clang", &format!("执行失败: {}", e), Some("请检查 clang 是否正确安装"));
             process::exit(1);
         });
 
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
-        eprintln!("编译失败 (clang exit code: {})", output.status.code().unwrap_or(-1));
-        eprintln!("错误: {}", error_msg);
+        print_tool_error(
+            "clang",
+            &format!("编译失败 (exit code: {})", output.status.code().unwrap_or(-1)),
+            Some(&error_msg)
+        );
         process::exit(1);
     }
 
     if !output.stderr.is_empty() {
         let warn_msg = String::from_utf8_lossy(&output.stderr);
-        println!("  [W] {}", warn_msg);
+        print_warning(&warn_msg);
     }
 
     let exe_size = std::fs::metadata(&output_file)

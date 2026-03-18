@@ -150,6 +150,15 @@ impl SemanticAnalyzer {
                 self.infer_expr_type(expr)?;
             }
             Stmt::VarDecl(var) => {
+                // 检查当前作用域中是否已存在同名变量
+                if self.symbol_table.lookup_current(&var.name).is_some() {
+                    self.errors.push(format!(
+                        "Variable '{}' already defined in current scope at line {}",
+                        var.name, var.loc.line
+                    ));
+                    return Ok(());
+                }
+
                 let mut var_type = var.var_type.clone();
                 
                 // 处理 auto 类型推断

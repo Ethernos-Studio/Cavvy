@@ -3,7 +3,7 @@ use std::fs;
 use std::process;
 use std::path::{Path, PathBuf};
 use cavvy::Compiler;
-use cavvy::error::print_error_with_context;
+use cavvy::error::{print_error_with_context, print_miette_error, print_tool_error, print_warning};
 
 /// 查找 clang 可执行文件
 /// 1. 首先尝试直接调用 "clang"（系统 PATH 中）
@@ -208,7 +208,11 @@ fn main() {
     let (options, source_path, output_path) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::argument_error",
+                &e,
+                Some("请检查命令行参数是否正确")
+            );
             print_usage();
             process::exit(1);
         }
@@ -218,7 +222,11 @@ fn main() {
     let source = match fs::read_to_string(&source_path) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("错误读取源文件 '{}': {}", source_path, e);
+            print_miette_error(
+                "cavvy::io_error",
+                &format!("无法读取源文件 '{}': {}", source_path, e),
+                Some("请检查文件路径是否正确，文件是否存在")
+            );
             process::exit(1);
         }
     };
@@ -268,8 +276,8 @@ fn main() {
                 optimized_file
             }
             Err(e) => {
-                eprintln!("  [W] IR 优化失败: {}", e);
-                eprintln!("  [I] 使用未优化的 IR");
+                print_warning(&format!("IR 优化失败: {}", e));
+                println!("  [I] 使用未优化的 IR");
                 temp_ir_file
             }
         }
@@ -291,7 +299,11 @@ fn main() {
         if let Err(e) = fs::rename(&final_ir_file, &final_output) {
             // 如果重命名失败（可能跨磁盘），尝试复制
             if let Err(e2) = fs::copy(&final_ir_file, &final_output) {
-                eprintln!("错误: 无法创建输出文件 '{}': {} / {}", final_output, e, e2);
+                print_miette_error(
+                    "cavvy::io_error",
+                    &format!("无法创建输出文件 '{}': {} / {}", final_output, e, e2),
+                    Some("请检查输出目录是否有写入权限")
+                );
                 let _ = fs::remove_file(&final_ir_file);
                 process::exit(1);
             }

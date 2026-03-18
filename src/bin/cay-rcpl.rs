@@ -7,6 +7,7 @@
 //! - 上下文查看和管理
 
 use std::env;
+use cavvy::error::print_miette_error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,12 +50,20 @@ fn main() {
     match cavvy::rcpl::Rcpl::new() {
         Ok(mut rcpl) => {
             if let Err(e) = rcpl.run() {
-                eprintln!("RCPL 错误: {}", e);
+                print_miette_error(
+                    "cavvy::rcpl_error",
+                    &format!("RCPL 错误: {}", e),
+                    Some("请检查 RCPL 环境配置")
+                );
                 std::process::exit(1);
             }
         }
         Err(e) => {
-            eprintln!("初始化失败: {}", e);
+            print_miette_error(
+                "cavvy::init_error",
+                &format!("初始化失败: {}", e),
+                Some("请检查编译器是否正确安装")
+            );
             std::process::exit(1);
         }
     }

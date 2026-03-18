@@ -37,17 +37,19 @@ impl IRGenerator {
         // 对于实例方法调用，还需要保存对象表达式以获取 this 指针
         let (class_name, method_name, obj_expr) = match call.callee.as_ref() {
             Expr::Identifier(name) => {
+                let name_str = name.as_ref();
                 if !self.current_class.is_empty() {
-                    (self.current_class.clone(), name.clone(), None)
+                    (self.current_class.clone(), name_str.to_string(), None)
                 } else {
-                    (String::new(), name.clone(), None)
+                    (String::new(), name_str.to_string(), None)
                 }
             }
             Expr::MemberAccess(member) => {
                 if let Expr::Identifier(obj_name) = member.object.as_ref() {
-                    let class_name = self.var_class_map.get(obj_name)
+                    let obj_name_str = obj_name.as_ref();
+                    let class_name = self.var_class_map.get(obj_name_str)
                         .cloned()
-                        .unwrap_or_else(|| obj_name.clone());
+                        .unwrap_or_else(|| obj_name_str.to_string());
                     (class_name, member.member.clone(), Some(member.object.clone()))
                 } else {
                     return Err(codegen_error("Invalid method call".to_string()));
@@ -69,7 +71,7 @@ impl IRGenerator {
         let (processed_args, has_varargs_array) = if is_varargs_method {
             let packed = self.pack_varargs_args(&class_name, &method_name, &arg_results)?;
             // 如果原始参数多于固定参数数量，说明创建了数组
-            let fixed_count = match method_name.as_str() {
+            let fixed_count = match method_name.as_ref() {
                 "sum" => 0,
                 "printAll" => 1,
                 "multiplyAndAdd" => 1,

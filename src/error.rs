@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 #[derive(Error, Debug, Clone)]
 pub enum cayError {
-    #[error("词法错误 [{line}:{column}]: {message}\n  提示: {suggestion}")]
+    #[error("词法错误 [{line}:{column}]: {message}")]
     Lexer { 
         line: usize, 
         column: usize, 
@@ -13,7 +13,7 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("语法错误 [{line}:{column}]: {message}\n  提示: {suggestion}")]
+    #[error("语法错误 [{line}:{column}]: {message}")]
     Parser { 
         line: usize, 
         column: usize, 
@@ -21,7 +21,7 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("语义错误 [{line}:{column}]: {message}\n  提示: {suggestion}")]
+    #[error("语义错误 [{line}:{column}]: {message}")]
     Semantic { 
         line: usize, 
         column: usize, 
@@ -29,7 +29,7 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("代码生成错误: {message}\n  提示: {suggestion}")]
+    #[error("代码生成错误: {message}")]
     CodeGen { 
         message: String,
         suggestion: String,
@@ -41,7 +41,7 @@ pub enum cayError {
     #[error("LLVM错误: {0}")]
     Llvm(String),
     
-    #[error("类型错误 [{line}:{column}]: {message}\n  期望类型: {expected}\n  实际类型: {actual}\n  提示: {suggestion}")]
+    #[error("类型错误 [{line}:{column}]: {message}")]
     TypeMismatch {
         line: usize,
         column: usize,
@@ -51,7 +51,7 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("未定义标识符 [{line}:{column}]: '{name}'\n  提示: {suggestion}")]
+    #[error("未定义标识符 [{line}:{column}]: '{name}'")]
     UndefinedIdentifier {
         line: usize,
         column: usize,
@@ -59,7 +59,7 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("重复定义 [{line}:{column}]: '{name}'\n  提示: {suggestion}")]
+    #[error("重复定义 [{line}:{column}]: '{name}'")]
     DuplicateDefinition {
         line: usize,
         column: usize,
@@ -67,8 +67,7 @@ pub enum cayError {
         suggestion: String,
     },
 
-    #[error("预处理器错误 [{line}:{column}]: {message}
-  提示: {suggestion}")]
+    #[error("预处理器错误 [{line}:{column}]: {message}")]
     Preprocessor { 
         line: usize, 
         column: usize, 
@@ -79,7 +78,7 @@ pub enum cayError {
 
 pub type cayResult<T> = Result<T, cayError>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SourceLocation {
     pub line: usize,
     pub column: usize,
@@ -311,28 +310,6 @@ fn get_error_code(error: &cayError) -> &'static str {
     }
 }
 
-/// 获取错误帮助信息
-fn get_error_help(error: &cayError) -> String {
-    match error {
-        cayError::Lexer { suggestion, .. } => suggestion.clone(),
-        cayError::Parser { suggestion, .. } => suggestion.clone(),
-        cayError::Semantic { suggestion, .. } => suggestion.clone(),
-        cayError::TypeMismatch { suggestion, expected, actual, .. } => {
-            format!("{} (期望: {}, 实际: {})", suggestion, expected, actual)
-        }
-        cayError::UndefinedIdentifier { suggestion, name, .. } => {
-            format!("{} (未找到的标识符: '{}')", suggestion, name)
-        }
-        cayError::DuplicateDefinition { suggestion, name, .. } => {
-            format!("{} (重复的名称: '{}')", suggestion, name)
-        }
-        cayError::CodeGen { suggestion, .. } => suggestion.clone(),
-        cayError::Io(msg) => format!("IO错误: {}", msg),
-        cayError::Llvm(msg) => format!("LLVM错误: {}", msg),
-        cayError::Preprocessor { suggestion, .. } => suggestion.clone(),
-    }
-}
-
 /// 获取错误消息（不含建议）
 fn get_error_message(error: &cayError) -> String {
     match error {
@@ -349,71 +326,238 @@ fn get_error_message(error: &cayError) -> String {
     }
 }
 
-// 打印带有上下文的错误信息 - 使用miette格式
-pub fn print_error_with_context(error: &cayError, source: &str, filename: &str) {
-    // 获取错误位置
-    let (line, column) = match error {
-        cayError::Lexer { line, column, .. } => (*line, *column),
-        cayError::Parser { line, column, .. } => (*line, *column),
-        cayError::Semantic { line, column, .. } => (*line, *column),
-        cayError::TypeMismatch { line, column, .. } => (*line, *column),
-        cayError::UndefinedIdentifier { line, column, .. } => (*line, *column),
-        cayError::DuplicateDefinition { line, column, .. } => (*line, *column),
-        cayError::Preprocessor { line, column, .. } => (*line, *column),
-        _ => (0, 0),
-    };
-    
-    if line > 0 {
-        // 使用miette格式显示错误
-        let offset = line_col_to_offset(source, line, column);
-        let span = get_error_span(source, line, column, error);
-        let code = get_error_code(error);
-        let message = get_error_message(error);
-        let help = get_error_help(error);
-        
-        // 打印miette风格的错误
-        eprintln!("\n  × {}: {}", code, message);
-        eprintln!("   ╭─[{}:{}:{}]", filename, line, column);
-        
-        // 打印源代码上下文（前后3行）
-        let lines: Vec<&str> = source.lines().collect();
-        let start_line = line.saturating_sub(3).max(1);
-        let end_line = (line + 2).min(lines.len());
-        
-        for i in start_line..=end_line {
-            if i <= lines.len() {
-                let line_content = lines[i - 1];
-                eprintln!("{:3} │ {}", i, line_content);
-                
-                if i == line {
-                    // 打印错误指示器
-                    let prefix_len = column.saturating_sub(1);
-                    let span_len = match span {
-                        s => s.offset() + s.len() - offset,
-                    };
-                    let spaces = " ".repeat(prefix_len);
-                    let arrows = "─".repeat(span_len.max(1));
-                    eprintln!("    │ {}{} {}", spaces, arrows, "错误在这里");
-                }
-            }
-        }
-        
-        eprintln!("   ╰────");
-        
-        // 打印帮助信息
-        if !help.is_empty() {
-            eprintln!("  help: {}", help);
-        }
-        
-        eprintln!();
-    } else {
-        // 没有位置信息的错误
-        eprintln!("\n  × {}: {}", get_error_code(error), get_error_message(error));
-        if let Some(help) = Some(get_error_help(error)) {
-            if !help.is_empty() {
-                eprintln!("  help: {}", help);
-            }
-        }
-        eprintln!();
+/// 获取错误帮助信息
+fn get_error_help(error: &cayError) -> Option<String> {
+    match error {
+        cayError::Lexer { suggestion, .. } => Some(suggestion.clone()),
+        cayError::Parser { suggestion, .. } => Some(suggestion.clone()),
+        cayError::Semantic { suggestion, .. } => Some(suggestion.clone()),
+        cayError::TypeMismatch { suggestion, .. } => Some(suggestion.clone()),
+        cayError::UndefinedIdentifier { suggestion, .. } => Some(suggestion.clone()),
+        cayError::DuplicateDefinition { suggestion, .. } => Some(suggestion.clone()),
+        cayError::CodeGen { suggestion, .. } => Some(suggestion.clone()),
+        cayError::Io(_) => None,
+        cayError::Llvm(_) => None,
+        cayError::Preprocessor { suggestion, .. } => Some(suggestion.clone()),
     }
+}
+
+/// 获取错误位置
+fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
+    match error {
+        cayError::Lexer { line, column, .. } => Some((*line, *column)),
+        cayError::Parser { line, column, .. } => Some((*line, *column)),
+        cayError::Semantic { line, column, .. } => Some((*line, *column)),
+        cayError::TypeMismatch { line, column, .. } => Some((*line, *column)),
+        cayError::UndefinedIdentifier { line, column, .. } => Some((*line, *column)),
+        cayError::DuplicateDefinition { line, column, .. } => Some((*line, *column)),
+        cayError::Preprocessor { line, column, .. } => Some((*line, *column)),
+        _ => None,
+    }
+}
+
+/// 打印带有上下文的错误信息 - 使用miette格式
+/// 
+/// # Arguments
+/// * `error` - 错误对象
+/// * `source` - 源代码内容
+/// * `filename` - 源文件名
+/// 
+/// # Example
+/// ```
+/// print_error_with_context(&error, &source, "test.cay");
+/// ```
+pub fn print_error_with_context(error: &cayError, source: &str, filename: &str) {
+    // 尝试获取错误位置
+    if let Some((line, column)) = get_error_location(error) {
+        if line > 0 {
+            print_error_with_location(error, source, filename, line, column);
+            return;
+        }
+    }
+    
+    // 没有位置信息的错误
+    print_error_without_location(error);
+}
+
+/// 打印带有位置信息的错误
+fn print_error_with_location(
+    error: &cayError,
+    source: &str,
+    filename: &str,
+    line: usize,
+    column: usize,
+) {
+    let code = get_error_code(error);
+    let message = get_error_message(error);
+    let help = get_error_help(error);
+    
+    // 使用 miette 风格格式
+    eprintln!("\n  × {}: {}", code, message);
+    eprintln!("   ╭─[{}:{}:{}]", filename, line, column);
+    
+    // 打印源代码上下文（前后3行）
+    let lines: Vec<&str> = source.lines().collect();
+    let start_line = line.saturating_sub(3).max(1);
+    let end_line = (line + 2).min(lines.len());
+    
+    for i in start_line..=end_line {
+        if i <= lines.len() {
+            let line_content = lines[i - 1];
+            eprintln!("{:3} │ {}", i, line_content);
+            
+            if i == line {
+                // 打印错误指示器
+                let prefix_len = column.saturating_sub(1);
+                let span_len = get_highlight_length(error);
+                let spaces = " ".repeat(prefix_len);
+                let arrows = "─".repeat(span_len.max(1));
+                eprintln!("    │ {}{} {}", spaces, arrows, "错误在这里");
+            }
+        }
+    }
+    
+    eprintln!("   ╰────");
+    
+    // 打印帮助信息
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
+
+/// 打印没有位置信息的错误
+fn print_error_without_location(error: &cayError) {
+    let code = get_error_code(error);
+    let message = get_error_message(error);
+    let help = get_error_help(error);
+    
+    eprintln!("\n  × {}: {}", code, message);
+    
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
+
+/// 获取高亮长度
+fn get_highlight_length(error: &cayError) -> usize {
+    match error {
+        cayError::UndefinedIdentifier { name, .. } => name.len(),
+        cayError::DuplicateDefinition { name, .. } => name.len(),
+        _ => 1,
+    }
+}
+
+/// 通用错误打印函数 - 用于非编译错误（如IO错误、配置错误等）
+/// 
+/// # Arguments
+/// * `error_type` - 错误类型标识
+/// * `message` - 错误消息
+/// * `help` - 可选的帮助信息
+/// 
+/// # Example
+/// ```
+/// print_miette_error("cavvy::io_error", "无法读取文件", Some("请检查文件路径是否正确"));
+/// ```
+pub fn print_miette_error(error_type: &str, message: &str, help: Option<&str>) {
+    eprintln!("\n  × {}: {}", error_type, message);
+    
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
+
+/// 编译阶段错误打印函数
+/// 
+/// # Arguments
+/// * `stage` - 编译阶段（如 "词法分析", "语法分析" 等）
+/// * `error` - 错误消息
+/// * `source_path` - 源文件路径
+/// * `help` - 可选的帮助信息
+/// 
+/// # Example
+/// ```
+/// print_compile_error("词法分析", "无效的字符", "test.cay", Some("请检查字符编码"));
+/// ```
+pub fn print_compile_error(stage: &str, error: &str, source_path: &str, help: Option<&str>) {
+    eprintln!("\n  × cavvy::compile_error: {}阶段错误", stage);
+    eprintln!("   ╭─[{}]", source_path);
+    eprintln!("   │");
+    eprintln!("   │ {}", error);
+    eprintln!("   ╰────");
+    
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
+
+/// 外部工具错误打印函数
+/// 
+/// # Arguments
+/// * `tool` - 工具名称（如 "clang", "ir2exe" 等）
+/// * `message` - 错误消息
+/// * `help` - 可选的帮助信息
+/// 
+/// # Example
+/// ```
+/// print_tool_error("clang", "编译失败", Some("请检查 LLVM 安装"));
+/// ```
+pub fn print_tool_error(tool: &str, message: &str, help: Option<&str>) {
+    eprintln!("\n  × cavvy::tool_error: {} 执行失败", tool);
+    eprintln!("   │");
+    eprintln!("   │ {}", message);
+    
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("   │");
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
+
+/// 警告信息打印函数
+/// 
+/// # Arguments
+/// * `message` - 警告消息
+/// 
+/// # Example
+/// ```
+/// print_warning("未使用的变量 'x'");
+/// ```
+pub fn print_warning(message: &str) {
+    eprintln!("  ⚠ cavvy::warning: {}", message);
+}
+
+/// 警告信息打印函数（带位置）
+/// 
+/// # Arguments
+/// * `message` - 警告消息
+/// * `filename` - 文件名
+/// * `line` - 行号
+/// * `column` - 列号
+/// 
+/// # Example
+/// ```
+/// print_warning_with_location("未使用的变量", "test.cay", 10, 5);
+/// ```
+pub fn print_warning_with_location(message: &str, filename: &str, line: usize, column: usize) {
+    eprintln!("  ⚠ cavvy::warning: {}", message);
+    eprintln!("     位置: {}:{}:{}", filename, line, column);
 }

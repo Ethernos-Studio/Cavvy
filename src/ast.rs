@@ -1,5 +1,7 @@
 use crate::types::{Type, ParameterInfo, ClassInfo, MethodInfo};
 use crate::error::SourceLocation;
+use std::fmt;
+use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -213,7 +215,7 @@ pub struct SwitchStmt {
 #[derive(Debug, Clone)]
 pub enum Expr {
     Literal(LiteralValue),
-    Identifier(String),
+    Identifier(IdentifierExpr),
     Binary(BinaryExpr),
     Unary(UnaryExpr),
     Call(CallExpr),
@@ -228,6 +230,43 @@ pub enum Expr {
     Lambda(LambdaExpr),        // Lambda 表达式: (params) -> { body }
     Ternary(TernaryExpr),      // 三元运算符: condition ? true_expr : false_expr
     InstanceOf(InstanceOfExpr), // instanceof 运算符: obj instanceof Type
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct IdentifierExpr {
+    pub name: String,
+    pub loc: SourceLocation,
+}
+
+impl fmt::Display for IdentifierExpr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl AsRef<str> for IdentifierExpr {
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+
+impl PartialEq<str> for IdentifierExpr {
+    fn eq(&self, other: &str) -> bool {
+        self.name == other
+    }
+}
+
+impl PartialEq<IdentifierExpr> for str {
+    fn eq(&self, other: &IdentifierExpr) -> bool {
+        self == other.name
+    }
+}
+
+impl IdentifierExpr {
+    /// 返回名称的字符串切片
+    pub fn as_str(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(Debug, Clone)]

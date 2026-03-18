@@ -20,12 +20,14 @@ impl SemanticAnalyzer {
                 LiteralValue::Char(_) => Ok(Type::Char),
                 LiteralValue::Null => Ok(Type::Object("Object".to_string())),
             }
-            Expr::Identifier(name) => {
+            Expr::Identifier(ident) => {
+                let name = &ident.name;
+                let loc = &ident.loc;
+                
                 // 检查是否在静态上下文中访问 this
                 if self.current_method_is_static && name == "this" {
-                    return Err(semantic_error(
-                        0, 0,
-                        format!("non-static variable this cannot be referenced from a static context")
+                    return Err(crate::error::undefined_identifier_error(
+                        loc.line, loc.column, name
                     ));
                 }
                 
@@ -37,8 +39,8 @@ impl SemanticAnalyzer {
                                 return Ok(field_info.field_type.clone());
                             } else if self.current_method_is_static {
                                 // 静态方法中不能访问非静态字段
-                                return Err(semantic_error(
-                                    0, 0,
+                                return Err(crate::error::semantic_error(
+                                    loc.line, loc.column,
                                     format!("non-static variable {} cannot be referenced from a static context", name)
                                 ));
                             }
@@ -54,7 +56,9 @@ impl SemanticAnalyzer {
                     // 标识符是类名，返回类类型（用于静态成员访问）
                     Ok(Type::Object(name.clone()))
                 } else {
-                    Err(semantic_error(0, 0, format!("Undefined variable: {}", name)))
+                    Err(crate::error::undefined_identifier_error(
+                        loc.line, loc.column, name
+                    ))
                 }
             }
             Expr::Binary(bin) => self.infer_binary_type(bin),
@@ -224,7 +228,7 @@ impl SemanticAnalyzer {
                 }
 
                 // 使用参数类型查找匹配的方法
-                if let Some(method_info) = self.type_registry.find_method(current_class, name, &arg_types) {
+                if let Some(method_info) = self.type_registry.find_method(current_class, name.as_ref(), &arg_types) {
                     let return_type = method_info.return_type.clone();
                     let params = method_info.params.clone();
                     // 检查参数类型兼容性（支持可变参数）
@@ -249,14 +253,14 @@ impl SemanticAnalyzer {
 
             // 检查是否是类名（静态方法调用）- 支持方法重载
             if let Expr::Identifier(class_name) = &*member.object {
-                let class_name = class_name.clone();
+                let class_name_str = class_name.as_ref().to_string();
                 // 先推断所有参数类型
                 let mut arg_types = Vec::new();
                 for arg in &call.args {
                     arg_types.push(self.infer_expr_type(arg)?);
                 }
 
-                if let Some(class_info) = self.type_registry.get_class(&class_name) {
+                if let Some(class_info) = self.type_registry.get_class(&class_name_str) {
                     // 使用参数类型查找匹配的静态方法
                     if let Some(method_info) = class_info.find_method(&member.member, &arg_types) {
                         if method_info.is_static {
@@ -307,7 +311,7 @@ impl SemanticAnalyzer {
             if let Some(ref current_class) = self.current_class {
                 // 检查是否存在同名方法（参数不匹配）
                 if let Some(class_info) = self.type_registry.get_class(current_class) {
-                    if class_info.methods.contains_key(name) {
+                    if class_info.methods.contains_key(name.as_ref()) {
                         return Err(semantic_error(
                             call.loc.line,
                             call.loc.column,
@@ -351,13 +355,13 @@ impl SemanticAnalyzer {
     fn infer_member_access_type(&mut self, member: &MemberAccessExpr) -> cayResult<Type> {
         // 检查是否是静态字段访问: ClassName.fieldName
         if let Expr::Identifier(class_name) = &*member.object {
-            if let Some(class_info) = self.type_registry.get_class(class_name) {
+            if let Some(class_info) = self.type_registry.get_class(class_name.as_ref()) {
                 if let Some(field_info) = class_info.fields.get(&member.member) {
                     if field_info.is_static {
                         // 检查私有字段访问权限
                         if !field_info.is_public {
                             if let Some(current_class) = &self.current_class {
-                                if current_class != class_name {
+                                if current_class != class_name.as_ref() {
                                     return Err(semantic_error(
                                         member.loc.line,
                                         member.loc.column,
@@ -488,7 +492,7 @@ impl SemanticAnalyzer {
     fn infer_assignment_type(&mut self, assign: &AssignmentExpr) -> cayResult<Type> {
         // 检查是否是 final 变量重新赋值
         if let Expr::Identifier(name) = &assign.target.as_ref() {
-            if let Some(info) = self.symbol_table.lookup(name) {
+            if let Some(info) = self.symbol_table.lookup(name.as_ref()) {
                 if info.is_final {
                     return Err(semantic_error(
                         assign.loc.line,

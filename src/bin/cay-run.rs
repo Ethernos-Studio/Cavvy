@@ -5,7 +5,7 @@ use std::process::{self, Command, Stdio};
 use cavvy::Compiler;
 use cavvy::bytecode::{serializer, jit};
 use cavvy::bytecode::obfuscator;
-use cavvy::error::print_error_with_context;
+use cavvy::error::{print_error_with_context, print_miette_error, print_tool_error, print_warning};
 use cavvy::error::cayError;
 
 const VERSION: &str = "0.4.7";
@@ -464,7 +464,11 @@ fn main() {
     let (options, input_path) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::argument_error",
+                &e,
+                Some("请检查命令行参数是否正确")
+            );
             print_usage();
             process::exit(1);
         }
@@ -472,7 +476,11 @@ fn main() {
 
     // 检查输入文件是否存在
     if !Path::new(&input_path).exists() {
-        eprintln!("错误: 输入文件 '{}' 不存在", input_path);
+        print_miette_error(
+            "cavvy::io_error",
+            &format!("输入文件 '{}' 不存在", input_path),
+            Some("请检查文件路径是否正确")
+        );
         process::exit(1);
     }
 
@@ -480,7 +488,11 @@ fn main() {
     let file_type = match detect_file_type(&input_path) {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::file_type_error",
+                &e,
+                Some("支持的文件类型: .cay, .caybc, .ll")
+            );
             process::exit(1);
         }
     };
@@ -519,7 +531,7 @@ fn main() {
                 }
                 let module = compile_cay_to_bytecode(&input_path, &options)
                     .map_err(|e| {
-                        eprintln!("编译到字节码失败: {}", e);
+                        print_tool_error("字节码编译器", &e, Some("请检查代码语法和语义"));
                         process::exit(1);
                     }).unwrap();
 
@@ -532,7 +544,7 @@ fn main() {
                 // 从字节码编译到IR
                 let ir = compile_bytecode_to_ir(temp_bc_file.to_str().unwrap(), &options)
                     .map_err(|e| {
-                        eprintln!("编译字节码到IR失败: {}", e);
+                        print_tool_error("字节码转IR", &e, Some("请检查字节码文件是否正确"));
                         process::exit(1);
                     }).unwrap();
 
@@ -558,7 +570,7 @@ fn main() {
             }
             compile_bytecode_to_ir(&input_path, &options)
                 .map_err(|e| {
-                    eprintln!("编译字节码失败: {}", e);
+                    print_tool_error("字节码编译器", &e, Some("请检查字节码文件是否正确"));
                     process::exit(1);
                 }).unwrap()
         }
@@ -568,7 +580,11 @@ fn main() {
             }
             fs::read_to_string(&input_path)
                 .map_err(|e| {
-                    eprintln!("读取IR文件失败: {}", e);
+                    print_miette_error(
+                        "cavvy::io_error",
+                        &format!("读取IR文件失败: {}", e),
+                        Some("请检查文件路径是否正确")
+                    );
                     process::exit(1);
                 }).unwrap()
         }
@@ -581,7 +597,7 @@ fn main() {
     // 编译IR到可执行文件
     compile_ir_to_executable(&ir_code, &output_exe, &options)
         .map_err(|e| {
-            eprintln!("编译失败: {}", e);
+            print_tool_error("ir2exe", &e, Some("请检查 IR 代码是否正确"));
             process::exit(1);
         }).unwrap();
 
@@ -594,7 +610,11 @@ fn main() {
     if !options.no_run {
         let exit_code = run_executable(&output_exe, &options)
             .map_err(|e| {
-                eprintln!("运行失败: {}", e);
+                print_miette_error(
+                    "cavvy::runtime_error",
+                    &format!("运行失败: {}", e),
+                    Some("请检查程序是否正确编译")
+                );
                 process::exit(1);
             }).unwrap();
 

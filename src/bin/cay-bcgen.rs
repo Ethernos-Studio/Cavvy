@@ -5,6 +5,7 @@ use std::path::Path;
 use cavvy::bytecode::{BytecodeModule, CodeBody, serializer, obfuscator};
 use cavvy::bytecode::instructions::{Instruction, Opcode};
 use cavvy::bytecode::constant_pool::ConstantPool;
+use cavvy::error::{print_miette_error, print_tool_error, print_warning};
 
 const VERSION: &str = "0.4.7";
 
@@ -410,8 +411,9 @@ fn generate_expression(
                 }
             }
         }
-        Expr::Identifier(name) => {
+        Expr::Identifier(ident) => {
             // 加载局部变量（简化处理）
+            let _name = &ident.name;
             instructions.push(Instruction::iload(0));
         }
         Expr::Binary(bin) => {
@@ -434,8 +436,8 @@ fn generate_expression(
             }
 
             // 调用函数（简化处理）
-            if let Expr::Identifier(name) = call.callee.as_ref() {
-                let index = module.constant_pool.add_utf8(name);
+            if let Expr::Identifier(ident) = call.callee.as_ref() {
+                let index = module.constant_pool.add_utf8(&ident.name);
                 instructions.push(Instruction::invokestatic(index));
             }
         }
@@ -478,7 +480,11 @@ fn main() {
     let (options, source_path) = match parse_args(&args) {
         Ok(result) => result,
         Err(e) => {
-            eprintln!("错误: {}", e);
+            print_miette_error(
+                "cavvy::argument_error",
+                &e,
+                Some("请检查命令行参数是否正确")
+            );
             print_usage();
             process::exit(1);
         }
@@ -486,7 +492,11 @@ fn main() {
 
     // 检查源文件是否存在
     if !Path::new(&source_path).exists() {
-        eprintln!("错误: 源文件 '{}' 不存在", source_path);
+        print_miette_error(
+            "cavvy::io_error",
+            &format!("源文件 '{}' 不存在", source_path),
+            Some("请检查文件路径是否正确")
+        );
         process::exit(1);
     }
 
@@ -510,7 +520,11 @@ fn main() {
     let source = match fs::read_to_string(&source_path) {
         Ok(content) => content,
         Err(e) => {
-            eprintln!("错误读取源文件 '{}': {}", source_path, e);
+            print_miette_error(
+                "cavvy::io_error",
+                &format!("无法读取源文件 '{}': {}", source_path, e),
+                Some("请检查文件路径是否正确，文件是否存在")
+            );
             process::exit(1);
         }
     };
@@ -523,7 +537,7 @@ fn main() {
     let mut module = match compile_to_bytecode(&source, &source_path) {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("编译错误: {}", e);
+            print_tool_error("字节码编译器", &e, Some("请检查代码语法和语义"));
             process::exit(1);
         }
     };
@@ -577,7 +591,11 @@ fn main() {
 
     // 写入文件
     if let Err(e) = fs::write(&output_path, bytecode) {
-        eprintln!("错误写入输出文件 '{}': {}", output_path, e);
+        print_miette_error(
+            "cavvy::io_error",
+            &format!("无法写入输出文件 '{}': {}", output_path, e),
+            Some("请检查输出目录是否有写入权限")
+        );
         process::exit(1);
     }
 

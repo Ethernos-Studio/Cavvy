@@ -22,7 +22,7 @@ impl IRGenerator {
             Expr::Literal(lit) => self.generate_literal(lit),
             
             // 标识符（变量访问）
-            Expr::Identifier(name) => self.generate_identifier(name),
+            Expr::Identifier(name) => self.generate_identifier(name.as_ref()),
             
             // 二元表达式
             Expr::Binary(bin) => self.generate_binary_expression(bin),

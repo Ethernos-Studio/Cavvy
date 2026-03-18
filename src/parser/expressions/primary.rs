@@ -63,7 +63,10 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
         }
         crate::lexer::Token::This => {
             parser.advance();
-            Ok(Expr::Identifier("this".to_string()))
+            Ok(Expr::Identifier(IdentifierExpr {
+                name: "this".to_string(),
+                loc,
+            }))
         }
         crate::lexer::Token::Identifier(name) => {
             let name = name.clone();
@@ -80,7 +83,7 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
                 }));
             }
 
-            Ok(Expr::Identifier(name))
+            Ok(Expr::Identifier(IdentifierExpr { name, loc }))
         }
         crate::lexer::Token::New => {
             parser.advance();
