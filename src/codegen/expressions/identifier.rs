@@ -33,7 +33,7 @@ impl IRGenerator {
         }
 
         // 检查是否是局部变量
-        let is_local_var = self.scope_manager.get_var_type(name).is_some() 
+        let is_local_var = self.scope_manager.get_var_type(name).is_some()
             || self.var_types.contains_key(name);
         
         if is_local_var {

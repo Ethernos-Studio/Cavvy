@@ -531,25 +531,36 @@ impl IRGenerator {
         }
 
         for param in &method.params {
-            let (param_type, store_type, var_type) = if param.is_varargs {
-                // 可变参数：参数类型是 i8*，但 var_types 中存储实际的数组类型
+            if param.is_varargs {
+                // 可变参数特殊处理
                 // 从 Array(ElementType) 提取元素类型
                 let elem_type = match &param.param_type {
                     crate::types::Type::Array(elem) => self.type_to_llvm(elem),
                     _ => self.type_to_llvm(&param.param_type),
                 };
-                // 数组类型是元素类型加 *
+                // 数组类型是元素类型加 *（如 i8* -> i8**）
                 let array_type = format!("{}*", elem_type);
-                ("i8*".to_string(), "i8*".to_string(), array_type)
+                
+                // 声明变量时使用数组类型（这样 generate_identifier 和数组访问能正确工作）
+                let llvm_name = self.scope_manager.declare_var(&param.name, &array_type);
+                self.emit_line(&format!("  %{} = alloca {}", llvm_name, array_type));
+                
+                // 将 i8* 参数转换为正确的数组类型指针
+                let cast_temp = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* %{}.{} to {}",
+                    cast_temp, class_name, param.name, array_type));
+                self.emit_line(&format!("  store {} {}, {}* %{}",
+                    array_type, cast_temp, array_type, llvm_name));
+                
+                self.var_types.insert(param.name.clone(), array_type);
             } else {
-                let t = self.type_to_llvm(&param.param_type);
-                (t.clone(), t.clone(), t)
-            };
-            let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
-            self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
-            self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
-                store_type, class_name, param.name, param_type, llvm_name));
-            self.var_types.insert(param.name.clone(), var_type);
+                let param_type = self.type_to_llvm(&param.param_type);
+                let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
+                self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
+                self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
+                    param_type, class_name, param.name, param_type, llvm_name));
+                self.var_types.insert(param.name.clone(), param_type);
+            }
         }
 
         if let Some(body) = method.body.as_ref() {
