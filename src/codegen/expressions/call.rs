@@ -71,12 +71,7 @@ impl IRGenerator {
         let (processed_args, has_varargs_array) = if is_varargs_method {
             let packed = self.pack_varargs_args(&class_name, &method_name, &arg_results)?;
             // 如果原始参数多于固定参数数量，说明创建了数组
-            let fixed_count = match method_name.as_ref() {
-                "sum" => 0,
-                "printAll" => 1,
-                "multiplyAndAdd" => 1,
-                _ => 0,
-            };
+            let (fixed_count, _) = self.get_varargs_info(&class_name, &method_name);
             let has_array = arg_results.len() > fixed_count;
             (packed, has_array)
         } else {
@@ -240,7 +235,8 @@ impl IRGenerator {
     /// 将参数类型转换为签名
     fn param_type_to_signature(&self, ty: &crate::types::Type, is_varargs_array: bool) -> String {
         if is_varargs_array {
-            return "ai".to_string(); // 可变参数数组签名
+            // 可变参数数组：提取元素类型并生成签名
+            return self.varargs_element_type_to_signature(ty);
         }
 
         match ty {
@@ -254,6 +250,28 @@ impl IRGenerator {
             crate::types::Type::Object(name) => format!("o{}", name),
             crate::types::Type::Array(inner) => format!("a{}", self.param_type_to_signature(inner, false)),
             _ => "x".to_string(),
+        }
+    }
+
+    /// 将可变参数数组的元素类型转换为签名
+    /// 可变参数类型是 Array(ElementType)，需要提取元素类型
+    fn varargs_element_type_to_signature(&self, ty: &crate::types::Type) -> String {
+        use crate::types::Type;
+        match ty {
+            Type::Array(elem) => {
+                match elem.as_ref() {
+                    Type::Int32 => "ai".to_string(),
+                    Type::Int64 => "al".to_string(),
+                    Type::Float32 => "af".to_string(),
+                    Type::Float64 => "ad".to_string(),
+                    Type::Bool => "ab".to_string(),
+                    Type::String => "as".to_string(),
+                    Type::Char => "ac".to_string(),
+                    Type::Object(name) => format!("ao{}", name),
+                    _ => "ax".to_string(),
+                }
+            }
+            _ => self.param_type_to_signature(ty, false), // 如果不是数组类型，回退到普通签名
         }
     }
 
@@ -365,14 +383,9 @@ impl IRGenerator {
 
     /// 将可变参数打包成数组
     /// fixed_param_count: 固定参数的数量
-    fn pack_varargs_args(&mut self, _class_name: &str, method_name: &str, arg_results: &[String]) -> cayResult<Vec<String>> {
-        // 确定固定参数数量（这里需要根据实际方法定义来确定）
-        let fixed_param_count = match method_name {
-            "sum" => 0,  // sum(int... numbers) 没有固定参数
-            "printAll" => 1,  // printAll(string prefix, int... numbers) 有1个固定参数
-            "multiplyAndAdd" => 1,  // multiplyAndAdd(int multiplier, int... numbers) 有1个固定参数
-            _ => 0,
-        };
+    fn pack_varargs_args(&mut self, class_name: &str, method_name: &str, arg_results: &[String]) -> cayResult<Vec<String>> {
+        // 从类型注册表获取固定参数数量和可变参数元素类型
+        let (fixed_param_count, varargs_elem_type) = self.get_varargs_info(class_name, method_name);
 
         if arg_results.len() <= fixed_param_count {
             // 参数数量不足或刚好，不需要打包
@@ -385,41 +398,130 @@ impl IRGenerator {
 
         // 创建数组来存储可变参数
         let array_size = varargs.len();
-        let array_type = "i32";  // 假设可变参数是 int 类型
+        let raw_ptr = self.new_temp();
         let array_ptr = self.new_temp();
 
-        // 分配数组内存
-        let elem_size = 4;  // i32 占 4 字节
-        let total_size = array_size * elem_size;
-        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", array_ptr, total_size));
+        // 根据元素类型确定 LLVM 类型和大小
+        let (llvm_elem_type, elem_size) = match varargs_elem_type {
+            crate::types::Type::Int32 => ("i32", 4),
+            crate::types::Type::Int64 => ("i64", 8),
+            crate::types::Type::Float32 => ("float", 4),
+            crate::types::Type::Float64 => ("double", 8),
+            crate::types::Type::String => ("i8", 8), // String 是指针类型
+            crate::types::Type::Char => ("i8", 1),
+            crate::types::Type::Bool => ("i8", 1),
+            _ => ("i32", 4), // 默认使用 i32
+        };
+
+        // 分配数组内存：8字节（长度+padding）+ 元素数据
+        let header_size = 8;
+        let data_size = array_size * elem_size;
+        let total_size = header_size + data_size;
+        self.emit_line(&format!("  {} = call i8* @calloc(i64 1, i64 {})", raw_ptr, total_size));
+
+        // 存储长度信息到前4字节
+        let len_ptr_i8 = self.new_temp();
+        let len_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 0", len_ptr_i8, raw_ptr));
+        self.emit_line(&format!("  {} = bitcast i8* {} to i32*", len_ptr, len_ptr_i8));
+        self.emit_line(&format!("  store i32 {}, i32* {}, align 4", array_size, len_ptr));
+
+        // 计算数组元素起始地址（跳过8字节头部）
+        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}", array_ptr, raw_ptr, header_size));
 
         // 将可变参数存入数组
         for (i, arg_str) in varargs.iter().enumerate() {
             let (arg_type, arg_val) = self.parse_typed_value(arg_str);
             let elem_ptr_i8 = self.new_temp();
-            let elem_ptr_i32 = self.new_temp();
             let offset = i * elem_size;
 
             // 计算元素地址 (i8*)
             self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}", elem_ptr_i8, array_ptr, offset));
 
-            // 将 i8* 转换为 i32*
-            self.emit_line(&format!("  {} = bitcast i8* {} to i32*", elem_ptr_i32, elem_ptr_i8));
-
-            // 将值转换为 i32 并存储
-            if arg_type == "i64" {
-                let truncated = self.new_temp();
-                self.emit_line(&format!("  {} = trunc i64 {} to i32", truncated, arg_val));
-                self.emit_line(&format!("  store i32 {}, i32* {}, align 4", truncated, elem_ptr_i32));
-            } else if arg_type == "i32" {
-                self.emit_line(&format!("  store i32 {}, i32* {}, align 4", arg_val, elem_ptr_i32));
-            }
+            // 根据元素类型进行存储
+            self.store_vararg_element(&elem_ptr_i8, &arg_type, &arg_val, llvm_elem_type);
         }
 
-        // 构建结果：固定参数 + 数组指针
+        // 构建结果：固定参数 + 数组指针（指向元素0，与正常数组布局一致）
         let mut result = fixed_args.to_vec();
         result.push(format!("i8* {}", array_ptr));
 
         Ok(result)
+    }
+
+    /// 获取可变参数方法的固定参数数量和元素类型
+    fn get_varargs_info(&self, class_name: &str, method_name: &str) -> (usize, crate::types::Type) {
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                if let Some(methods) = class_info.methods.get(method_name) {
+                    for method in methods {
+                        if let Some(last_param) = method.params.last() {
+                            if last_param.is_varargs {
+                                // 可变参数数量 = 总参数数量 - 1（最后一个可变参数）
+                                let fixed_count = method.params.len() - 1;
+                                // 获取可变参数的元素类型
+                                let elem_type = match &last_param.param_type {
+                                    crate::types::Type::Array(elem) => elem.as_ref().clone(),
+                                    _ => last_param.param_type.clone(),
+                                };
+                                return (fixed_count, elem_type);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // 默认值：没有固定参数，元素类型为 Int32
+        (0, crate::types::Type::Int32)
+    }
+
+    /// 存储可变参数元素到数组
+    fn store_vararg_element(&mut self, elem_ptr_i8: &str, arg_type: &str, arg_val: &str, llvm_elem_type: &str) {
+        match llvm_elem_type {
+            "i32" => {
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to i32*", elem_ptr, elem_ptr_i8));
+                if arg_type == "i64" {
+                    let truncated = self.new_temp();
+                    self.emit_line(&format!("  {} = trunc i64 {} to i32", truncated, arg_val));
+                    self.emit_line(&format!("  store i32 {}, i32* {}, align 4", truncated, elem_ptr));
+                } else if arg_type == "i32" {
+                    self.emit_line(&format!("  store i32 {}, i32* {}, align 4", arg_val, elem_ptr));
+                }
+            }
+            "i64" => {
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to i64*", elem_ptr, elem_ptr_i8));
+                if arg_type == "i32" {
+                    let extended = self.new_temp();
+                    self.emit_line(&format!("  {} = sext i32 {} to i64", extended, arg_val));
+                    self.emit_line(&format!("  store i64 {}, i64* {}, align 8", extended, elem_ptr));
+                } else {
+                    self.emit_line(&format!("  store i64 {}, i64* {}, align 8", arg_val, elem_ptr));
+                }
+            }
+            "float" => {
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to float*", elem_ptr, elem_ptr_i8));
+                self.emit_line(&format!("  store float {}, float* {}, align 4", arg_val, elem_ptr));
+            }
+            "double" => {
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to double*", elem_ptr, elem_ptr_i8));
+                self.emit_line(&format!("  store double {}, double* {}, align 8", arg_val, elem_ptr));
+            }
+            "i8" => {
+                // 用于 String (i8*), char, bool
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to i8**", elem_ptr, elem_ptr_i8));
+                self.emit_line(&format!("  store i8* {}, i8** {}, align 8", arg_val, elem_ptr));
+            }
+            _ => {
+                // 默认处理为 i32
+                let elem_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to i32*", elem_ptr, elem_ptr_i8));
+                self.emit_line(&format!("  store i32 {}, i32* {}, align 4", arg_val, elem_ptr));
+            }
+        }
     }
 }

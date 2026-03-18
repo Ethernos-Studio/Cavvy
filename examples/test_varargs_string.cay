@@ -1,0 +1,55 @@
+public class TestVarargsString {
+    // 测试 String 类型的可变参数
+    public static void prints(String cat, String... args) {
+        int i = 0;
+        while (i < args.length) {
+            print(args[i]);
+            print(cat);
+            i = i + 1;
+        }
+        println("");
+    }
+
+    // 测试纯 String 可变参数
+    public static void printStrings(String... strings) {
+        int i = 0;
+        while (i < strings.length) {
+            println(strings[i]);
+            i = i + 1;
+        }
+    }
+
+    // 测试 int 类型的可变参数
+    public static void printInts(String prefix, int... numbers) {
+        print(prefix);
+        print("[");
+        int i = 0;
+        while (i < numbers.length) {
+            print(numbers[i]);
+            if (i < numbers.length - 1) {
+                print(", ");
+            }
+            i = i + 1;
+        }
+        println("]");
+    }
+
+    public static void main() {
+        println("=== Varargs String Test ===");
+        
+        // 测试 String 可变参数
+        prints(" ", "Hello", "Cay", "!");
+        prints("-", "A", "B", "C", "D");
+        
+        println("");
+        println("=== Print Strings ===");
+        printStrings("First", "Second", "Third");
+        
+        println("");
+        println("=== Print Ints ===");
+        printInts("Numbers: ", 1, 2, 3, 4, 5);
+        
+        println("");
+        println("All tests passed!");
+    }
+}

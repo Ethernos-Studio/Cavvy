@@ -438,7 +438,14 @@ impl IRGenerator {
             format!("declare {} @{}()\n", ret_type, fn_name)
         } else {
             let params: Vec<String> = method.params.iter()
-                .map(|p| self.type_to_llvm(&p.param_type))
+                .map(|p| {
+                    if p.is_varargs {
+                        // 可变参数使用 i8* 指针类型
+                        "i8*".to_string()
+                    } else {
+                        self.type_to_llvm(&p.param_type)
+                    }
+                })
                 .collect();
             format!("declare {} @{}({})\n", ret_type, fn_name, params.join(", "))
         };
@@ -499,7 +506,13 @@ impl IRGenerator {
         }
         
         for param in &method.params {
-            params.push(format!("{} %{}.{}", self.type_to_llvm(&param.param_type), class_name, param.name));
+            let param_llvm_type = if param.is_varargs {
+                // 可变参数使用 i8* 指针类型（数组的内存地址）
+                "i8*".to_string()
+            } else {
+                self.type_to_llvm(&param.param_type)
+            };
+            params.push(format!("{} %{}.{}", param_llvm_type, class_name, param.name));
         }
 
         self.emit_line(&format!("define {} @{}({}) {{",
@@ -518,11 +531,17 @@ impl IRGenerator {
         }
 
         for param in &method.params {
-            let param_type = self.type_to_llvm(&param.param_type);
+            let (param_type, store_type) = if param.is_varargs {
+                // 可变参数：参数类型是 i8*，但存储时需要特殊处理
+                ("i8*".to_string(), "i8*".to_string())
+            } else {
+                let t = self.type_to_llvm(&param.param_type);
+                (t.clone(), t)
+            };
             let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
             self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
-                param_type, class_name, param.name, param_type, llvm_name));
+                store_type, class_name, param.name, param_type, llvm_name));
             self.var_types.insert(param.name.clone(), param_type);
         }
 

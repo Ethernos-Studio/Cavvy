@@ -345,6 +345,7 @@ impl IRGenerator {
     /// 格式: ClassName.__methodName_param1Type_param2Type
     /// 注意：LLVM IR 中函数名不能包含 @ 符号，使用 __ 作为分隔符
     /// 注意：函数名不包含 this 参数，this 在 IR 层面处理
+    /// 注意：可变参数方法使用 ai/as 等签名表示数组类型
     pub fn generate_method_name(&self, class_name: &str, method: &crate::ast::MethodDecl) -> String {
         if method.params.is_empty() {
             // 无参数方法，使用简单名称
@@ -352,9 +353,39 @@ impl IRGenerator {
         } else {
             // 有参数方法，添加参数类型签名
             let param_types: Vec<String> = method.params.iter()
-                .map(|p| self.type_to_signature(&p.param_type))
+                .map(|p| {
+                    if p.is_varargs {
+                        // 可变参数使用特殊签名：ai（int数组）、as（string数组）等
+                        self.varargs_type_to_signature(&p.param_type)
+                    } else {
+                        self.type_to_signature(&p.param_type)
+                    }
+                })
                 .collect();
             format!("{}.__{}_{}", class_name, method.name, param_types.join("_"))
+        }
+    }
+
+    /// 将可变参数类型转换为签名
+    /// 可变参数在内部表示为 Array(ElementType)，需要提取元素类型
+    fn varargs_type_to_signature(&self, ty: &crate::types::Type) -> String {
+        use crate::types::Type;
+        // 可变参数类型是 Array(ElementType)，提取元素类型
+        match ty {
+            Type::Array(elem) => {
+                match elem.as_ref() {
+                    Type::Int32 => "ai".to_string(),
+                    Type::Int64 => "al".to_string(),
+                    Type::Float32 => "af".to_string(),
+                    Type::Float64 => "ad".to_string(),
+                    Type::Bool => "ab".to_string(),
+                    Type::String => "as".to_string(),
+                    Type::Char => "ac".to_string(),
+                    Type::Object(name) => format!("ao{}", name),
+                    _ => "ax".to_string(),
+                }
+            }
+            _ => self.type_to_signature(ty), // 如果不是数组类型，回退到普通签名
         }
     }
 
