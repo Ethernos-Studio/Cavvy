@@ -121,6 +121,8 @@ fn main() {
     println!("cargo:rerun-if-changed=lib/");
     println!("cargo:rerun-if-changed=mingw-minimal/");
     println!("cargo:rerun-if-changed=third-party/");
+    println!("cargo:rerun-if-changed=examples/");
+    println!("cargo:rerun-if-changed=caylibs/");
     
     if is_windows {
         // Windows平台：复制Windows版LLVM工具
@@ -162,6 +164,16 @@ fn main() {
     // 复制 third-party 目录 (许可证文件) - 所有平台都需要
     copy_dir_all("third-party", &target_dir.join("third-party"))
         .expect("Failed to copy third-party directory");
+    
+    // 复制 examples 目录 - 所有平台都需要
+    copy_dir_all("examples", &target_dir.join("examples"))
+        .expect("Failed to copy examples directory");
+    
+    // 复制 caylibs 目录 - 所有平台都需要（系统库目录）
+    copy_dir_all("caylibs", &target_dir.join("caylibs"))
+        .expect("Failed to copy caylibs directory");
+    
+    println!("cargo:warning=Copied examples and caylibs directories to {}", target_dir.display());
 }
 
 fn copy_dir_all(src: impl AsRef<std::path::Path>, dst: impl AsRef<std::path::Path>) -> std::io::Result<()> {

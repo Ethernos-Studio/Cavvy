@@ -48,8 +48,9 @@ enum ConditionalState {
 /// 预处理指令类型
 #[derive(Debug, Clone)]
 enum Directive {
-    /// #include "path"
-    Include(String),
+    /// #include "path" 或 #include <path>
+    /// bool 表示是否是系统包含路径 (<>)
+    Include(String, bool),
     /// #define name value
     Define(String, String),
     /// #ifdef name
@@ -201,9 +202,9 @@ impl Preprocessor {
         
         match directive_name {
             "include" => {
-                // 解析 #include "path"
-                let path = self.parse_string_literal(args, line_num)?;
-                Ok(Some(Directive::Include(path)))
+                // 解析 #include "path" 或 #include <path>
+                let (path, is_system) = self.parse_include_path(args, line_num)?;
+                Ok(Some(Directive::Include(path, is_system)))
             }
             "define" => {
                 // 解析 #define name value
@@ -267,7 +268,7 @@ impl Preprocessor {
         }
     }
 
-    /// 解析字符串字面量（用于 #include, #error, #warning）
+    /// 解析字符串字面量（用于 #error, #warning）
     fn parse_string_literal(&self, args: &str, line_num: usize) -> cayResult<String> {
         let trimmed = args.trim();
         if trimmed.len() < 2 {
@@ -290,6 +291,35 @@ impl Preprocessor {
         }
         
         Ok(trimmed[1..trimmed.len()-1].to_string())
+    }
+
+    /// 解析 #include 路径（支持 "path" 和 <path>）
+    fn parse_include_path(&self, args: &str, line_num: usize) -> cayResult<(String, bool)> {
+        let trimmed = args.trim();
+        if trimmed.len() < 2 {
+            return Err(cayError::Preprocessor {
+                line: line_num,
+                column: 1,
+                message: "缺少文件路径参数".to_string(),
+                suggestion: "使用 #include \"path\" 或 #include <path>".to_string(),
+            });
+        }
+        
+        // 检查是双引号还是尖括号
+        if trimmed.starts_with('"') && trimmed.ends_with('"') {
+            // 双引号包含：本地文件
+            Ok((trimmed[1..trimmed.len()-1].to_string(), false))
+        } else if trimmed.starts_with('<') && trimmed.ends_with('>') {
+            // 尖括号包含：系统文件
+            Ok((trimmed[1..trimmed.len()-1].to_string(), true))
+        } else {
+            Err(cayError::Preprocessor {
+                line: line_num,
+                column: 1,
+                message: "#include 参数格式错误".to_string(),
+                suggestion: "使用 #include \"path\" 或 #include <path>".to_string(),
+            })
+        }
     }
 
     /// 解析标识符
@@ -372,9 +402,9 @@ impl Preprocessor {
         file_path: &str,
     ) -> cayResult<()> {
         match directive {
-            Directive::Include(path) => {
+            Directive::Include(path, is_system) => {
                 if !self.skipping {
-                    self.handle_include(&path, output_lines, file_path)?;
+                    self.handle_include(&path, is_system, output_lines, file_path)?;
                 }
             }
             Directive::Define(name, value) => {
@@ -544,11 +574,12 @@ impl Preprocessor {
     fn handle_include(
         &mut self,
         path: &str,
+        is_system: bool,
         output_lines: &mut Vec<String>,
         current_file: &str,
     ) -> cayResult<()> {
         // 解析完整路径
-        let include_path = self.resolve_include_path(path, current_file)?;
+        let include_path = self.resolve_include_path(path, is_system, current_file)?;
         
         // 标准化路径用于去重检查
         let canonical_path = include_path.canonicalize()
@@ -597,36 +628,61 @@ impl Preprocessor {
 
     /// 解析包含路径
     /// 
-    /// 搜索顺序：
+    /// 对于 #include "path" (is_system = false):
     /// 1. 如果是绝对路径，直接使用
     /// 2. 相对于当前文件目录
     /// 3. 相对于基础目录
     /// 4. 系统包含路径
-    fn resolve_include_path(&self, path: &str, current_file: &str) -> cayResult<PathBuf> {
+    ///
+    /// 对于 #include <path> (is_system = true):
+    /// 1. 如果是绝对路径，直接使用
+    /// 2. 系统包含路径（优先）
+    /// 3. 相对于基础目录
+    fn resolve_include_path(&self, path: &str, is_system: bool, current_file: &str) -> cayResult<PathBuf> {
         // 1. 绝对路径
         if Path::new(path).is_absolute() {
             return Ok(PathBuf::from(path));
         }
         
-        // 2. 相对于当前文件目录
-        if let Some(current_dir) = Path::new(current_file).parent() {
-            let relative_path = current_dir.join(path);
-            if relative_path.exists() {
-                return Ok(relative_path);
+        if is_system {
+            // #include <path> 的搜索顺序
+            
+            // 2. 系统包含路径（优先）
+            for sys_path in &self.system_include_paths {
+                let sys_include_path = sys_path.join(path);
+                if sys_include_path.exists() {
+                    return Ok(sys_include_path);
+                }
             }
-        }
-        
-        // 3. 相对于基础目录
-        let base_path = self.base_dir.join(path);
-        if base_path.exists() {
-            return Ok(base_path);
-        }
-        
-        // 4. 系统包含路径
-        for sys_path in &self.system_include_paths {
-            let sys_include_path = sys_path.join(path);
-            if sys_include_path.exists() {
-                return Ok(sys_include_path);
+            
+            // 3. 相对于基础目录
+            let base_path = self.base_dir.join(path);
+            if base_path.exists() {
+                return Ok(base_path);
+            }
+        } else {
+            // #include "path" 的搜索顺序
+            
+            // 2. 相对于当前文件目录
+            if let Some(current_dir) = Path::new(current_file).parent() {
+                let relative_path = current_dir.join(path);
+                if relative_path.exists() {
+                    return Ok(relative_path);
+                }
+            }
+            
+            // 3. 相对于基础目录
+            let base_path = self.base_dir.join(path);
+            if base_path.exists() {
+                return Ok(base_path);
+            }
+            
+            // 4. 系统包含路径
+            for sys_path in &self.system_include_paths {
+                let sys_include_path = sys_path.join(path);
+                if sys_include_path.exists() {
+                    return Ok(sys_include_path);
+                }
             }
         }
         

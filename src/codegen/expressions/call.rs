@@ -48,14 +48,31 @@ impl IRGenerator {
                 }
             }
             Expr::MemberAccess(member) => {
-                if let Expr::Identifier(obj_name) = member.object.as_ref() {
-                    let obj_name_str = obj_name.as_ref();
-                    let class_name = self.var_class_map.get(obj_name_str)
-                        .cloned()
-                        .unwrap_or_else(|| obj_name_str.to_string());
-                    (class_name, member.member.clone(), Some(member.object.clone()))
-                } else {
-                    return Err(codegen_error("Invalid method call".to_string()));
+                // 检查 object 是否是标识符（类名或变量名）
+                match member.object.as_ref() {
+                    Expr::Identifier(obj_name) => {
+                        let obj_name_str = obj_name.as_ref();
+                        // 首先检查是否是已知的类名
+                        let class_name = if let Some(ref registry) = self.type_registry {
+                            if registry.class_exists(obj_name_str) {
+                                obj_name_str.to_string()
+                            } else {
+                                // 不是类名，尝试从变量映射获取
+                                self.var_class_map.get(obj_name_str)
+                                    .cloned()
+                                    .unwrap_or_else(|| obj_name_str.to_string())
+                            }
+                        } else {
+                            self.var_class_map.get(obj_name_str)
+                                .cloned()
+                                .unwrap_or_else(|| obj_name_str.to_string())
+                        };
+                        (class_name, member.member.clone(), Some(member.object.clone()))
+                    }
+                    _ => {
+                        // object 不是标识符，可能是其他表达式
+                        return Err(codegen_error("Invalid method call".to_string()));
+                    }
                 }
             }
             _ => return Err(codegen_error("Invalid function call".to_string())),

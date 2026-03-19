@@ -128,8 +128,32 @@ impl Compiler {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
         
-        // 预处理
-        let preprocessed = preprocessor::preprocess(&source, input_path, base_dir)?;
+        // 构建系统包含路径列表（包含 caylibs 目录）
+        let mut system_paths = Vec::new();
+        
+        // 尝试获取可执行文件所在目录，并添加 caylibs 子目录
+        if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(exe_dir) = exe_path.parent() {
+                let caylibs_dir = exe_dir.join("caylibs");
+                if caylibs_dir.exists() {
+                    system_paths.push(caylibs_dir);
+                }
+            }
+        }
+        
+        // 也尝试从当前工作目录添加 caylibs
+        let cwd_caylibs = PathBuf::from("caylibs");
+        if cwd_caylibs.exists() && !system_paths.contains(&cwd_caylibs) {
+            system_paths.push(cwd_caylibs);
+        }
+        
+        // 使用带系统路径的预处理器
+        let preprocessed = if system_paths.is_empty() {
+            preprocessor::preprocess(&source, input_path, base_dir)?
+        } else {
+            let mut pp = preprocessor::Preprocessor::with_system_paths(base_dir, system_paths);
+            pp.process(&source, input_path)?
+        };
         
         // 编译预处理后的代码
         self.compile(&preprocessed, output_path)

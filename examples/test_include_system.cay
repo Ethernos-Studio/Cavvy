@@ -1,0 +1,40 @@
+/**
+ * 测试系统包含路径 #include <>
+ * 使用尖括号包含 caylibs 目录下的库文件
+ */
+#include <StringPlus.cay>
+
+public class TestIncludeSystem {
+    public static void main() {
+        // 测试 StringPlus.split 方法
+        String testStr = "hello world cavvy";
+        String[] parts = StringPlus.split(testStr);
+        
+        // 输出分割结果
+        int i = 0;
+        while (i < parts.length) {
+            println(parts[i]);
+            i = i + 1;
+        }
+        
+        // 测试按指定分隔符分割
+        String csvStr = "apple,banana,cherry";
+        String[] fruits = StringPlus.split(csvStr, ",");
+        
+        println("---");
+        i = 0;
+        while (i < fruits.length) {
+            println(fruits[i]);
+            i = i + 1;
+        }
+        
+        // 测试格式化 (使用 {} 占位符)
+        String formatted = StringPlus.format("Hello, {}!", "Cavvy");
+        println("---");
+        println(formatted);
+        
+        // 测试索引格式化 (使用 {0} 占位符)
+        String indexedFormatted = StringPlus.formatIndexed("Greetings, {0}!", "World");
+        println(indexedFormatted);
+    }
+}

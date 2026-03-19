@@ -278,6 +278,22 @@ impl SemanticAnalyzer {
                 }
                 Ok(Type::String)
             }
+            "isEmpty" => {
+                if !args.is_empty() {
+                    return Err(semantic_error(line, column, "String.isEmpty() takes no arguments".to_string()));
+                }
+                Ok(Type::Bool)
+            }
+            "equals" => {
+                if args.len() != 1 {
+                    return Err(semantic_error(line, column, "String.equals() takes 1 argument".to_string()));
+                }
+                let arg_type = self.infer_expr_type(&args[0])?;
+                if arg_type != Type::String {
+                    return Err(semantic_error(line, column, format!("Argument of equals() must be string, got {}", arg_type)));
+                }
+                Ok(Type::Bool)
+            }
             _ => Err(semantic_error(line, column, format!("Unknown String method '{}'", method_name))),
         }
     }

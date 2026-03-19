@@ -16,6 +16,8 @@ mod string_substring;
 mod string_indexof;
 mod string_charat;
 mod string_replace;
+mod string_isempty;
+mod string_equals;
 
 impl IRGenerator {
     /// 发射IR头部（外部声明和运行时函数）
@@ -102,6 +104,7 @@ impl IRGenerator {
         }
         
         self.emit_raw("declare i64 @strlen(i8*)");
+        self.emit_raw("declare i32 @strcmp(i8*, i8*)");
         self.emit_raw("declare i8* @calloc(i64, i64)");
         self.emit_raw("declare void @exit(i32)");
         self.emit_raw("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)");
@@ -134,5 +137,7 @@ impl IRGenerator {
         self.emit_string_indexof_runtime();
         self.emit_string_charat_runtime();
         self.emit_string_replace_runtime();
+        self.emit_string_isempty_runtime();
+        self.emit_string_equals_runtime();
     }
 }

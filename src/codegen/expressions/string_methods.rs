@@ -132,6 +132,32 @@ impl IRGenerator {
                     temp, obj_val, old_val, new_val));
                 Ok(Some(format!("i8* {}", temp)))
             }
+            "isEmpty" => {
+                // isEmpty() - 无参数，返回 boolean (i1)
+                if !args.is_empty() {
+                    return Err(codegen_error("String.isEmpty() takes no arguments".to_string()));
+                }
+                self.emit_line(&format!("  {} = call i1 @__cay_string_isempty(i8* {})",
+                    temp, obj_val));
+                Ok(Some(format!("i1 {}", temp)))
+            }
+            "equals" => {
+                // equals(other) - 比较两个字符串是否相等，返回 boolean (i1)
+                if args.len() != 1 {
+                    return Err(codegen_error("String.equals() takes 1 argument".to_string()));
+                }
+
+                let other_result = self.generate_expression(&args[0])?;
+                let (other_type, other_val) = self.parse_typed_value(&other_result);
+
+                if other_type != "i8*" {
+                    return Err(codegen_error("String.equals() argument must be a string".to_string()));
+                }
+
+                self.emit_line(&format!("  {} = call i1 @__cay_string_equals(i8* {}, i8* {})",
+                    temp, obj_val, other_val));
+                Ok(Some(format!("i1 {}", temp)))
+            }
             _ => Ok(None), // 不是已知的 String 方法
         }
     }

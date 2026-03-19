@@ -42,3 +42,26 @@ fn test_error_include_cycle() {
         error
     );
 }
+
+// ==================== 0.4.8.3 系统包含路径 #include <> 测试 ====================
+
+#[test]
+fn test_include_system_angle_brackets() {
+    let output = compile_and_run_eol("examples/test_include_system.cay").expect("system include should compile and run");
+    assert!(output.contains("hello"),
+            "Should show 'hello' from split result, got: {}", output);
+    assert!(output.contains("world"),
+            "Should show 'world' from split result, got: {}", output);
+    assert!(output.contains("cavvy"),
+            "Should show 'cavvy' from split result, got: {}", output);
+    assert!(output.contains("apple"),
+            "Should show 'apple' from CSV split, got: {}", output);
+    assert!(output.contains("banana"),
+            "Should show 'banana' from CSV split, got: {}", output);
+    assert!(output.contains("cherry"),
+            "Should show 'cherry' from CSV split, got: {}", output);
+    assert!(output.contains("Hello, Cavvy!"),
+            "Should show formatted string, got: {}", output);
+    assert!(output.contains("Greetings, World!"),
+            "Should show indexed formatted string, got: {}", output);
+}
