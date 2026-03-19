@@ -1,0 +1,157 @@
+/**
+ * StringPlus - 字符串增强工具类
+ * 
+ * 提供额外的字符串处理方法：
+ * - split(String): 按空格分割字符串
+ * - split(String, String): 按指定分隔符分割字符串
+ * - format(String, String...): 使用位置参数格式化字符串
+ * - formatIndexed(String, String...): 使用索引参数格式化字符串
+ */
+public class StringPlus {
+    
+    /**
+     * 将字符串按空格分割成字符串数组
+     * @param str 要分割的字符串
+     * @return 分割后的字符串数组
+     */
+    public static String[] split(String str) {
+        if (str.isEmpty()) {
+            return new String[0]();
+        }
+
+        int len = str.length();
+        int count = 1;
+
+        int i = 0;
+        while (i < len) {
+            if (str.charAt(i) == ' ') {
+                count = count + 1;
+            }
+            i = i + 1;
+        }
+
+        String[] result = new String[count]();
+
+        int start = 0;
+        int index = 0;
+        i = 0;
+
+        while (i < len) {
+            if (str.charAt(i) == ' ') {
+                result[index] = str.substring(start, i);
+                index = index + 1;
+                start = i + 1;
+            }
+            i = i + 1;
+        }
+
+        result[index] = str.substring(start, len);
+
+        return result;
+    }
+
+    /**
+     * 将字符串按指定分隔符分割成字符串数组
+     * @param str 要分割的字符串
+     * @param delimiter 分隔符
+     * @return 分割后的字符串数组
+     */
+    public static String[] split(String str, String delimiter) {
+        if (str.isEmpty()) {
+            return new String[0]();
+        }
+
+        if (delimiter.isEmpty()) {
+            return split(str);
+        }
+
+        int delimLen = delimiter.length();
+
+        int count = 0;
+        int i = 0;
+        int len = str.length();
+
+        while (i <= len - delimLen) {
+            if (str.substring(i, i + delimLen).equals(delimiter)) {
+                count = count + 1;
+                i = i + delimLen;
+            } else {
+                i = i + 1;
+            }
+        }
+
+        String[] result = new String[count + 1]();
+
+        int start = 0;
+        int index = 0;
+        i = 0;
+
+        while (i <= len - delimLen) {
+            if (str.substring(i, i + delimLen).equals(delimiter)) {
+                result[index] = str.substring(start, i);
+                index = index + 1;
+                start = i + delimLen;
+                i = start;
+            } else {
+                i = i + 1;
+            }
+        }
+
+        result[index] = str.substring(start, len);
+
+        return result;
+    }
+
+    /**
+     * 使用位置参数格式化字符串
+     * 使用 {} 作为占位符，按顺序替换为参数
+     * @param template 模板字符串
+     * @param args 要替换的参数
+     * @return 格式化后的字符串
+     */
+    public static String format(String template, String... args) {
+        if (template.isEmpty()) {
+            return "";
+        }
+
+        String result = template;
+        int argCount = args.length;
+
+        int i = 0;
+        while (i < argCount) {
+            String placeholder = "{}";
+            String value = args[i];
+            result = result.replace(placeholder, value);
+            i = i + 1;
+        }
+
+        return result;
+    }
+
+    /**
+     * 使用索引参数格式化字符串
+     * 使用 {0}, {1}, ... 作为占位符，按索引替换为参数
+     * @param template 模板字符串
+     * @param args 要替换的参数
+     * @return 格式化后的字符串
+     */
+    public static String formatIndexed(String template, String... args) {
+        if (template.isEmpty()) {
+            return "";
+        }
+
+        String result = template;
+        int argCount = args.length;
+
+        int i = 0;
+        while (i < argCount) {
+            // 构建占位符 {i}
+            String placeholder = "{" + i + "}";
+            String value = args[i];
+            result = result.replace(placeholder, value);
+            i = i + 1;
+        }
+
+        return result;
+    }
+}

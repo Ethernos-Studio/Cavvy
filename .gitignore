@@ -14,6 +14,7 @@
 !/examples/errors/*.eol
 !/examples/*.cay
 !/examples/errors/*.cay
+!/caylibs/*.cay
 
 .trae/
 /*.cpp
