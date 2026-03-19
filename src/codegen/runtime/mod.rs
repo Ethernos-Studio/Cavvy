@@ -107,7 +107,12 @@ impl IRGenerator {
         self.emit_raw("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)");
         self.emit_raw("declare i32 @snprintf(i8*, i64, i8*, ...)");
         self.emit_raw("declare i8* @fgets(i8*, i32, i8*)");
-        self.emit_raw("@stdin = external global i8*");
+        // Windows平台使用 __acrt_iob_func 获取stdin, Linux/macOS使用外部全局变量
+        if target_triple.contains("windows") || target_triple.contains("mingw") {
+            self.emit_raw("declare i8* @__acrt_iob_func(i32)");
+        } else {
+            self.emit_raw("@stdin = external global i8*");
+        }
         self.emit_raw("@.str.float_fmt = private unnamed_addr constant [3 x i8] c\"%f\\00\", align 1");
         self.emit_raw("@.str.int_fmt = private unnamed_addr constant [5 x i8] c\"%lld\\00\", align 1");
         self.emit_raw("@.str.true_str = private unnamed_addr constant [5 x i8] c\"true\\00\", align 1");

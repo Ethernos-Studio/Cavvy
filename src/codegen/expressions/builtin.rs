@@ -244,13 +244,20 @@ impl IRGenerator {
         self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
             buffer_ptr, buffer_size, buffer_size, buffer_temp));
 
-        // 调用 fgets 读取一行
-        let stdin_name = self.get_or_create_string_constant("stdin");
-        let stdin_ptr = self.new_temp();
-        self.emit_line(&format!("  {} = load i8*, i8** {}, align 8", stdin_ptr, stdin_name));
+        // 根据目标平台获取stdin
+        let stdin_ref = if self.target_triple.contains("windows") || self.target_triple.contains("mingw") {
+            // Windows: 使用 __acrt_iob_func(0) 获取stdin
+            let stdin_ptr = self.new_temp();
+            self.emit_line(&format!("  {} = call i8* @__acrt_iob_func(i32 0)", stdin_ptr));
+            stdin_ptr
+        } else {
+            // Linux/macOS: 使用 @stdin 全局变量
+            "@stdin".to_string()
+        };
 
+        // 调用 fgets 读取一行
         self.emit_line(&format!("  call i8* @fgets(i8* {}, i32 {}, i8* {})",
-            buffer_ptr, buffer_size, stdin_ptr));
+            buffer_ptr, buffer_size, stdin_ref));
 
         // 移除换行符（如果需要）
         // 这里我们直接返回缓冲区指针
