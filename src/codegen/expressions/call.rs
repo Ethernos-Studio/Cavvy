@@ -18,8 +18,11 @@ impl IRGenerator {
                 "print" => return self.generate_print_call(&call.args, false),
                 "println" => return self.generate_print_call(&call.args, true),
                 "readInt" => return self.generate_read_int_call(&call.args),
+                "readLong" => return self.generate_read_long_call(&call.args),
                 "readFloat" => return self.generate_read_float_call(&call.args),
+                "readDouble" => return self.generate_read_double_call(&call.args),
                 "readLine" => return self.generate_read_line_call(&call.args),
+                "readChar" => return self.generate_read_char_call(&call.args),
                 _ => {}
             }
         }

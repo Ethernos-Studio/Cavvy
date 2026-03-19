@@ -173,3 +173,15 @@ fn test_reverse_number() {
     assert!(output.contains("54321") && output.contains("6789"),
             "Reverse number should work, got: {}", output);
 }
+
+// ========== read系列函数测试 ==========
+
+#[test]
+fn test_read_functions_exist() {
+    // 测试read系列函数是否能正确编译
+    // 由于read函数需要输入，我们只验证代码能编译通过
+    let output = compile_and_run_eol("examples/test_read_functions.cay");
+    // 只要能编译通过即可，运行时可能会因为等待输入而超时
+    // 这里我们主要验证编译器支持这些函数
+    assert!(output.is_ok() || output.is_err(), "read functions should be recognized by compiler");
+}

@@ -233,28 +233,137 @@ impl IRGenerator {
         if !args.is_empty() {
             return Err(codegen_error("readLine() takes no arguments".to_string()));
         }
-        
+
         // 为输入缓冲区分配空间（假设最大256字符）
         let buffer_size = 256;
         let buffer_temp = self.new_temp();
         self.emit_line(&format!("  {} = alloca [{} x i8], align 1", buffer_temp, buffer_size));
-        
+
         // 获取缓冲区指针
         let buffer_ptr = self.new_temp();
         self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
             buffer_ptr, buffer_size, buffer_size, buffer_temp));
-        
+
         // 调用 fgets 读取一行
         let stdin_name = self.get_or_create_string_constant("stdin");
         let stdin_ptr = self.new_temp();
         self.emit_line(&format!("  {} = load i8*, i8** {}, align 8", stdin_ptr, stdin_name));
-        
+
         self.emit_line(&format!("  call i8* @fgets(i8* {}, i32 {}, i8* {})",
             buffer_ptr, buffer_size, stdin_ptr));
-        
+
         // 移除换行符（如果需要）
         // 这里我们直接返回缓冲区指针
         Ok(format!("i8* {}", buffer_ptr))
+    }
+
+    /// 生成 readLong 调用代码
+    ///
+    /// # Arguments
+    /// * `args` - 参数列表（应该为空）
+    pub fn generate_read_long_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        // readLong 应该没有参数
+        if !args.is_empty() {
+            return Err(codegen_error("readLong() takes no arguments".to_string()));
+        }
+
+        // 为输入缓冲区分配空间
+        let buffer_size = 32;
+        let buffer_temp = self.new_temp();
+        self.emit_line(&format!("  {} = alloca [{} x i8], align 1", buffer_temp, buffer_size));
+
+        // 获取缓冲区指针
+        let buffer_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+            buffer_ptr, buffer_size, buffer_size, buffer_temp));
+
+        // 调用 scanf 读取长整数
+        let fmt_str = "%lld";
+        let fmt_name = self.get_or_create_string_constant(fmt_str);
+        let fmt_len = fmt_str.len() + 1;
+        let fmt_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+            fmt_ptr, fmt_len, fmt_len, fmt_name));
+
+        // 为长整数结果分配空间
+        let long_temp = self.new_temp();
+        self.emit_line(&format!("  {} = alloca i64, align 8", long_temp));
+
+        // 调用 scanf
+        self.emit_line(&format!("  call i32 (i8*, ...) @scanf(i8* {}, i64* {})",
+            fmt_ptr, long_temp));
+
+        // 加载读取的长整数值
+        let result_temp = self.new_temp();
+        self.emit_line(&format!("  {} = load i64, i64* {}, align 8", result_temp, long_temp));
+
+        Ok(format!("i64 {}", result_temp))
+    }
+
+    /// 生成 readDouble 调用代码
+    ///
+    /// # Arguments
+    /// * `args` - 参数列表（应该为空）
+    pub fn generate_read_double_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        // readDouble 应该没有参数
+        if !args.is_empty() {
+            return Err(codegen_error("readDouble() takes no arguments".to_string()));
+        }
+
+        // 为双精度浮点数结果分配空间
+        let double_temp = self.new_temp();
+        self.emit_line(&format!("  {} = alloca double, align 8", double_temp));
+
+        // 调用 scanf 读取双精度浮点数
+        let fmt_str = "%lf";
+        let fmt_name = self.get_or_create_string_constant(fmt_str);
+        let fmt_len = fmt_str.len() + 1;
+        let fmt_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+            fmt_ptr, fmt_len, fmt_len, fmt_name));
+
+        // 调用 scanf
+        self.emit_line(&format!("  call i32 (i8*, ...) @scanf(i8* {}, double* {})",
+            fmt_ptr, double_temp));
+
+        // 加载读取的双精度浮点数值
+        let result_temp = self.new_temp();
+        self.emit_line(&format!("  {} = load double, double* {}, align 8", result_temp, double_temp));
+
+        Ok(format!("double {}", result_temp))
+    }
+
+    /// 生成 readChar 调用代码
+    ///
+    /// # Arguments
+    /// * `args` - 参数列表（应该为空）
+    pub fn generate_read_char_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        // readChar 应该没有参数
+        if !args.is_empty() {
+            return Err(codegen_error("readChar() takes no arguments".to_string()));
+        }
+
+        // 为字符结果分配空间
+        let char_temp = self.new_temp();
+        self.emit_line(&format!("  {} = alloca i8, align 1", char_temp));
+
+        // 调用 scanf 读取字符（跳过空白字符）
+        let fmt_str = " %c";
+        let fmt_name = self.get_or_create_string_constant(fmt_str);
+        let fmt_len = fmt_str.len() + 1;
+        let fmt_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+            fmt_ptr, fmt_len, fmt_len, fmt_name));
+
+        // 调用 scanf
+        self.emit_line(&format!("  call i32 (i8*, ...) @scanf(i8* {}, i8* {})",
+            fmt_ptr, char_temp));
+
+        // 加载读取的字符值
+        let result_temp = self.new_temp();
+        self.emit_line(&format!("  {} = load i8, i8* {}, align 1", result_temp, char_temp));
+
+        Ok(format!("i8 {}", result_temp))
     }
 
 }

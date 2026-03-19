@@ -1,0 +1,38 @@
+// Cavvy read系列函数测试
+// 测试所有read函数：readInt, readLong, readFloat, readDouble, readLine, readChar
+
+public class TestReadFunctions {
+    public static void main() {
+        // 测试 readInt
+        println("=== 测试 readInt ===");
+        int intVal = readInt();
+        println(intVal);
+
+        // 测试 readLong
+        println("=== 测试 readLong ===");
+        long longVal = readLong();
+        println(longVal);
+
+        // 测试 readFloat
+        println("=== 测试 readFloat ===");
+        float floatVal = readFloat();
+        println(floatVal);
+
+        // 测试 readDouble
+        println("=== 测试 readDouble ===");
+        double doubleVal = readDouble();
+        println(doubleVal);
+
+        // 测试 readChar
+        println("=== 测试 readChar ===");
+        char charVal = readChar();
+        println(charVal);
+
+        // 测试 readLine
+        println("=== 测试 readLine ===");
+        String lineVal = readLine();
+        println(lineVal);
+
+        println("=== 所有read函数测试完成 ===");
+    }
+}

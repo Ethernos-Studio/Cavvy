@@ -653,7 +653,6 @@ null_literal = "null";
 (* 输出函数 *)
 (* print(value)   - 输出值（不换行），支持类型: int, long, float, double, string, bool *)
 (* println(value) - 输出值（换行），支持类型: int, long, float, double, string, bool *)
-(* printf(format, ...) - 格式化输出，类似 C 语言 printf *)
 
 (* 输入函数 *)
 (* readInt()    - 读取整数，返回 int *)
@@ -662,24 +661,6 @@ null_literal = "null";
 (* readDouble() - 读取双精度浮点数，返回 double *)
 (* readLine()   - 读取一行字符串，返回 string *)
 (* readChar()   - 读取单个字符，返回 char *)
-
-(* 类型转换函数 *)
-(* parseInt(String s)     - 字符串转整数，返回 int *)
-(* parseLong(String s)    - 字符串转长整数，返回 long *)
-(* parseFloat(String s)   - 字符串转浮点数，返回 float *)
-(* parseDouble(String s)  - 字符串转双精度浮点数，返回 double *)
-
-(* 数学函数（在 Math 类中） *)
-(* Math.abs(int/long/float/double)    - 绝对值 *)
-(* Math.max(a, b)                     - 最大值 *)
-(* Math.min(a, b)                     - 最小值 *)
-(* Math.sqrt(double)                  - 平方根 *)
-(* Math.pow(double, double)           - 幂运算 *)
-(* Math.sin/cos/tan(double)           - 三角函数 *)
-(* Math.log/log10(double)             - 对数 *)
-(* Math.exp(double)                   - e的幂 *)
-(* Math.ceil/floor/round(double)      - 取整 *)
-(* Math.random()                      - 随机数 [0.0, 1.0) *)
 
 (* ============================================================================
  * FFI (Foreign Function Interface) - 0.4.8.x
