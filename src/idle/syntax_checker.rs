@@ -31,6 +31,7 @@ impl SyntaxChecker {
         
         thread::spawn(move || {
             let result = Self::check_code(&code);
+            // 确保总是发送结果，即使发生错误
             let _ = sender.send(result);
         });
     }

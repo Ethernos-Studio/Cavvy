@@ -13,6 +13,8 @@ pub struct UiState {
     pub file_browser_visible: bool,
     /// 控制台输出
     pub console_output: String,
+    /// 控制台输入
+    pub console_input: String,
     /// 显示关于对话框
     pub show_about_dialog: bool,
     /// 选中的菜单项
@@ -30,6 +32,7 @@ impl Default for UiState {
             console_visible: false,
             file_browser_visible: true,
             console_output: String::new(),
+            console_input: String::new(),
             show_about_dialog: false,
             selected_menu: None,
             sidebar_width: 250.0,
@@ -259,8 +262,9 @@ fn render_console(app: &mut IdleApp, ui: &mut egui::Ui) {
     
     ui.separator();
     
-    // 控制台输出区域
+    // 控制台输出区域（只读）
     egui::ScrollArea::vertical()
+        .id_salt("console_output")
         .auto_shrink([false, false])
         .stick_to_bottom(true)
         .show(ui, |ui| {
@@ -272,6 +276,29 @@ fn render_console(app: &mut IdleApp, ui: &mut egui::Ui) {
                     .interactive(false)
             );
         });
+    
+    // 控制台输入区域
+    ui.horizontal(|ui| {
+        ui.label(">");
+        let response = ui.add(
+            egui::TextEdit::singleline(&mut app.ui_state.console_input)
+                .font(egui::TextStyle::Monospace)
+                .desired_width(ui.available_width())
+                .hint_text("在此输入命令...")
+        );
+        
+        // 按回车执行
+        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            let input = app.ui_state.console_input.trim().to_string();
+            if !input.is_empty() {
+                app.ui_state.console_output.push_str(&format!("> {}\n", input));
+                // 这里可以添加命令处理逻辑
+                app.handle_console_input(&input);
+                app.ui_state.console_input.clear();
+            }
+            response.request_focus();
+        }
+    });
 }
 
 /// 状态栏

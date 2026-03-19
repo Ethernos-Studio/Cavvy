@@ -409,42 +409,96 @@ impl IdleApp {
     fn handle_async_results(&mut self) {
         // 处理语法检查结果
         if let Some(ref receiver) = self.check_receiver {
-            if let Ok(result) = receiver.try_recv() {
-                match result {
-                    Ok(errors) => {
-                        self.editor.set_diagnostics(errors.clone());
-                        if errors.is_empty() {
-                            self.ui_state.status_message = "语法检查通过".to_string();
-                        } else {
-                            let error_count = errors.iter().filter(|e| e.is_error).count();
-                            let warning_count = errors.len() - error_count;
-                            self.ui_state.status_message = 
-                                format!("发现 {} 个错误, {} 个警告", error_count, warning_count);
+            match receiver.try_recv() {
+                Ok(result) => {
+                    match result {
+                        Ok(errors) => {
+                            self.editor.set_diagnostics(errors.clone());
+                            if errors.is_empty() {
+                                self.ui_state.status_message = "语法检查通过".to_string();
+                            } else {
+                                let error_count = errors.iter().filter(|e| e.is_error).count();
+                                let warning_count = errors.len() - error_count;
+                                self.ui_state.status_message = 
+                                    format!("发现 {} 个错误, {} 个警告", error_count, warning_count);
+                            }
+                        }
+                        Err(e) => {
+                            self.ui_state.status_message = format!("检查失败: {}", e);
                         }
                     }
-                    Err(e) => {
-                        self.ui_state.status_message = format!("检查失败: {}", e);
-                    }
+                    self.check_receiver = None;
+                    self.syntax_checker.mark_done(); // 重置检查状态
                 }
-                self.check_receiver = None;
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    // 通道断开，清理接收器
+                    self.ui_state.status_message = "检查中断".to_string();
+                    self.check_receiver = None;
+                    self.syntax_checker.mark_done(); // 重置检查状态
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    // 还没有结果，继续等待
+                }
             }
         }
         
         // 处理编译结果
         if let Some(ref receiver) = self.compile_receiver {
-            if let Ok(result) = receiver.try_recv() {
-                match result {
-                    Ok(output) => {
-                        self.ui_state.console_output.push_str(&output);
-                        self.ui_state.console_output.push('\n');
-                        self.ui_state.status_message = "编译完成".to_string();
+            match receiver.try_recv() {
+                Ok(result) => {
+                    match result {
+                        Ok(output) => {
+                            self.ui_state.console_output.push_str(&output);
+                            self.ui_state.console_output.push('\n');
+                            self.ui_state.status_message = "编译完成".to_string();
+                        }
+                        Err(e) => {
+                            self.ui_state.console_output.push_str(&format!("错误: {}\n", e));
+                            self.ui_state.status_message = "编译失败".to_string();
+                        }
                     }
-                    Err(e) => {
-                        self.ui_state.console_output.push_str(&format!("错误: {}\n", e));
-                        self.ui_state.status_message = "编译失败".to_string();
-                    }
+                    self.compile_receiver = None;
+                    self.runner.mark_done(); // 重置运行状态
                 }
-                self.compile_receiver = None;
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    // 通道断开，清理接收器
+                    self.ui_state.status_message = "编译中断".to_string();
+                    self.compile_receiver = None;
+                    self.runner.mark_done(); // 重置运行状态
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    // 还没有结果，继续等待
+                }
+            }
+        }
+    }
+    
+    /// 处理控制台输入
+    pub fn handle_console_input(&mut self, input: &str) {
+        // 简单的命令处理
+        match input.trim() {
+            "help" | "?" => {
+                self.ui_state.console_output.push_str("可用命令:\n");
+                self.ui_state.console_output.push_str("  help, ? - 显示帮助\n");
+                self.ui_state.console_output.push_str("  clear   - 清空控制台\n");
+                self.ui_state.console_output.push_str("  version - 显示版本\n");
+                self.ui_state.console_output.push_str("  status  - 显示当前状态\n");
+            }
+            "clear" | "cls" => {
+                self.ui_state.console_output.clear();
+            }
+            "version" | "ver" => {
+                self.ui_state.console_output.push_str(&format!("cay-IDLE 版本 {}\n", self.version));
+            }
+            "status" => {
+                self.ui_state.console_output.push_str(&format!("状态: {}\n", self.ui_state.status_message));
+                if let Some(ref path) = self.project.current_file {
+                    self.ui_state.console_output.push_str(&format!("当前文件: {}\n", path.display()));
+                }
+            }
+            _ => {
+                self.ui_state.console_output.push_str(&format!("未知命令: {}\n", input));
+                self.ui_state.console_output.push_str("输入 'help' 查看可用命令\n");
             }
         }
     }
