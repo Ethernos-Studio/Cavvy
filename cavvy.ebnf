@@ -21,26 +21,18 @@
 
 (* 预处理器指令在编译前处理，支持条件编译和宏定义 *)
 preprocessor_directive = define_directive
-                       | undef_directive
                        | ifdef_directive
                        | ifndef_directive
                        | if_directive
                        | elif_directive
                        | else_directive
                        | endif_directive
-                       | include_directive
-                       | pragma_directive;
+                       | include_directive;
 
-(* #define 定义宏 - 支持对象宏和函数宏 *)
-define_directive = "#define", identifier, [ replacement_text ]
-                 | "#define", identifier, "(", [ macro_parameter_list ], ")", replacement_text;
-
-macro_parameter_list = identifier, { ",", identifier };
+(* #define 定义宏 - 支持对象宏 *)
+define_directive = "#define", identifier, [ replacement_text ];
 
 replacement_text = { any_character_except_newline };
-
-(* #undef 取消宏定义 *)
-undef_directive = "#undef", identifier;
 
 (* #ifdef 条件编译 - 如果宏已定义则包含代码 *)
 ifdef_directive = "#ifdef", identifier;
@@ -65,16 +57,9 @@ include_directive = "#include", ( "<", header_name, ">" | '"', header_name, '"' 
 
 header_name = { any_character_except_angle_quote };
 
-(* #pragma 编译器指令 *)
-pragma_directive = "#pragma", pragma_directive_name, [ pragma_arguments ];
-
-pragma_directive_name = identifier;
-pragma_arguments = { any_character_except_newline };
-
 (* 预处理器指令示例：
  *   #define DEBUG
  *   #define MAX_SIZE 100
- *   #define ADD(a, b) ((a) + (b))
  *   
  *   #ifdef DEBUG
  *   result = result + 1;
@@ -132,25 +117,11 @@ interface_declaration = [ modifiers ], "interface", identifier,
 interface_extends_clause = "extends", qualified_name, { ",", qualified_name };
 
 (* 接口成员声明 *)
-interface_member_declaration = interface_method_declaration
-                             | interface_field_declaration
-                             | interface_default_method
-                             | interface_static_method;
+interface_member_declaration = interface_method_declaration;
 
 (* 接口方法声明 - 只有声明，没有实现 *)
 interface_method_declaration = [ modifiers ], ( type | "void" ), identifier, 
                                "(", [ parameter_list ], ")", ";";
-
-(* 接口字段声明 - 隐式 static final *)
-interface_field_declaration = [ modifiers ], type, identifier, "=", expression, ";";
-
-(* 接口默认方法 - 0.4.x 新增 *)
-interface_default_method = "default", [ modifiers ], ( type | "void" ), identifier,
-                           "(", [ parameter_list ], ")", block;
-
-(* 接口静态方法 - 0.4.x 新增 *)
-interface_static_method = "static", [ modifiers ], ( type | "void" ), identifier,
-                          "(", [ parameter_list ], ")", block;
 
 (* 主类注解 - 用于显式指定程序入口类 *)
 annotation = "@", identifier, [ "(", [ annotation_arguments ], ")" ];
@@ -192,13 +163,9 @@ modifier = access_modifier
          | "final"
          | "abstract"
          | "native"
-         | "Override"
-         | "transient"
-         | "volatile"
-         | "strictfp"
-         | "synchronized";
+         | "Override";
 
-access_modifier = "public" | "private" | "protected" | "internal";
+access_modifier = "public" | "private" | "protected";
 
 (* ============================================================================
  * 字段声明（支持静态字段、final 字段）
@@ -222,7 +189,6 @@ variable_initializer = expression
 
 method_declaration = [ modifiers ], ( type | "void" ), identifier, 
                      "(", [ parameter_list ], ")", 
-                     [ throws_clause ],
                      ( block | ";" );
 
 (* 方法重载示例：
@@ -231,9 +197,6 @@ method_declaration = [ modifiers ], ( type | "void" ), identifier,
  *   public static int add(int a, int b) { return a + b; }
  *   public static double add(double a, double b) { return a + b; }
  *)
-
-(* throws 子句 *)
-throws_clause = "throws", qualified_name, { ",", qualified_name };
 
 parameter_list = parameter, { ",", parameter } 
                | varargs_parameter;
@@ -275,9 +238,7 @@ instance_initializer = block;
 
 type = primitive_type 
      | reference_type 
-     | ffi_type
-     | function_type
-     | wildcard_type;
+     | ffi_type;
 
 (* 基本类型 *)
 primitive_type = "int" 
@@ -287,8 +248,6 @@ primitive_type = "int"
                | "bool" 
                | "boolean"
                | "char" 
-               | "byte"
-               | "short"
                | "void"
                | "auto";
 
@@ -310,14 +269,6 @@ reference_type = qualified_name, { "[", "]" }
                | "String"
                | "Object";
 
-(* 函数类型 - 用于 Lambda 和方法引用 *)
-function_type = "function", "<", type, "(", [ type_list ], ")", ">";
-
-type_list = type, { ",", type };
-
-(* 通配符类型 - 用于泛型 *)
-wildcard_type = "?", [ ( "extends" | "super" ), type ];
-
 qualified_name = identifier, { ".", identifier };
 
 (* ============================================================================
@@ -327,23 +278,16 @@ qualified_name = identifier, { ".", identifier };
 block = "{", { statement }, "}";
 
 statement = block
-          | labeled_statement
           | variable_declaration
           | if_statement
           | while_statement
           | for_statement
           | do_while_statement
           | switch_statement
-          | try_statement
           | return_statement
           | break_statement
           | continue_statement
-          | throw_statement
-          | synchronized_statement
           | expression_statement;
-
-(* 标签语句 *)
-labeled_statement = identifier, ":", statement;
 
 variable_declaration = [ "final" ], type, identifier, 
                        [ "=", variable_initializer ], ";"
@@ -392,22 +336,11 @@ switch_statement = "switch", "(", expression, ")", "{", { switch_label }, "}";
 switch_label = "case", constant_expression, ":", { statement }
              | "default", ":", { statement };
 
-(* try-catch-finally *)
-try_statement = "try", block, { catch_clause }, [ finally_clause ];
-
-catch_clause = "catch", "(", [ "final" ], type, [ identifier ], ")", block;
-
-finally_clause = "finally", block;
-
 return_statement = "return", [ expression ], ";";
 
 break_statement = "break", [ identifier ], ";";
 
 continue_statement = "continue", [ identifier ], ";";
-
-throw_statement = "throw", expression, ";";
-
-synchronized_statement = "synchronized", "(", expression, ")", block;
 
 expression_statement = expression, ";";
 
@@ -472,8 +405,7 @@ primary_expression = literal
                    | array_creation_expression
                    | object_creation_expression
                    | lambda_expression
-                   | method_reference
-                   | class_literal;
+                   | method_reference;
 
 (* Lambda 表达式 *)
 lambda_expression = lambda_parameters, "->", lambda_body;
@@ -508,9 +440,6 @@ method_reference = qualified_name, "::", identifier
  *   System.out::println
  *   ArrayList::new
  *)
-
-(* 类字面量 *)
-class_literal = type, ".", "class";
 
 array_creation_expression = "new", type, "[", expression, "]", { "[", expression, "]" }, [ array_initializer ]
                           | "new", type, array_initializer;
@@ -631,10 +560,6 @@ null_literal = "null";
  * 静态方法调用：
  *   ClassName.methodName(args)
  *
- * 静态导入：
- *   import static ClassName.staticMember;
- *   import static ClassName.*;
- *
  * 示例：
  *   static int counter;
  *   public static int getCounter() { return counter; }
@@ -653,6 +578,7 @@ null_literal = "null";
 (* 输出函数 *)
 (* print(value)   - 输出值（不换行），支持类型: int, long, float, double, string, bool *)
 (* println(value) - 输出值（换行），支持类型: int, long, float, double, string, bool *)
+(* printf(format, ...) - 格式化输出，类似 C 语言 printf *)
 
 (* 输入函数 *)
 (* readInt()    - 读取整数，返回 int *)
@@ -661,6 +587,19 @@ null_literal = "null";
 (* readDouble() - 读取双精度浮点数，返回 double *)
 (* readLine()   - 读取一行字符串，返回 string *)
 (* readChar()   - 读取单个字符，返回 char *)
+
+(* 类型转换函数 *)
+(* parseInt(String s)     - 字符串转整数，返回 int *)
+(* parseLong(String s)    - 字符串转长整数，返回 long *)
+(* parseFloat(String s)   - 字符串转浮点数，返回 float *)
+(* parseDouble(String s)  - 字符串转双精度浮点数，返回 double *)
+
+(* 数学函数（在 Math 类中） *)
+(* Math.abs(int/long/float/double)    - 绝对值 *)
+(* Math.max(a, b)                     - 最大值 *)
+(* Math.min(a, b)                     - 最小值 *)
+(* Math.sqrt(double)                  - 平方根 *)
+(* Math.pow(double, double)           - 幂运算 *)
 
 (* ============================================================================
  * FFI (Foreign Function Interface) - 0.4.8.x
@@ -763,7 +702,6 @@ varargs = "," , "...";
  * public    - 任何地方可访问
  * private   - 仅类内部可访问
  * protected - 类内部和子类可访问
- * default   - 同包内可访问（未指定修饰符时）
  *
  * 示例：
  *   public class PublicClass { }
@@ -784,7 +722,7 @@ varargs = "," , "...";
  *
  * 示例：
  *   class Animal {
- *       public virtual void speak() { }
+ *       public void speak() { }
  *   }
  *   
  *   class Dog : Animal {
@@ -828,27 +766,15 @@ any_unicode_character = ? 任何 Unicode 字符 ?;
  * ============================================================================ *)
 
 (*
- * 编译器版本检查：
- *   #if __CAVVY_VERSION__ >= 0x00040800
- *       // 0.4.8.0+ 代码
- *   #endif
- *
  * 预定义宏：
  *   __CAVVY__         - 定义为 1
  *   __CAVVY_VERSION__ - 版本号十六进制 (0x00040802 = 0.4.8.2)
  *   __FILE__          - 当前文件名
  *   __LINE__          - 当前行号
- *   __DATE__          - 编译日期
- *   __TIME__          - 编译时间
- *   __TIMESTAMP__     - 编译时间戳
- *   __cplusplus       - 未定义（与 C++ 区分）
  *
  * 平台宏：
  *   _WIN32, _WIN64    - Windows 平台
- *   __linux__         - Linux 平台
- *   __APPLE__         - macOS 平台
  *   __x86_64__        - x86_64 架构
- *   __aarch64__       - ARM64 架构
  *)
 
 (* ============================================================================
