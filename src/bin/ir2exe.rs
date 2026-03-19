@@ -376,6 +376,13 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
                 }
                 options.pgo_use = Some(args[i].clone());
             }
+            "-o" => {
+                i += 1;
+                if i >= args.len() {
+                    return Err("-o 需要输出文件参数".to_string());
+                }
+                output_file = Some(args[i].clone());
+            }
             "--ldflags" => {
                 i += 1;
                 if i >= args.len() {

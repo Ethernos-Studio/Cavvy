@@ -11,6 +11,9 @@ pub mod codegen;
 pub mod rcpl;
 pub mod bytecode;
 
+// GUI模块（cay-idle使用）
+pub mod idle;
+
 use std::path::{Path, PathBuf};
 use error::cayResult;
 

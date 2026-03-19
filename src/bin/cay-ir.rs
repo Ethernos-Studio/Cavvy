@@ -124,6 +124,14 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
             "--obfuscate" => {
                 options.obfuscate = true;
             }
+            "-o" => {
+                if i + 1 < args.len() {
+                    output_file = Some(args[i + 1].clone());
+                    i += 1;
+                } else {
+                    return Err("-o 需要一个输出文件参数".to_string());
+                }
+            }
             arg if arg.starts_with("-f:") || arg.starts_with("--feature:") => {
                 let feature = if arg.starts_with("-f:") {
                     &arg[3..]

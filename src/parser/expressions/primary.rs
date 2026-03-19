@@ -107,6 +107,32 @@ pub fn parse_primary(parser: &mut Parser) -> cayResult<Expr> {
             parser.consume(&crate::lexer::Token::RParen, "Expected ')' after expression")?;
             Ok(expr)
         }
+        crate::lexer::Token::LBrace => {
+            // 数组初始化: {1, 2, 3}
+            parser.advance(); // 跳过 '{'
+            let mut elements = Vec::new();
+
+            // 空数组初始化: {}
+            if parser.check(&crate::lexer::Token::RBrace) {
+                parser.advance();
+                return Ok(Expr::ArrayInit(ArrayInitExpr { elements, loc }));
+            }
+
+            // 解析数组元素
+            loop {
+                elements.push(parse_expression(parser)?);
+                if !parser.match_token(&crate::lexer::Token::Comma) {
+                    break;
+                }
+                // 支持尾随逗号: {1, 2, 3,}
+                if parser.check(&crate::lexer::Token::RBrace) {
+                    break;
+                }
+            }
+
+            parser.consume(&crate::lexer::Token::RBrace, "Expected '}' after array initializer")?;
+            Ok(Expr::ArrayInit(ArrayInitExpr { elements, loc }))
+        }
         _ => Err(parser.error("Expected expression")),
     }
 }
