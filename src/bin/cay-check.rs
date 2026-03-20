@@ -1,9 +1,11 @@
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::process;
 use cavvy::error::print_error_with_context;
 use cavvy::lexer;
 use cavvy::parser;
+use cavvy::preprocessor;
 use cavvy::semantic;
 
 const VERSION: &str = env!("CAY_CHECK_VERSION");
@@ -15,6 +17,7 @@ fn print_usage() {
     println!("Options:");
     println!("  --lex-only            只进行词法分析");
     println!("  --parse-only          进行词法和语法分析（不进行语义分析）");
+    println!("  --no-preprocess       跳过预处理阶段");
     println!("  --version, -v         显示版本号");
     println!("  --help, -h            显示帮助信息");
     println!("");
@@ -39,12 +42,14 @@ impl Default for CheckLevel {
 
 struct CheckOptions {
     level: CheckLevel,
+    preprocess: bool,
 }
 
 impl Default for CheckOptions {
     fn default() -> Self {
         CheckOptions {
             level: CheckLevel::default(),
+            preprocess: true,
         }
     }
 }
@@ -71,6 +76,9 @@ fn parse_args(args: &[String]) -> Result<(CheckOptions, String), String> {
             }
             "--parse-only" => {
                 options.level = CheckLevel::ParseOnly;
+            }
+            "--no-preprocess" => {
+                options.preprocess = false;
             }
             _ => {
                 if arg.starts_with('-') {
@@ -108,8 +116,9 @@ fn main() {
     println!("检查级别: {}", match options.level {
         CheckLevel::LexOnly => "词法分析",
         CheckLevel::ParseOnly => "语法分析",
-        CheckLevel::Full => "完整检查（词法+语法+语义）",
+        CheckLevel::Full => "完整检查（预处理+词法+语法+语义）",
     });
+    println!("预处理: {}", if options.preprocess { "启用" } else { "跳过" });
     println!("");
 
     let source = match fs::read_to_string(&source_path) {
@@ -122,10 +131,35 @@ fn main() {
 
     let start_time = std::time::Instant::now();
 
+    // 预处理阶段
+    let processed_source = if options.preprocess {
+        println!("[0] 预处理...");
+        let base_dir = Path::new(&source_path)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf()));
+        
+        match preprocessor::preprocess(&source, &source_path, &base_dir) {
+            Ok(processed) => {
+                println!("  [+] 预处理通过");
+                processed
+            }
+            Err(e) => {
+                print_error_with_context(&e, &source, &source_path);
+                process::exit(1);
+            }
+        }
+    } else {
+        source
+    };
+
     match options.level {
         CheckLevel::LexOnly => {
+            if options.preprocess {
+                println!("");
+            }
             println!("[1] 词法分析...");
-            match lexer::lex(&source) {
+            match lexer::lex(&processed_source) {
                 Ok(tokens) => {
                     let elapsed = start_time.elapsed();
                     println!("  [+] 词法分析通过");
@@ -134,20 +168,23 @@ fn main() {
                     println!("[+] 语法检查完成! (耗时: {:?})", elapsed);
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             }
         }
         CheckLevel::ParseOnly => {
+            if options.preprocess {
+                println!("");
+            }
             println!("[1] 词法分析...");
-            let tokens = match lexer::lex(&source) {
+            let tokens = match lexer::lex(&processed_source) {
                 Ok(tokens) => {
                     println!("  [+] 词法分析通过");
                     tokens
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             };
@@ -163,20 +200,23 @@ fn main() {
                     println!("[+] 语法检查完成! (耗时: {:?})", elapsed);
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             }
         }
         CheckLevel::Full => {
+            if options.preprocess {
+                println!("");
+            }
             println!("[1] 词法分析...");
-            let tokens = match lexer::lex(&source) {
+            let tokens = match lexer::lex(&processed_source) {
                 Ok(tokens) => {
                     println!("  [+] 词法分析通过");
                     tokens
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             };
@@ -189,7 +229,7 @@ fn main() {
                     ast
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             };
@@ -205,7 +245,7 @@ fn main() {
                     println!("[+] 语法检查完成! (耗时: {:?})", elapsed);
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &source, &source_path);
+                    print_error_with_context(&e, &processed_source, &source_path);
                     process::exit(1);
                 }
             }

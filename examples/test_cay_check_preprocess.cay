@@ -1,0 +1,26 @@
+// 测试 cay-check 的预处理功能
+// 这个文件使用了 #define 和条件编译
+
+#define DEBUG 1
+#define VERSION "1.0.0"
+
+public class TestCayCheckPreprocess {
+    public static void main() {
+        // 测试预处理后的代码
+        println("Testing cay-check with preprocessing");
+        
+        #ifdef DEBUG
+        println("Debug mode is enabled");
+        #endif
+        
+        #ifndef RELEASE
+        println("Release mode is not defined");
+        #endif
+        
+        // 测试宏替换
+        int version_code = 100;
+        println("Version code: " + version_code);
+        
+        println("All tests passed!");
+    }
+}

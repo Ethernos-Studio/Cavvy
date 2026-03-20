@@ -70,6 +70,11 @@ fn main() {
                     println!("cargo:rustc-env=CAY_RUN_VERSION={}", version);
                 }
             }
+            if let Some(cay_lsp_section) = verinfo.get("CAY-LSP") {
+                if let Some(version) = cay_lsp_section.get("version") {
+                    println!("cargo:rustc-env=CAY_LSP_VERSION={}", version);
+                }
+            }
             if let Some(cay_dll_section) = verinfo.get("CAY-DLL") {
                 if let Some(version) = cay_dll_section.get("version") {
                     println!("cargo:rustc-env=CAY_DLL_VERSION={}", version);
@@ -86,13 +91,14 @@ fn main() {
         Err(e) => {
             eprintln!("Warning: Failed to parse .verinfo: {}", e);
             // 设置默认版本
-            println!("cargo:rustc-env=CAYC_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=CAY-IR_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=IR2EXE_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=CAY_CHECK_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=CAY_RUN_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=CAY_DLL_VERSION=0.4.6.0");
-            println!("cargo:rustc-env=VERSION=0.4.6.0");
+            println!("cargo:rustc-env=CAYC_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAY-IR_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=IR2EXE_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAY_CHECK_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAY_RUN_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAY_LSP_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=CAY_DLL_VERSION=0.4.8.3");
+            println!("cargo:rustc-env=VERSION=0.4.8.3");
         }
     }
     

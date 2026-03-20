@@ -15,6 +15,14 @@ egui = "0.29"
 egui_extras = "0.29"
 rfd = "0.14"
 
+# LSP dependencies for cay-lsp
+tower-lsp = "0.20"
+tokio = { version = "1.0", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+dashmap = "5.0"
+env_logger = "0.11"
+
 # Windows平台构建所有bin（包括依赖MinGW的ir2exe）
 [[bin]]
 name = "cayc"
@@ -47,3 +55,7 @@ path = "src/bin/cay-bcgen.rs"
 [[bin]]
 name = "cay-idle"
 path = "src/bin/cay-idle.rs"
+
+[[bin]]
+name = "cay-lsp"
+path = "src/bin/cay-lsp.rs"

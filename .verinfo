@@ -18,6 +18,10 @@ build = 27
 version = "0.4.8.3"
 build = 27
 
+[CAY-LSP]
+version = "0.4.8.3"
+build = 27
+
 [LLVM-MINIMAL]
 version = "17.0.0"
 
