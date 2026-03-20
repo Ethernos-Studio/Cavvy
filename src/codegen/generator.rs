@@ -552,14 +552,18 @@ impl IRGenerator {
                 self.emit_line(&format!("  store {} {}, {}* %{}",
                     array_type, cast_temp, array_type, llvm_name));
                 
-                self.var_types.insert(param.name.clone(), array_type);
+                self.var_types.insert(param.name.clone(), array_type.clone());
+                // 存储Cavvy类型信息，用于准确的类型推断
+                self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
             } else {
                 let param_type = self.type_to_llvm(&param.param_type);
                 let llvm_name = self.scope_manager.declare_var(&param.name, &param_type);
                 self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
                 self.emit_line(&format!("  store {} %{}.{}, {}* %{}",
                     param_type, class_name, param.name, param_type, llvm_name));
-                self.var_types.insert(param.name.clone(), param_type);
+                self.var_types.insert(param.name.clone(), param_type.clone());
+                // 存储Cavvy类型信息，用于准确的类型推断
+                self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
             }
         }
 

@@ -100,13 +100,22 @@ impl ClassInfo {
                     return false;
                 }
             }
+
             // 检查可变参数
-            // 可变参数类型是 Array(ElementType)，需要匹配 ElementType
-            let vararg_element_type = match &params[last_idx].param_type {
+            let vararg_param_type = &params[last_idx].param_type;
+            let vararg_element_type = match vararg_param_type {
                 Type::Array(elem) => elem.as_ref(),
-                _ => &params[last_idx].param_type,
+                _ => vararg_param_type,
             };
-            // 所有剩余参数必须匹配可变参数的元素类型
+
+            // 如果只有一个参数且类型匹配数组类型，直接接受（传递数组给可变参数）
+            if arg_types.len() == last_idx + 1 {
+                if Self::types_match(vararg_param_type, &arg_types[last_idx]) {
+                    return true;
+                }
+            }
+
+            // 否则，按元素类型检查每个参数
             for i in last_idx..arg_types.len() {
                 if !Self::types_match(vararg_element_type, &arg_types[i]) {
                     return false;

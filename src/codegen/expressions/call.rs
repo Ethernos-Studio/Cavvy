@@ -439,6 +439,18 @@ impl IRGenerator {
         let fixed_args = &arg_results[..fixed_param_count];
         let varargs = &arg_results[fixed_param_count..];
 
+        // 检查是否只有一个参数且是数组类型（直接传递数组给可变参数）
+        if varargs.len() == 1 {
+            let (arg_type, arg_val) = self.parse_typed_value(&varargs[0]);
+            // 检查参数类型是否是数组指针（以*结尾但不是i8*）
+            if arg_type.ends_with("*") && arg_type != "i8*" {
+                // 直接将数组指针作为可变参数传递
+                let mut result = fixed_args.to_vec();
+                result.push(format!("i8* {}", arg_val));
+                return Ok(result);
+            }
+        }
+
         // 创建数组来存储可变参数
         let array_size = varargs.len();
         let raw_ptr = self.new_temp();
