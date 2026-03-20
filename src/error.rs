@@ -5,24 +5,27 @@ use std::sync::Arc;
 
 #[derive(Error, Debug, Clone)]
 pub enum cayError {
-    #[error("词法错误 [{line}:{column}]: {message}")]
+    #[error("词法错误 [{}:{line}:{column}]: {message}", file.as_deref().unwrap_or("<unknown>"))]
     Lexer { 
+        file: Option<String>,
         line: usize, 
         column: usize, 
         message: String,
         suggestion: String,
     },
     
-    #[error("语法错误 [{line}:{column}]: {message}")]
+    #[error("语法错误 [{}:{line}:{column}]: {message}", file.as_deref().unwrap_or("<unknown>"))]
     Parser { 
+        file: Option<String>,
         line: usize, 
         column: usize, 
         message: String,
         suggestion: String,
     },
     
-    #[error("语义错误 [{line}:{column}]: {message}")]
+    #[error("语义错误 [{}:{line}:{column}]: {message}", file.as_deref().unwrap_or("<unknown>"))]
     Semantic { 
+        file: Option<String>,
         line: usize, 
         column: usize, 
         message: String,
@@ -41,8 +44,9 @@ pub enum cayError {
     #[error("LLVM错误: {0}")]
     Llvm(String),
     
-    #[error("类型错误 [{line}:{column}]: {message}")]
+    #[error("类型错误 [{}:{line}:{column}]: {message}", file.as_deref().unwrap_or("<unknown>"))]
     TypeMismatch {
+        file: Option<String>,
         line: usize,
         column: usize,
         message: String,
@@ -51,24 +55,27 @@ pub enum cayError {
         suggestion: String,
     },
     
-    #[error("未定义标识符 [{line}:{column}]: '{name}'")]
+    #[error("未定义标识符 [{}:{line}:{column}]: '{name}'", file.as_deref().unwrap_or("<unknown>"))]
     UndefinedIdentifier {
+        file: Option<String>,
         line: usize,
         column: usize,
         name: String,
         suggestion: String,
     },
     
-    #[error("重复定义 [{line}:{column}]: '{name}'")]
+    #[error("重复定义 [{}:{line}:{column}]: '{name}'", file.as_deref().unwrap_or("<unknown>"))]
     DuplicateDefinition {
+        file: Option<String>,
         line: usize,
         column: usize,
         name: String,
         suggestion: String,
     },
 
-    #[error("预处理器错误 [{line}:{column}]: {message}")]
+    #[error("预处理器错误 [{}:{line}:{column}]: {message}", file.as_deref().unwrap_or("<unknown>"))]
     Preprocessor { 
+        file: Option<String>,
         line: usize, 
         column: usize, 
         message: String,
@@ -90,11 +97,38 @@ impl fmt::Display for SourceLocation {
     }
 }
 
+/// 完整的源位置信息（包含文件路径）
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct FullSourceLocation {
+    pub file: Option<String>,
+    pub line: usize,
+    pub column: usize,
+}
+
+impl FullSourceLocation {
+    pub fn new(file: Option<String>, line: usize, column: usize) -> Self {
+        Self { file, line, column }
+    }
+    
+    pub fn from_token(token: &crate::lexer::TokenWithLocation) -> Self {
+        Self {
+            file: token.source_file.clone(),
+            line: token.source_line.unwrap_or(token.loc.line),
+            column: token.loc.column,
+        }
+    }
+}
+
 // 词法错误
 pub fn lexer_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
+    lexer_error_with_file(None, line, column, message)
+}
+
+pub fn lexer_error_with_file(file: Option<String>, line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_lexer_suggestion(&msg);
     cayError::Lexer {
+        file,
         line,
         column,
         message: msg,
@@ -104,9 +138,14 @@ pub fn lexer_error(line: usize, column: usize, message: impl Into<String>) -> ca
 
 // 语法错误
 pub fn parser_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
+    parser_error_with_file(None, line, column, message)
+}
+
+pub fn parser_error_with_file(file: Option<String>, line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_parser_suggestion(&msg);
     cayError::Parser {
+        file,
         line,
         column,
         message: msg,
@@ -116,9 +155,14 @@ pub fn parser_error(line: usize, column: usize, message: impl Into<String>) -> c
 
 // 语义错误
 pub fn semantic_error(line: usize, column: usize, message: impl Into<String>) -> cayError {
+    semantic_error_with_file(None, line, column, message)
+}
+
+pub fn semantic_error_with_file(file: Option<String>, line: usize, column: usize, message: impl Into<String>) -> cayError {
     let msg = message.into();
     let suggestion = get_semantic_suggestion(&msg);
     cayError::Semantic {
+        file,
         line,
         column,
         message: msg,
@@ -143,10 +187,21 @@ pub fn type_mismatch_error(
     expected: impl Into<String>,
     actual: impl Into<String>,
 ) -> cayError {
+    type_mismatch_error_with_file(None, line, column, expected, actual)
+}
+
+pub fn type_mismatch_error_with_file(
+    file: Option<String>,
+    line: usize,
+    column: usize,
+    expected: impl Into<String>,
+    actual: impl Into<String>,
+) -> cayError {
     let expected_str = expected.into();
     let actual_str = actual.into();
     let suggestion = format!("请确保表达式返回 '{}' 类型的值", expected_str);
     cayError::TypeMismatch {
+        file,
         line,
         column,
         message: format!("类型不匹配: 期望 '{}', 实际 '{}'", expected_str, actual_str),
@@ -162,9 +217,19 @@ pub fn undefined_identifier_error(
     column: usize,
     name: impl Into<String>,
 ) -> cayError {
+    undefined_identifier_error_with_file(None, line, column, name)
+}
+
+pub fn undefined_identifier_error_with_file(
+    file: Option<String>,
+    line: usize,
+    column: usize,
+    name: impl Into<String>,
+) -> cayError {
     let name_str = name.into();
     let suggestion = format!("请检查 '{}' 的拼写，或在使用前声明该变量/函数", name_str);
     cayError::UndefinedIdentifier {
+        file,
         line,
         column,
         name: name_str,
@@ -178,9 +243,19 @@ pub fn duplicate_definition_error(
     column: usize,
     name: impl Into<String>,
 ) -> cayError {
+    duplicate_definition_error_with_file(None, line, column, name)
+}
+
+pub fn duplicate_definition_error_with_file(
+    file: Option<String>,
+    line: usize,
+    column: usize,
+    name: impl Into<String>,
+) -> cayError {
     let name_str = name.into();
     let suggestion = format!("'{}' 已被定义，请使用不同的名称", name_str);
     cayError::DuplicateDefinition {
+        file,
         line,
         column,
         name: name_str,
@@ -356,6 +431,20 @@ fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
     }
 }
 
+/// 获取错误文件路径
+fn get_error_file(error: &cayError) -> Option<String> {
+    match error {
+        cayError::Lexer { file, .. } => file.clone(),
+        cayError::Parser { file, .. } => file.clone(),
+        cayError::Semantic { file, .. } => file.clone(),
+        cayError::TypeMismatch { file, .. } => file.clone(),
+        cayError::UndefinedIdentifier { file, .. } => file.clone(),
+        cayError::DuplicateDefinition { file, .. } => file.clone(),
+        cayError::Preprocessor { file, .. } => file.clone(),
+        _ => None,
+    }
+}
+
 /// 打印带有上下文的错误信息 - 使用miette格式
 /// 
 /// # Arguments
@@ -370,10 +459,29 @@ fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
 /// print_error_with_context(&error, "let x = @", "test.cay");
 /// ```
 pub fn print_error_with_context(error: &cayError, source: &str, filename: &str) {
+    // 尝试获取错误中的文件路径
+    let error_file = get_error_file(error);
+    
+    // 如果错误中有文件路径且与传入的不同，尝试读取该文件
+    let (source_to_use, filename_to_use) = if let Some(ref error_path) = error_file {
+        if error_path != filename {
+            // 尝试读取错误对应的源文件
+            if let Ok(file_content) = std::fs::read_to_string(error_path) {
+                (file_content, error_path.as_str())
+            } else {
+                (source.to_string(), error_path.as_str())
+            }
+        } else {
+            (source.to_string(), filename)
+        }
+    } else {
+        (source.to_string(), filename)
+    };
+    
     // 尝试获取错误位置
     if let Some((line, column)) = get_error_location(error) {
         if line > 0 {
-            print_error_with_location(error, source, filename, line, column);
+            print_error_with_location(error, &source_to_use, filename_to_use, line, column);
             return;
         }
     }

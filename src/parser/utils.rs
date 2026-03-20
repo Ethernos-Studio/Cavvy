@@ -3,7 +3,7 @@
 //! 提供语法分析器的通用工具函数和增强的错误处理
 
 use crate::lexer::{Token, TokenWithLocation};
-use crate::error::{cayResult, cayError, parser_error, SourceLocation};
+use crate::error::{cayResult, cayError, parser_error_with_file, FullSourceLocation};
 use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, CompilationPhase, FixSuggestion};
 use super::Parser;
 
@@ -17,13 +17,27 @@ pub fn current_token(parser: &Parser) -> &Token {
     &parser.tokens[parser.pos].token
 }
 
-/// 获取当前位置
-pub fn current_loc(parser: &Parser) -> SourceLocation {
+/// 获取当前完整位置（包含源文件信息）
+pub fn current_full_loc(parser: &Parser) -> FullSourceLocation {
+    FullSourceLocation::from_token(&parser.tokens[parser.pos])
+}
+
+/// 获取上一个完整位置（包含源文件信息）
+pub fn previous_full_loc(parser: &Parser) -> FullSourceLocation {
+    if parser.pos > 0 {
+        FullSourceLocation::from_token(&parser.tokens[parser.pos - 1])
+    } else {
+        FullSourceLocation::from_token(&parser.tokens[0])
+    }
+}
+
+/// 获取当前位置（向后兼容）
+pub fn current_loc(parser: &Parser) -> crate::error::SourceLocation {
     parser.tokens[parser.pos].loc.clone()
 }
 
-/// 获取上一个位置
-pub fn previous_loc(parser: &Parser) -> SourceLocation {
+/// 获取上一个位置（向后兼容）
+pub fn previous_loc(parser: &Parser) -> crate::error::SourceLocation {
     if parser.pos > 0 {
         parser.tokens[parser.pos - 1].loc.clone()
     } else {
@@ -65,9 +79,9 @@ pub fn consume<'a>(parser: &'a mut Parser, token: &Token, message: &str) -> cayR
     } else {
         // 如果期望分号但没找到，使用上一个token的位置
         let loc = if message.contains("';'") {
-            previous_loc(parser)
+            previous_full_loc(parser)
         } else {
-            current_loc(parser)
+            current_full_loc(parser)
         };
         
         // 创建详细的错误信息
@@ -115,7 +129,7 @@ pub fn consume<'a>(parser: &'a mut Parser, token: &Token, message: &str) -> cayR
         
         parser.diagnostics.add(diagnostic);
         
-        Err(parser_error(loc.line, loc.column, &detailed_message))
+        Err(parser_error_with_file(loc.file, loc.line, loc.column, &detailed_message))
     }
 }
 
@@ -126,7 +140,7 @@ pub fn consume_identifier(parser: &mut Parser, message: &str) -> cayResult<Strin
         advance(parser);
         Ok(name)
     } else {
-        let loc = current_loc(parser);
+        let loc = current_full_loc(parser);
         let actual = get_token_name(current_token(parser));
         let detailed_message = format!("期望标识符，但找到 '{}'", actual);
         
@@ -140,19 +154,19 @@ pub fn consume_identifier(parser: &mut Parser, message: &str) -> cayResult<Strin
         
         parser.diagnostics.add(diagnostic);
         
-        Err(parser_error(loc.line, loc.column, message))
+        Err(parser_error_with_file(loc.file, loc.line, loc.column, message))
     }
 }
 
 /// 创建错误
 pub fn error(parser: &Parser, message: &str) -> cayError {
-    let loc = &parser.tokens[parser.pos].loc;
-    parser_error(loc.line, loc.column, message)
+    let loc = current_full_loc(parser);
+    parser_error_with_file(loc.file, loc.line, loc.column, message)
 }
 
 /// 创建详细的语法错误
 pub fn create_parser_error(parser: &mut Parser, error_code: &'static str, message: impl Into<String>) -> cayError {
-    let loc = current_loc(parser);
+    let loc = current_full_loc(parser);
     let message = message.into();
     
     let diagnostic = Diagnostic::error(
@@ -163,7 +177,7 @@ pub fn create_parser_error(parser: &mut Parser, error_code: &'static str, messag
     );
     
     parser.diagnostics.add(diagnostic);
-    parser_error(loc.line, loc.column, &message)
+    parser_error_with_file(loc.file, loc.line, loc.column, &message)
 }
 
 /// 检查下一个令牌是否匹配给定令牌

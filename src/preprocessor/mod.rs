@@ -232,6 +232,7 @@ impl Preprocessor {
         // 检查条件编译栈是否为空
         if !self.conditional_stack.is_empty() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: lines.len(),
                 column: 1,
                 message: "未闭合的条件编译指令，缺少 #endif".to_string(),
@@ -254,7 +255,7 @@ impl Preprocessor {
     /// 
     /// # Returns
     /// 解析出的指令或 None
-    fn parse_directive(&self, line: &str, line_num: usize, _file_path: &str) -> cayResult<Option<Directive>> {
+    fn parse_directive(&self, line: &str, line_num: usize, file_path: &str) -> cayResult<Option<Directive>> {
         // 去除 # 后面的空白
         let content = line[1..].trim_start();
         
@@ -270,20 +271,20 @@ impl Preprocessor {
         match directive_name {
             "include" => {
                 // 解析 #include "path" 或 #include <path>
-                let (path, is_system) = self.parse_include_path(args, line_num)?;
+                let (path, is_system) = self.parse_include_path(args, line_num, file_path)?;
                 Ok(Some(Directive::Include(path, is_system)))
             }
             "define" => {
                 // 解析 #define name value
-                let (name, value) = self.parse_define_args(args, line_num)?;
+                let (name, value) = self.parse_define_args(args, line_num, file_path)?;
                 Ok(Some(Directive::Define(name, value)))
             }
             "ifdef" => {
-                let name = self.parse_identifier(args, line_num)?;
+                let name = self.parse_identifier(args, line_num, file_path)?;
                 Ok(Some(Directive::Ifdef(name)))
             }
             "ifndef" => {
-                let name = self.parse_identifier(args, line_num)?;
+                let name = self.parse_identifier(args, line_num, file_path)?;
                 Ok(Some(Directive::Ifndef(name)))
             }
             "if" => {
@@ -293,6 +294,7 @@ impl Preprocessor {
             "else" => {
                 if !args.is_empty() {
                     return Err(cayError::Preprocessor {
+                        file: Some(file_path.to_string()),
                         line: line_num,
                         column: 1,
                         message: "#else 指令不接受参数".to_string(),
@@ -302,12 +304,13 @@ impl Preprocessor {
                 Ok(Some(Directive::Else))
             }
             "elif" => {
-                let name = self.parse_identifier(args, line_num)?;
+                let name = self.parse_identifier(args, line_num, file_path)?;
                 Ok(Some(Directive::Elif(name)))
             }
             "endif" => {
                 if !args.is_empty() {
                     return Err(cayError::Preprocessor {
+                        file: Some(file_path.to_string()),
                         line: line_num,
                         column: 1,
                         message: "#endif 指令不接受参数".to_string(),
@@ -317,15 +320,16 @@ impl Preprocessor {
                 Ok(Some(Directive::Endif))
             }
             "error" => {
-                let message = self.parse_string_literal(args, line_num)?;
+                let message = self.parse_string_literal(args, line_num, file_path)?;
                 Ok(Some(Directive::Error(message)))
             }
             "warning" => {
-                let message = self.parse_string_literal(args, line_num)?;
+                let message = self.parse_string_literal(args, line_num, file_path)?;
                 Ok(Some(Directive::Warning(message)))
             }
             _ => {
                 Err(cayError::Preprocessor {
+                    file: Some(file_path.to_string()),
                     line: line_num,
                     column: 1,
                     message: format!("未知的预处理指令: {}", directive_name),
@@ -336,10 +340,11 @@ impl Preprocessor {
     }
 
     /// 解析字符串字面量（用于 #error, #warning）
-    fn parse_string_literal(&self, args: &str, line_num: usize) -> cayResult<String> {
+    fn parse_string_literal(&self, args: &str, line_num: usize, file_path: &str) -> cayResult<String> {
         let trimmed = args.trim();
         if trimmed.len() < 2 {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "缺少字符串参数".to_string(),
@@ -350,6 +355,7 @@ impl Preprocessor {
         // 只支持双引号
         if !trimmed.starts_with('"') || !trimmed.ends_with('"') {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "参数必须是双引号字符串".to_string(),
@@ -361,10 +367,11 @@ impl Preprocessor {
     }
 
     /// 解析 #include 路径（支持 "path" 和 <path>）
-    fn parse_include_path(&self, args: &str, line_num: usize) -> cayResult<(String, bool)> {
+    fn parse_include_path(&self, args: &str, line_num: usize, file_path: &str) -> cayResult<(String, bool)> {
         let trimmed = args.trim();
         if trimmed.len() < 2 {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "缺少文件路径参数".to_string(),
@@ -381,6 +388,7 @@ impl Preprocessor {
             Ok((trimmed[1..trimmed.len()-1].to_string(), true))
         } else {
             Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "#include 参数格式错误".to_string(),
@@ -390,10 +398,11 @@ impl Preprocessor {
     }
 
     /// 解析标识符
-    fn parse_identifier(&self, args: &str, line_num: usize) -> cayResult<String> {
+    fn parse_identifier(&self, args: &str, line_num: usize, file_path: &str) -> cayResult<String> {
         let trimmed = args.trim();
         if trimmed.is_empty() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "缺少标识符参数".to_string(),
@@ -405,6 +414,7 @@ impl Preprocessor {
         let first_char = trimmed.chars().next().unwrap();
         if !first_char.is_ascii_alphabetic() && first_char != '_' {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: format!("无效的标识符: {}", trimmed),
@@ -421,10 +431,11 @@ impl Preprocessor {
     }
 
     /// 解析 #define 的参数
-    fn parse_define_args(&self, args: &str, line_num: usize) -> cayResult<(String, String)> {
+    fn parse_define_args(&self, args: &str, line_num: usize, file_path: &str) -> cayResult<(String, String)> {
         let trimmed = args.trim();
         if trimmed.is_empty() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "#define 缺少宏名称".to_string(),
@@ -440,6 +451,7 @@ impl Preprocessor {
         // 检查名称是否包含括号（禁止宏函数）
         if name.contains('(') {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: "不支持宏函数".to_string(),
@@ -451,6 +463,7 @@ impl Preprocessor {
         let first_char = name.chars().next().unwrap();
         if !first_char.is_ascii_alphabetic() && first_char != '_' {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: line_num,
                 column: 1,
                 message: format!("无效的宏名称: {}", name),
@@ -493,17 +506,18 @@ impl Preprocessor {
                 self.push_conditional(!self.skipping && result);
             }
             Directive::Else => {
-                self.handle_else()?;
+                self.handle_else(file_path)?;
             }
             Directive::Elif(name) => {
-                self.handle_elif(name)?;
+                self.handle_elif(name, file_path)?;
             }
             Directive::Endif => {
-                self.pop_conditional()?;
+                self.pop_conditional(file_path)?;
             }
             Directive::Error(message) => {
                 if !self.skipping {
                     return Err(cayError::Preprocessor {
+                        file: Some(file_path.to_string()),
                         line: 0,
                         column: 0,
                         message: format!("#error: {}", message),
@@ -522,9 +536,10 @@ impl Preprocessor {
     }
 
     /// 处理 #else 指令
-    fn handle_else(&mut self) -> cayResult<()> {
+    fn handle_else(&mut self, file_path: &str) -> cayResult<()> {
         if self.conditional_stack.is_empty() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: 0,
                 column: 0,
                 message: "#else 没有对应的 #ifdef 或 #ifndef".to_string(),
@@ -554,9 +569,10 @@ impl Preprocessor {
     }
 
     /// 处理 #elif 指令
-    fn handle_elif(&mut self, name: String) -> cayResult<()> {
+    fn handle_elif(&mut self, name: String, file_path: &str) -> cayResult<()> {
         if self.conditional_stack.is_empty() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: 0,
                 column: 0,
                 message: "#elif 没有对应的 #ifdef 或 #ifndef".to_string(),
@@ -662,6 +678,7 @@ impl Preprocessor {
         if self.include_stack.contains(&path_key) {
             let chain = self.include_stack.join(" -> ");
             return Err(cayError::Preprocessor {
+                file: Some(current_file.to_string()),
                 line: 0,
                 column: 0,
                 message: format!("检测到循环包含: {}", path_key),
@@ -786,9 +803,10 @@ impl Preprocessor {
     }
 
     /// 弹出条件编译状态
-    fn pop_conditional(&mut self) -> cayResult<()> {
+    fn pop_conditional(&mut self, file_path: &str) -> cayResult<()> {
         if self.conditional_stack.pop().is_none() {
             return Err(cayError::Preprocessor {
+                file: Some(file_path.to_string()),
                 line: 0,
                 column: 0,
                 message: "多余的 #endif".to_string(),

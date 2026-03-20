@@ -223,6 +223,7 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
 
     let preprocessed = cavvy::preprocessor::preprocess(&source, source_path, base_dir)
         .map_err(|e| cayError::Preprocessor { 
+            file: Some(source_path.to_string()),
             line: 0, 
             column: 0, 
             message: format!("预处理失败: {:?}", e),
