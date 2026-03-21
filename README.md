@@ -1,6 +1,12 @@
-# Cavvy 编程语言
+<p align="center">
+  <img src="docs/README/images/Logo.svg" alt="Cavvy Logo" width="200">
+</p>
 
-[English](README_EN.md) | 简体中文
+<h1 align="center">Cavvy 编程语言</h1>
+
+<p align="center">
+  [English](README_EN.md) | 简体中文
+</p>
 
 ![License](https://img.shields.io/badge/license-GPL3-blue.svg)
 ![Rust](https://img.shields.io/badge/rust-2024%20edition-orange.svg)
