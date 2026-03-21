@@ -233,8 +233,17 @@ impl IRGenerator {
     /// (元素类型, 元素指针, 索引值)
     pub fn get_array_element_ptr(&mut self, arr: &ArrayAccessExpr) -> cayResult<(String, String, String)> {
         // 生成数组表达式
-        let array_expr = self.generate_expression(&arr.array)?;
-        let (array_type, array_val) = self.parse_typed_value(&array_expr);
+        // 特殊处理：如果数组表达式是 MemberAccess（如 this.stack），我们需要获取指针而不是值
+        let (array_type, array_val) = match arr.array.as_ref() {
+            Expr::MemberAccess(member) => {
+                // 获取成员字段的指针而不是加载的值
+                self.get_member_array_pointer(member)?
+            }
+            _ => {
+                let array_expr = self.generate_expression(&arr.array)?;
+                self.parse_typed_value(&array_expr)
+            }
+        };
 
         // 生成索引表达式
         let index_expr = self.generate_expression(&arr.index)?;
@@ -468,5 +477,71 @@ impl IRGenerator {
 
         // 返回数组指针（指向数据，长度在指针前8字节）
         Ok(format!("{}* {}", elem_llvm_type, cast_temp))
+    }
+
+    /// 获取成员数组字段的指针（而不是加载的值）
+    /// 用于数组访问时作为左值，支持实例字段和静态字段
+    ///
+    /// # Arguments
+    /// * `member` - 成员访问表达式（如 this.stack 或 ClassName.staticArray）
+    ///
+    /// # Returns
+    /// (LLVM类型字符串, LLVM值字符串)
+    fn get_member_array_pointer(&mut self, member: &MemberAccessExpr) -> cayResult<(String, String)> {
+        // 首先检查是否是静态字段访问: ClassName.fieldName
+        if let Expr::Identifier(class_name) = member.object.as_ref() {
+            let static_key = format!("{}.{}", class_name, member.member);
+            if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
+                // 静态字段 - 直接返回全局变量指针
+                return Ok((format!("{}*", field_info.llvm_type), field_info.name));
+            }
+        }
+
+        // 确定对象所属的类（实例字段）
+        let class_name_opt: Option<String> = if let Expr::Identifier(name) = member.object.as_ref() {
+            let name_str = name.as_ref();
+            if name_str == "this" {
+                Some(self.current_class.clone())
+            } else {
+                self.var_class_map.get(name_str).cloned()
+            }
+        } else {
+            None
+        };
+
+        if let Some(class_name) = class_name_opt {
+            if let Some(field_info) = self.get_instance_field(&class_name, &member.member).cloned() {
+                // 获取对象指针
+                let obj_ptr = if let Expr::Identifier(name) = member.object.as_ref() {
+                    let name_str = name.as_ref();
+                    if name_str == "this" {
+                        "%this".to_string()
+                    } else {
+                        let obj = self.generate_expression(member.object.as_ref())?;
+                        let (_, obj_val) = self.parse_typed_value(&obj);
+                        obj_val
+                    }
+                } else {
+                    let obj = self.generate_expression(member.object.as_ref())?;
+                    let (_, obj_val) = self.parse_typed_value(&obj);
+                    obj_val
+                };
+
+                // 计算字段地址
+                let field_ptr_i8 = self.new_temp();
+                self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}",
+                    field_ptr_i8, obj_ptr, field_info.offset));
+
+                // 将字段指针转换为数组指针类型
+                let field_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
+                    field_ptr, field_ptr_i8, field_info.llvm_type));
+
+                // 返回数组指针类型和值
+                return Ok((format!("{}*", field_info.llvm_type), field_ptr));
+            }
+        }
+
+        Err(codegen_error(format!("Cannot get array pointer for member access: {}", member.member)))
     }
 }

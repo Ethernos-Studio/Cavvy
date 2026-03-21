@@ -178,6 +178,10 @@ impl IRGenerator {
                 let (elem_type, elem_ptr, _) = self.get_array_element_ptr(arr)?;
                 Ok((elem_type, elem_ptr))
             }
+            Expr::MemberAccess(member) => {
+                // 处理实例字段作为左值（如 this.sp）
+                self.get_member_field_pointer(member)
+            }
             _ => Err(codegen_error("Invalid lvalue expression".to_string()))
         }
     }
@@ -235,6 +239,62 @@ impl IRGenerator {
         } else {
             self.llvm_type_to_signature(llvm_type)
         }
+    }
+
+    /// 获取成员字段的指针（用于左值）
+    ///
+    /// # Arguments
+    /// * `member` - 成员访问表达式（如 this.sp）
+    ///
+    /// # Returns
+    /// (LLVM类型字符串, 指针字符串)
+    pub fn get_member_field_pointer(&mut self, member: &MemberAccessExpr) -> cayResult<(String, String)> {
+        // 确定对象所属的类
+        let class_name_opt: Option<String> = if let Expr::Identifier(name) = member.object.as_ref() {
+            let name_str = name.as_ref();
+            if name_str == "this" {
+                Some(self.current_class.clone())
+            } else {
+                self.var_class_map.get(name_str).cloned()
+            }
+        } else {
+            None
+        };
+
+        if let Some(class_name) = class_name_opt {
+            if let Some(field_info) = self.get_instance_field(&class_name, &member.member).cloned() {
+                // 获取对象指针
+                let obj_ptr = if let Expr::Identifier(name) = member.object.as_ref() {
+                    let name_str = name.as_ref();
+                    if name_str == "this" {
+                        "%this".to_string()
+                    } else {
+                        let obj = self.generate_expression(member.object.as_ref())?;
+                        let (_, obj_val) = self.parse_typed_value(&obj);
+                        obj_val
+                    }
+                } else {
+                    let obj = self.generate_expression(member.object.as_ref())?;
+                    let (_, obj_val) = self.parse_typed_value(&obj);
+                    obj_val
+                };
+
+                // 计算字段地址
+                let field_ptr_i8 = self.new_temp();
+                self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}",
+                    field_ptr_i8, obj_ptr, field_info.offset));
+
+                // 将字段指针转换为正确类型的指针
+                let field_ptr = self.new_temp();
+                self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
+                    field_ptr, field_ptr_i8, field_info.llvm_type));
+
+                // 返回字段类型和指针
+                return Ok((field_info.llvm_type, field_ptr));
+            }
+        }
+
+        Err(codegen_error(format!("Cannot get field pointer for member access: {}", member.member)))
     }
 
 }
