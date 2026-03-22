@@ -30,6 +30,7 @@ pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
         crate::lexer::Token::For => parse_for_statement(parser),
         crate::lexer::Token::Do => parse_do_while_statement(parser),
         crate::lexer::Token::Switch => parse_switch_statement(parser),
+        crate::lexer::Token::Scope => parse_scope_statement(parser),
         crate::lexer::Token::Return => parse_return_statement(parser),
         crate::lexer::Token::Break => {
             let _loc = parser.current_loc();
@@ -346,4 +347,24 @@ pub fn parse_expression_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let expr = parse_expression(parser)?;
     parser.consume(&crate::lexer::Token::Semicolon, "Expected ';' after expression")?;
     Ok(Stmt::Expr(expr))
+}
+
+/// 0.5.0.0: 解析 scope 语句
+/// scope 语句创建一个栈作用域，内部声明的变量在 scope 结束时自动释放
+///
+/// 语法: scope { statements... }
+///
+/// 示例:
+///   scope {
+///       int x = 10;
+///       println("x = " + x);
+///   } // x 在这里自动释放
+pub fn parse_scope_statement(parser: &mut Parser) -> cayResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume 'scope'
+    
+    // 解析 scope 体（代码块）
+    let body = parse_block(parser)?;
+    
+    Ok(Stmt::Scope(ScopeStmt { body, loc }))
 }

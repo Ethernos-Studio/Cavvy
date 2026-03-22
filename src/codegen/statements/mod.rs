@@ -9,6 +9,7 @@ mod if_stmt;
 mod loops;
 mod switch_stmt;
 mod jump_stmt;
+mod scope_stmt;
 mod statement;
 
 pub use block::*;
@@ -18,4 +19,5 @@ pub use if_stmt::*;
 pub use loops::*;
 pub use switch_stmt::*;
 pub use jump_stmt::*;
+pub use scope_stmt::*;
 pub use statement::*;

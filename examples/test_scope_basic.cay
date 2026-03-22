@@ -1,0 +1,38 @@
+/*
+ * Cavvy scope 语句基本功能测试 - 0.5.0.0
+ * 
+ * 测试内容：
+ * 1. scope 语句基本语法
+ * 2. scope 内变量作用域
+ * 3. 外部变量在 scope 内的访问
+ */
+
+public class TestScopeBasic {
+    
+    public static int main() {
+        println("=== 测试 scope 语句 ===");
+        
+        // 外部变量
+        int x = 20;
+        println("外部: x = " + x);
+        
+        // scope 块
+        scope {
+            // scope 内部的变量
+            int x = 10;
+            println("scope 内部: x = " + x);
+            
+            // 嵌套 scope
+            scope {
+                int y = 30;
+                println("嵌套 scope: y = " + y);
+            }
+        }
+        
+        // 回到外部，x 应该是 20
+        println("回到外部: x = " + x);
+        
+        println("All scope tests completed!");
+        return 0;
+    }
+}

@@ -1,0 +1,202 @@
+/*
+ * Cavvy 内存分配器功能测试 - 0.5.0.0
+ * 
+ * 测试内容：
+ * 1. GlobalAlloc 全局堆分配器使用
+ * 2. Arena 线性分配器使用
+ * 3. 分配器接口多态
+ * 4. 批量分配与重置
+ */
+
+#include <caylibs/Allocator.cay>
+
+public class TestAllocator {
+    
+    /* 测试 GlobalAlloc 基础功能 */
+    public static int testGlobalAlloc() {
+        println("=== 测试 GlobalAlloc ===");
+        
+        // 获取单例实例
+        GlobalAlloc alloc = GlobalAlloc.getInstance();
+        
+        // 分配 64 字节内存
+        long ptr = alloc.allocate(64);
+        if (ptr == 0) {
+            println("ERROR: GlobalAlloc 分配失败");
+            return 1;
+        }
+        println("GlobalAlloc 分配成功，地址: " + ptr);
+        
+        // 释放内存
+        alloc.deallocate(ptr);
+        println("GlobalAlloc 释放成功");
+        
+        return 0;
+    }
+    
+    /* 测试 Arena 分配器 */
+    public static int testArena() {
+        println("=== 测试 Arena 分配器 ===");
+        
+        // 创建 1024 字节容量的 Arena
+        Arena arena = new Arena(1024);
+        println("Arena 创建成功，容量: 1024");
+        
+        // 连续分配多个块
+        long ptr1 = arena.allocate(100);
+        long ptr2 = arena.allocate(200);
+        long ptr3 = arena.allocate(300);
+        
+        if (ptr1 == 0 || ptr2 == 0 || ptr3 == 0) {
+            println("ERROR: Arena 分配失败");
+            return 1;
+        }
+        
+        println("Arena 分配成功:");
+        println("  ptr1 (100字节): " + ptr1);
+        println("  ptr2 (200字节): " + ptr2);
+        println("  ptr3 (300字节): " + ptr3);
+        println("  已使用: " + arena.used() + " 字节");
+        println("  剩余: " + arena.remaining() + " 字节");
+        
+        // 批量重置
+        arena.reset();
+        println("Arena 重置成功");
+        println("  重置后已使用: " + arena.used() + " 字节");
+        
+        // 重新分配
+        long ptr4 = arena.allocate(500);
+        if (ptr4 == 0) {
+            println("ERROR: Arena 重置后分配失败");
+            return 1;
+        }
+        println("重置后分配成功: " + ptr4);
+        
+        // 释放 Arena 底层缓冲区
+        arena.dispose();
+        println("Arena 销毁成功");
+        
+        return 0;
+    }
+    
+    /* 测试分配器接口多态 */
+    public static int testAllocatorPolymorphism() {
+        println("=== 测试分配器接口多态 ===");
+        
+        // 通过接口引用不同实现
+        Allocator alloc1 = GlobalAlloc.getInstance();
+        Allocator alloc2 = new Arena(512);
+        
+        // 使用相同的接口方法
+        long p1 = alloc1.allocate(32);
+        long p2 = alloc2.allocate(32);
+        
+        if (p1 == 0 || p2 == 0) {
+            println("ERROR: 接口分配失败");
+            return 1;
+        }
+        
+        println("GlobalAlloc 通过接口分配: " + p1);
+        println("Arena 通过接口分配: " + p2);
+        
+        // 清理
+        alloc1.deallocate(p1);
+        // Arena 不支持单独释放，直接销毁
+        ((Arena)alloc2).dispose();
+        
+        println("接口多态测试成功");
+        return 0;
+    }
+    
+    /* 测试对齐分配 */
+    public static int testAlignedAlloc() {
+        println("=== 测试对齐分配 ===");
+        
+        GlobalAlloc alloc = GlobalAlloc.getInstance();
+        
+        // 测试 16 字节对齐
+        long ptr16 = alloc.allocateAligned(64, 16);
+        if (ptr16 != 0 && (ptr16 % 16) == 0) {
+            println("16字节对齐分配成功: " + ptr16 + " (对齐检查通过)");
+        } else {
+            println("ERROR: 16字节对齐分配失败");
+            return 1;
+        }
+        
+        // 测试 64 字节对齐
+        long ptr64 = alloc.allocateAligned(128, 64);
+        if (ptr64 != 0 && (ptr64 % 64) == 0) {
+            println("64字节对齐分配成功: " + ptr64 + " (对齐检查通过)");
+        } else {
+            println("ERROR: 64字节对齐分配失败");
+            return 1;
+        }
+        
+        alloc.deallocate(ptr16);
+        alloc.deallocate(ptr64);
+        
+        return 0;
+    }
+    
+    /* 测试 Arena 边界情况 */
+    public static int testArenaBoundary() {
+        println("=== 测试 Arena 边界情况 ===");
+        
+        // 创建小容量 Arena
+        Arena smallArena = new Arena(256);
+        
+        // 尝试分配超过容量的内存
+        long ptr = smallArena.allocate(512);
+        if (ptr == 0) {
+            println("正确行为：超大分配返回 null");
+        } else {
+            println("WARNING: 超大分配应该返回 null");
+        }
+        
+        // 分配正好填满的内存
+        long ptr2 = smallArena.allocate(256);
+        if (ptr2 != 0) {
+            println("正好填满分配成功: " + ptr2);
+        } else {
+            println("INFO: 由于对齐可能略小于256");
+        }
+        
+        smallArena.dispose();
+        return 0;
+    }
+    
+    /* 主测试入口 */
+    public static int main(String[] args) {
+        println("========================================");
+        println("Cavvy 内存分配器测试 - 版本 0.5.0.0");
+        println("========================================\n");
+        
+        int result = 0;
+        
+        // 运行所有测试
+        result |= testGlobalAlloc();
+        println();
+        
+        result |= testArena();
+        println();
+        
+        result |= testAllocatorPolymorphism();
+        println();
+        
+        result |= testAlignedAlloc();
+        println();
+        
+        result |= testArenaBoundary();
+        println();
+        
+        println("========================================");
+        if (result == 0) {
+            println("所有测试通过！");
+        } else {
+            println("存在测试失败！");
+        }
+        println("========================================");
+        
+        return result;
+    }
+}

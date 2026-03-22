@@ -1,7 +1,7 @@
 (*
  * Cavvy 编程语言语法规范 - EBNF 表示
- * 版本: 0.4.8.2
- * 构建号: 26
+ * 版本: 0.5.0.0
+ * 构建号: 32
  *
  * 本文件使用扩展巴科斯-瑙尔范式 (EBNF) 描述 Cavvy 编程语言的语法结构。
  * 符号约定:
@@ -287,7 +287,8 @@ statement = block
           | return_statement
           | break_statement
           | continue_statement
-          | expression_statement;
+          | expression_statement
+          | scope_statement;
 
 variable_declaration = [ "final" ], type, identifier, 
                        [ "=", variable_initializer ], ";"
@@ -343,6 +344,17 @@ break_statement = "break", [ identifier ], ";";
 continue_statement = "continue", [ identifier ], ";";
 
 expression_statement = expression, ";";
+(* 0.5.0.x: scope 语句 - 栈作用域块 *)
+scope_statement = "scope", block;
+
+(* scope 语句示例：
+ *   scope {
+ *       int x = 10;
+ *       println("x = " + x);
+ *   }
+ *   // x 在这里不再可访问
+ *)
+
 
 (* ============================================================================
  * 表达式 (Expressions) - 按优先级从低到高
@@ -782,7 +794,14 @@ any_unicode_character = ? 任何 Unicode 字符 ?;
  * ============================================================================ *)
 
 (*
- * 0.4.8.x (Build 26) - 当前版本
+ * 0.5.0.x (Build 32) - 当前版本
+ *   - 内存分配器接口 (Allocator trait)
+ *   - GlobalAlloc 默认堆分配器
+ *   - Arena 线性分配器
+ *   - scope 栈分配标记
+ *   - 显式内存管理基础
+ *
+ * 0.4.8.x (Build 26)
  *   - 添加完整的 #else 和 #elif 预处理指令支持
  *   - 修复 Lambda 返回类型推断
  *   - 修复方法引用类型推断

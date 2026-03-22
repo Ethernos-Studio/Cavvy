@@ -98,6 +98,8 @@ pub enum Token {
     Auto,
     #[token("extern")]
     Extern,
+    #[token("scope")]
+    Scope,
 
     // FFI 类型关键字
     #[token("c_int")]

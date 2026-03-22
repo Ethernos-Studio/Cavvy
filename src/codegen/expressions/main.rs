@@ -65,6 +65,12 @@ impl IRGenerator {
             
             // instanceof
             Expr::InstanceOf(instanceof) => self.generate_instanceof_expression(instanceof),
+            
+            // 0.5.0.0: 内存分配表达式
+            Expr::Alloc(alloc) => self.generate_alloc_expression(alloc),
+            
+            // 0.5.0.0: 内存释放表达式
+            Expr::Dealloc(dealloc) => self.generate_dealloc_expression(dealloc),
         }
     }
 }

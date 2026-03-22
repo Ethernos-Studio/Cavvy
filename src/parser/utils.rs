@@ -224,6 +224,7 @@ pub fn get_token_name(token: &Token) -> String {
         Token::Return => "'return'".to_string(),
         Token::Break => "'break'".to_string(),
         Token::Continue => "'continue'".to_string(),
+        Token::Scope => "'scope'".to_string(),
         Token::New => "'new'".to_string(),
         Token::This => "'this'".to_string(),
         Token::Super => "'super'".to_string(),

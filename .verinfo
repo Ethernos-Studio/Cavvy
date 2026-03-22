@@ -1,26 +1,26 @@
 [CAYC]
-version = "0.4.8.6"
-build = 31
+version = "0.5.0.0"
+build = 32
 
 [CAY-IR]
-version = "0.4.8.6"
-build = 3
+version = "0.5.0.0"
+build = 32
 
 [IR2EXE]
-version = "0.4.8.6"
-build = 31
+version = "0.5.0.0"
+build = 32
 
 [CAY-CHECK]
-version = "0.4.8.6"
-build = 23
+version = "0.5.0.0"
+build = 24
 
 [CAY-RUN]
-version = "0.4.8.6"
-build = 8
+version = "0.5.0.0"
+build = 9
 
 [CAY-LSP]
-version = "0.4.8.6"
-build = 3
+version = "0.5.0.0"
+build = 4
 
 [LLVM-MINIMAL]
 version = "17.0.0"

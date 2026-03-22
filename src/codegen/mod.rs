@@ -3,6 +3,7 @@
 //! 本模块将 cay AST 转换为 LLVM IR 代码。
 //! 已重构为多个子模块以提高可维护性。
 
+pub mod allocator;
 pub mod context;
 mod types;
 mod expressions;

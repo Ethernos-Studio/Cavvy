@@ -37,6 +37,9 @@ impl IRGenerator {
             Stmt::Switch(switch_stmt) => {
                 self.generate_switch_statement(switch_stmt)?;
             }
+            Stmt::Scope(scope_stmt) => {
+                self.generate_scope(scope_stmt)?;
+            }
             Stmt::Break => {
                 self.generate_break_statement()?;
             }

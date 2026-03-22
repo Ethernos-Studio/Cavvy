@@ -151,8 +151,17 @@ pub enum Stmt {
     DoWhile(DoWhileStmt),
     Switch(SwitchStmt),
     Block(Block),
+    Scope(ScopeStmt),  // 0.5.0.0: scope 栈分配块
     Break,
     Continue,
+}
+
+/// 0.5.0.0: scope 语句 - 栈作用域分配块
+/// 用于在栈上分配临时对象，支持 RAII 模式
+#[derive(Debug, Clone)]
+pub struct ScopeStmt {
+    pub body: Block,
+    pub loc: SourceLocation,
 }
 
 #[derive(Debug, Clone)]
@@ -230,6 +239,23 @@ pub enum Expr {
     Lambda(LambdaExpr),        // Lambda 表达式: (params) -> { body }
     Ternary(TernaryExpr),      // 三元运算符: condition ? true_expr : false_expr
     InstanceOf(InstanceOfExpr), // instanceof 运算符: obj instanceof Type
+    Alloc(AllocExpr),          // 0.5.0.0: 内存分配表达式: __cay_alloc(size)
+    Dealloc(DeallocExpr),      // 0.5.0.0: 内存释放表达式: __cay_free(ptr)
+}
+
+/// 0.5.0.0: 内存分配表达式
+#[derive(Debug, Clone)]
+pub struct AllocExpr {
+    pub size: Box<Expr>,
+    pub align: Option<Box<Expr>>,
+    pub loc: SourceLocation,
+}
+
+/// 0.5.0.0: 内存释放表达式
+#[derive(Debug, Clone)]
+pub struct DeallocExpr {
+    pub ptr: Box<Expr>,
+    pub loc: SourceLocation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

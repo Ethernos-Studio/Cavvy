@@ -52,3 +52,6 @@ mod new;
 mod lambda;
 mod ternary;
 mod instanceof;
+
+// 0.5.0.0: 内存分配器
+mod allocator;
