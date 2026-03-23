@@ -30,3 +30,5 @@ target/
 
 #太大了
 llvm-minimal/bin-linux/*
+
+dist/
