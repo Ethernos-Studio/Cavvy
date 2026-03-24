@@ -78,13 +78,20 @@ impl IRGenerator {
             }
         }
         
-        // 处理实例字段访问: this.fieldName 或 obj.fieldName
+        // 处理实例字段访问: this.fieldName 或 obj.fieldName 或 super.fieldName
         
         // 确定对象所属的类
         let class_name_opt: Option<String> = if let Expr::Identifier(name) = &*member.object {
             let name_str = name.as_ref();
             if name_str == "this" {
                 Some(self.current_class.clone())
+            } else if name_str == "super" {
+                // super 访问父类的成员
+                if let Some(parent_class) = self.get_parent_class(&self.current_class) {
+                    Some(parent_class)
+                } else {
+                    None
+                }
             } else {
                 // 尝试从变量类型推断类名
                 self.var_class_map.get(name_str).cloned()
@@ -98,12 +105,13 @@ impl IRGenerator {
                 // 实例字段访问
                 
                 // 获取对象指针
-                // 对于 this，从作用域管理器获取 this_ptr 的 LLVM 名称；对于其他变量，加载其值
+                // 对于 this 和 super，从作用域管理器获取 this 的 LLVM 名称；对于其他变量，加载其值
                 let obj_ptr = if let Expr::Identifier(name) = &*member.object {
-                    if name == "this" {
-                        // 从作用域管理器获取 this_ptr 的 LLVM 名称，然后加载其值
-                        let this_llvm_name = self.scope_manager.get_llvm_name("this_ptr")
-                            .unwrap_or_else(|| "this_ptr_s1".to_string());
+                    if name == "this" || name == "super" {
+                        // 从作用域管理器获取 this 的 LLVM 名称，然后加载其值
+                        // super 也使用 this 指针，只是访问的类不同
+                        let this_llvm_name = self.scope_manager.get_llvm_name("this")
+                            .unwrap_or_else(|| "this_s1".to_string());
                         let temp = self.new_temp();
                         self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
                             temp, this_llvm_name));
@@ -137,6 +145,19 @@ impl IRGenerator {
                     self.get_type_align(&field_info.llvm_type)));
                 
                 return Ok(format!("{} {}", field_info.llvm_type, field_val));
+            }
+        }
+        
+        // 特殊处理 super 标识符 - 返回 this 指针
+        if let Expr::Identifier(name) = &*member.object {
+            if name == "super" {
+                // super 访问使用 this 指针
+                if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this") {
+                    let temp = self.new_temp();
+                    self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
+                        temp, this_llvm_name));
+                    return Ok(format!("i8* {}", temp));
+                }
             }
         }
         

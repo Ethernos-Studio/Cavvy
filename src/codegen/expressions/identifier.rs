@@ -11,6 +11,19 @@ impl IRGenerator {
     /// # Arguments
     /// * `name` - 标识符名称
     pub fn generate_identifier(&mut self, name: &str) -> cayResult<String> {
+        // 特殊处理 super 标识符
+        if name == "super" {
+            // super 应该只用于 super.methodName() 调用
+            // 如果单独使用，返回 this 指针
+            if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this") {
+                let temp = self.new_temp();
+                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8",
+                    temp, this_llvm_name));
+                return Ok(format!("i8* {}", temp));
+            }
+            return Ok("i8* null".to_string());
+        }
+
         // 检查是否是类名（静态成员访问的上下文）
         if let Some(ref registry) = self.type_registry {
             if registry.class_exists(name) {
@@ -57,15 +70,15 @@ impl IRGenerator {
         if !self.current_class.is_empty() {
             if let Some(field_info) = self.get_instance_field(&self.current_class, name).cloned() {
                 // 获取 this 指针
-                let this_llvm_name = self.scope_manager.get_llvm_name("this_ptr")
-                    .unwrap_or_else(|| "this_ptr_s1".to_string());
+                let this_llvm_name = self.scope_manager.get_llvm_name("this")
+                    .unwrap_or_else(|| "this_s1".to_string());
                 let this_temp = self.new_temp();
-                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
+                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8",
                     this_temp, this_llvm_name));
-                
-                // 计算字段地址: this_ptr + offset
+
+                // 计算字段地址: this + offset
                 let field_ptr_i8 = self.new_temp();
-                self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}", 
+                self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}",
                     field_ptr_i8, this_temp, field_info.offset));
                 
                 // 将字段指针转换为正确类型的指针

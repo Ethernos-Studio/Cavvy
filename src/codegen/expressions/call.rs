@@ -75,22 +75,33 @@ impl IRGenerator {
                 match member.object.as_ref() {
                     Expr::Identifier(obj_name) => {
                         let obj_name_str = obj_name.as_ref();
-                        // 首先检查是否是已知的类名
-                        let class_name = if let Some(ref registry) = self.type_registry {
-                            if registry.class_exists(obj_name_str) {
-                                obj_name_str.to_string()
+                        // 特殊处理 super 标识符
+                        if obj_name_str == "super" {
+                            // super.methodName() 调用父类的方法
+                            let parent_class = self.get_parent_class(&self.current_class)
+                                .unwrap_or_else(|| self.current_class.clone());
+                            (parent_class, member.member.clone(), Some(member.object.clone()))
+                        } else if obj_name_str == "this" {
+                            // this.methodName() 调用当前类的方法
+                            (self.current_class.clone(), member.member.clone(), Some(member.object.clone()))
+                        } else {
+                            // 首先检查是否是已知的类名
+                            let class_name = if let Some(ref registry) = self.type_registry {
+                                if registry.class_exists(obj_name_str) {
+                                    obj_name_str.to_string()
+                                } else {
+                                    // 不是类名，尝试从变量映射获取
+                                    self.var_class_map.get(obj_name_str)
+                                        .cloned()
+                                        .unwrap_or_else(|| obj_name_str.to_string())
+                                }
                             } else {
-                                // 不是类名，尝试从变量映射获取
                                 self.var_class_map.get(obj_name_str)
                                     .cloned()
                                     .unwrap_or_else(|| obj_name_str.to_string())
-                            }
-                        } else {
-                            self.var_class_map.get(obj_name_str)
-                                .cloned()
-                                .unwrap_or_else(|| obj_name_str.to_string())
-                        };
-                        (class_name, member.member.clone(), Some(member.object.clone()))
+                            };
+                            (class_name, member.member.clone(), Some(member.object.clone()))
+                        }
                     }
                     _ => {
                         // object 不是标识符，可能是其他表达式
@@ -129,15 +140,35 @@ impl IRGenerator {
         
         if is_instance_method {
             // 获取 this 指针
-            if let Some(obj) = obj_expr {
-                // 通过对象表达式获取 this 指针（如 obj1.getId()）
-                let obj_result = self.generate_expression(&obj)?;
-                let (_, obj_val) = self.parse_typed_value(&obj_result);
-                final_args.push(format!("i8* {}", obj_val));
-            } else if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this_ptr") {
-                // 通过当前方法的 this_ptr 获取（如在实例方法中调用其他实例方法）
+            if let Some(obj) = &obj_expr {
+                // 检查是否是 super 标识符
+                if let Expr::Identifier(name) = obj.as_ref() {
+                    if name == "super" {
+                        // super.methodName() 使用 this 指针
+                        if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this") {
+                            let this_temp = self.new_temp();
+                            self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8",
+                                this_temp, this_llvm_name));
+                            final_args.push(format!("i8* {}", this_temp));
+                        } else {
+                            final_args.push("i8* null".to_string());
+                        }
+                    } else {
+                        // 通过对象表达式获取 this 指针（如 obj1.getId()）
+                        let obj_result = self.generate_expression(obj)?;
+                        let (_, obj_val) = self.parse_typed_value(&obj_result);
+                        final_args.push(format!("i8* {}", obj_val));
+                    }
+                } else {
+                    // 通过对象表达式获取 this 指针（如 obj1.getId()）
+                    let obj_result = self.generate_expression(obj)?;
+                    let (_, obj_val) = self.parse_typed_value(&obj_result);
+                    final_args.push(format!("i8* {}", obj_val));
+                }
+            } else if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this") {
+                // 通过当前方法的 this 获取（如在实例方法中调用其他实例方法）
                 let this_temp = self.new_temp();
-                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
+                self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8",
                     this_temp, this_llvm_name));
                 final_args.push(format!("i8* {}", this_temp));
             } else {
@@ -417,18 +448,29 @@ impl IRGenerator {
         false
     }
 
-    /// 检查方法是否是实例方法（非静态方法）
+    /// 检查方法是否是实例方法（非静态方法）- 支持继承
     fn is_instance_method(&self, class_name: &str, method_name: &str) -> bool {
-        // 查询类型注册表
+        // 查询类型注册表，支持继承查找
         if let Some(ref registry) = self.type_registry {
-            if let Some(class_info) = registry.get_class(class_name) {
-                if let Some(methods) = class_info.methods.get(method_name) {
-                    // 检查是否有任何方法是实例方法（非静态）
-                    for method in methods {
-                        if !method.is_static {
-                            return true;
+            let mut current_class_name = class_name.to_string();
+            loop {
+                if let Some(class_info) = registry.get_class(&current_class_name) {
+                    if let Some(methods) = class_info.methods.get(method_name) {
+                        // 检查是否有任何方法是实例方法（非静态）
+                        for method in methods {
+                            if !method.is_static {
+                                return true;
+                            }
                         }
                     }
+                    // 在当前类没找到，查找父类
+                    if let Some(ref parent_name) = class_info.parent {
+                        current_class_name = parent_name.clone();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
                 }
             }
         }
