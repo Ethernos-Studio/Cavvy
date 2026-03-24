@@ -247,13 +247,14 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
     // 获取系统包含路径
     let system_paths = get_system_include_paths();
     
-    // 使用带系统路径的预处理器
+    // 使用带系统路径的预处理器（带源映射）
     let base_dir_str = base_dir.to_str().unwrap_or(".");
-    let preprocessed = if system_paths.is_empty() {
-        cavvy::preprocessor::preprocess(&source, source_path, base_dir_str)
+    let preprocess_result = if system_paths.is_empty() {
+        let mut pp = cavvy::preprocessor::Preprocessor::new(base_dir_str);
+        pp.process_with_source_map(&source, source_path)
     } else {
         let mut pp = cavvy::preprocessor::Preprocessor::with_system_paths(base_dir_str, system_paths);
-        pp.process(&source, source_path)
+        pp.process_with_source_map(&source, source_path)
     }
     .map_err(|e| cayError::Preprocessor {
         file: Some(source_path.to_string()),
@@ -262,6 +263,15 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
         message: format!("预处理失败: {:?}", e),
         suggestion: "请检查预处理指令".to_string(),
     })?;
+
+    // 转换源映射为HashMap格式
+    let source_map: std::collections::HashMap<usize, (String, usize)> = preprocess_result
+        .source_map
+        .mappings
+        .iter()
+        .enumerate()
+        .map(|(idx, pos)| (idx + 1, (pos.file.clone(), pos.line)))
+        .collect();
 
     // 编译
     let compiler_options = cavvy::CompilerOptions {
@@ -277,7 +287,7 @@ fn compile_cay_to_ir(source_path: &str, options: &RunOptions) -> Result<String, 
 
     // 使用临时文件
     let temp_ir_file = generate_unique_filename("cay", "ll");
-    compiler.compile(&preprocessed, temp_ir_file.to_str().unwrap())?;
+    compiler.compile_with_source_map(&preprocess_result.code, source_map, temp_ir_file.to_str().unwrap())?;
 
     let ir = fs::read_to_string(&temp_ir_file)
         .map_err(|e| cayError::Io(format!("读取IR文件失败: {}", e)))?;
@@ -317,8 +327,7 @@ fn compile_cay_to_bytecode(source_path: &str, options: &RunOptions) -> Result<ca
         env::consts::OS.to_string(),
     );
 
-    // 这里简化处理，实际应该完整实现从AST到字节码的转换
-    // 为了演示，我们创建一个简单的字节码模块
+    // TODO: 实现完全完整的字节码模块生成逻辑
 
     if options.obfuscate {
         let obf_options = match options.obfuscate_level.as_str() {

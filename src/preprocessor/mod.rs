@@ -418,7 +418,7 @@ impl Preprocessor {
                 Ok(DirectiveResult::Single(None))
             }
             Directive::If(expr) => {
-                // 简化实现：暂时只支持简单的数字比较
+                // TODO: 实现完整的条件表达式评估
                 let condition = self.evaluate_condition(&expr);
                 self.push_conditional(condition);
                 Ok(DirectiveResult::Single(None))
@@ -461,7 +461,7 @@ impl Preprocessor {
         }
     }
 
-    /// 评估条件表达式（简化实现）
+    /// 评估条件表达式 （TODO: 实现完整的条件表达式评估）
     fn evaluate_condition(&self, expr: &str) -> bool {
         let trimmed = expr.trim();
         
