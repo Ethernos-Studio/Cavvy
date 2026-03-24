@@ -1,0 +1,10 @@
+#define FOO
+
+public class TestSourceMap {
+    public static void main() {
+        println("Line 6");
+    }
+    
+    public abstract int method1();
+    public abstract double method2();
+}

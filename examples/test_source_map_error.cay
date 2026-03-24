@@ -1,0 +1,8 @@
+public class TestSourceMapError {
+    public static void main() {
+        println("Line 4");
+        println("Line 5");
+        println("Line 6"
+        println("Line 7");
+    }
+}

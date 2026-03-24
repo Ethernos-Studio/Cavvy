@@ -1,0 +1,19 @@
+// 简单预处理器测试
+#define DEBUG_MODE
+#define VERSION 1
+
+#ifdef DEBUG_MODE
+#define LOG_PREFIX "[DEBUG] "
+#else
+#define LOG_PREFIX ""
+#endif
+
+public class TestPreprocess {
+    public static void main() {
+        println("Testing preprocessor");
+        #ifdef DEBUG_MODE
+        println("Debug is enabled");
+        #endif
+        println("Done");
+    }
+}

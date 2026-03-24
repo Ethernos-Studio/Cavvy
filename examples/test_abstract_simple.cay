@@ -1,0 +1,4 @@
+public class TestAbstract {
+    public abstract int method1();
+    public abstract double method2();
+}

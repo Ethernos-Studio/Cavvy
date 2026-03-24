@@ -1,0 +1,57 @@
+// 测试带标签的 break/continue 语句
+
+public class TestLabeledBreakContinue {
+    public static void main(String[] args) {
+        // 测试带标签的 break
+        println("Test 1: Labeled break");
+        outer1: for (int i = 0; i < 3; i = i + 1) {
+            for (int j = 0; j < 3; j = j + 1) {
+                if (i == 1 && j == 1) {
+                    break outer1;  // 跳出外层循环
+                }
+                println("i=" + i + ", j=" + j);
+            }
+        }
+        println("After outer1");
+        
+        // 测试带标签的 continue
+        println("\nTest 2: Labeled continue");
+        outer2: for (int i = 0; i < 3; i = i + 1) {
+            for (int j = 0; j < 3; j = j + 1) {
+                if (j == 1) {
+                    continue outer2;  // 跳到外层循环的下一次迭代
+                }
+                println("i=" + i + ", j=" + j);
+            }
+        }
+        println("After outer2");
+        
+        // 测试不带标签的 break（正常行为）
+        println("\nTest 3: Unlabeled break");
+        for (int i = 0; i < 5; i = i + 1) {
+            if (i == 3) {
+                break;  // 只跳出内层循环
+            }
+            println("i=" + i);
+        }
+        println("After test 3");
+        
+        // 测试 while 循环中的带标签 break
+        println("\nTest 4: Labeled break in while");
+        int x = 0;
+        outer3: while (x < 5) {
+            int y = 0;
+            while (y < 5) {
+                if (x == 2 && y == 1) {
+                    break outer3;
+                }
+                y = y + 1;
+            }
+            x = x + 1;
+        }
+        println("x=" + x);
+        println("After outer3");
+        
+        println("\nAll tests passed!");
+    }
+}

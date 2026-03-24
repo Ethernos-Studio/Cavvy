@@ -1,0 +1,7 @@
+public abstract class TestAbstract {
+    public abstract int method1();
+    public abstract double method2();
+    public void normalMethod() {
+        println("normal");
+    }
+}

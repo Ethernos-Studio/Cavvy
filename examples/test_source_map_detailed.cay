@@ -1,0 +1,19 @@
+public class TestSourceMapDetailed {
+    public static void main() {
+        println("Line 4");
+        println("Line 5");
+        println("Line 6");
+        println("Line 7");
+        println("Line 8");
+        println("Line 9");
+        println("Line 10");
+        println("Line 11");
+        println("Line 12");
+        println("Line 13");
+        println("Line 14");
+        println("Line 15");
+        outer: for (int i = 0; i < 3; i = i + 1) {
+            println(i);
+        }
+    }
+}

@@ -1,0 +1,18 @@
+// 测试 protected 实例字段
+public class TestClass {
+    protected int value;
+    
+    public TestClass(int v) {
+        this.value = v;
+    }
+    
+    public int getValue() {
+        return this.value;
+    }
+}
+
+public int main() {
+    TestClass obj = new TestClass(42);
+    println(obj.getValue());
+    return 0;
+}

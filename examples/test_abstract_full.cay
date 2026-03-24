@@ -1,0 +1,51 @@
+#define DEBUG_MODE
+#define VERSION 1
+#define MAX_SIZE 100
+
+#ifdef DEBUG_MODE
+#define LOG_PREFIX "[DEBUG] "
+#else
+#define LOG_PREFIX ""
+#endif
+
+public interface Printable {
+    void printInfo();
+}
+
+public abstract class Shape implements Printable {
+    protected String name;
+    
+    public Shape(String n) {
+        this.name = n;
+    }
+    
+    public abstract int getArea();
+    public abstract double getPerimeter();
+    
+    public void printName() {
+        println(this.name);
+    }
+}
+
+public class Circle extends Shape {
+    private int radius;
+    
+    public Circle(String n, int r) : super(n) {
+        this.radius = r;
+    }
+    
+    public int getArea() {
+        return 3 * this.radius * this.radius;
+    }
+    
+    public double getPerimeter() {
+        return 6.28 * this.radius;
+    }
+}
+
+public int main() {
+    Circle c = new Circle("MyCircle", 5);
+    c.printName();
+    println(c.getArea());
+    return 0;
+}

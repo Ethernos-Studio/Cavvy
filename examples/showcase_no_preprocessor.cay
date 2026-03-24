@@ -1,0 +1,473 @@
+public interface Printable {
+    void printInfo();
+}
+
+public interface Calculable {
+    int calculate();
+    double calculateDouble();
+}
+
+public abstract class Shape implements Printable {
+    protected String name;
+    protected int x;
+    protected int y;
+    
+    public Shape(String name, int x, int y) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+    }
+    
+    public abstract int getArea();
+    public abstract double getPerimeter();
+    
+    public void move(int dx, int dy) {
+        this.x = this.x + dx;
+        this.y = this.y + dy;
+    }
+    
+    public void printInfo() {
+        print("Shape: ");
+        println(this.name);
+        print("Position: (");
+        print(this.x);
+        print(", ");
+        print(this.y);
+        println(")");
+    }
+}
+
+public class Rectangle extends Shape implements Calculable {
+    private int width;
+    private int height;
+    
+    public Rectangle(int x, int y, int w, int h) : super("Rectangle", x, y) {
+        this.width = w;
+        this.height = h;
+    }
+    
+    public int getArea() {
+        return this.width * this.height;
+    }
+    
+    public double getPerimeter() {
+        return 2.0 * (this.width + this.height);
+    }
+    
+    public int calculate() {
+        return this.getArea();
+    }
+    
+    public double calculateDouble() {
+        return this.getPerimeter();
+    }
+    
+    public void printInfo() {
+        super.printInfo();
+        print("Width: ");
+        println(this.width);
+        print("Height: ");
+        println(this.height);
+        print("Area: ");
+        println(this.getArea());
+    }
+}
+
+public class Circle extends Shape {
+    private double radius;
+    public static final double PI = 3.14159265359;
+    
+    public Circle(int x, int y, double r) : super("Circle", x, y) {
+        this.radius = r;
+    }
+    
+    public int getArea() {
+        return (int)(PI * this.radius * this.radius);
+    }
+    
+    public double getPerimeter() {
+        return 2.0 * PI * this.radius;
+    }
+    
+    public void printInfo() {
+        super.printInfo();
+        print("Radius: ");
+        println((int)this.radius);
+        print("Area: ");
+        println(this.getArea());
+    }
+}
+
+public final class Constants {
+    public static final int MAX_VALUE = 1000000;
+    public static final String APP_NAME = "Cavvy Showcase";
+    
+    public final void showInfo() {
+        print("MAX_VALUE: ");
+        println(MAX_VALUE);
+    }
+}
+
+public class Utils {
+    public static void print() {
+        println("No arguments provided");
+    }
+    
+    public static void print(int x) {
+        print("Integer: ");
+        println(x);
+    }
+    
+    public static void print(double x) {
+        print("Double: ");
+        println(x);
+    }
+    
+    public static void print(String s) {
+        print("String: ");
+        println(s);
+    }
+    
+    public static void print(int x, int y) {
+        print("Two integers: ");
+        print(x);
+        print(", ");
+        println(y);
+    }
+    
+    public static int sum(int... numbers) {
+        int total = 0;
+        for (int i = 0; i < numbers.length; i = i + 1) {
+            total = total + numbers[i];
+        }
+        return total;
+    }
+    
+    public static int multiplyAndAdd(int multiplier, int... numbers) {
+        int s = Utils.sum(numbers);
+        return multiplier * s;
+    }
+}
+
+public class ArrayOps {
+    public static void printArray(int[] arr) {
+        print("[");
+        for (int i = 0; i < arr.length; i = i + 1) {
+            print(arr[i]);
+            if (i < arr.length - 1) {
+                print(", ");
+            }
+        }
+        println("]");
+    }
+    
+    public static void printMatrix(int[][] matrix) {
+        for (int i = 0; i < matrix.length; i = i + 1) {
+            for (int j = 0; j < matrix[i].length; j = j + 1) {
+                print(matrix[i][j]);
+                print(" ");
+            }
+            println("");
+        }
+    }
+}
+
+public class StringDemo {
+    public static void demonstrate() {
+        println("\n=== String Operations ===");
+        
+        String str = "Hello, Cavvy World!";
+        println("Original: " + str);
+        
+        print("Length: ");
+        println(str.length());
+        
+        String sub1 = str.substring(7);
+        println("substring(7): " + sub1);
+        
+        String sub2 = str.substring(0, 5);
+        println("substring(0, 5): " + sub2);
+        
+        int idx = str.indexOf("Cavvy");
+        print("indexOf 'Cavvy': ");
+        println(idx);
+        
+        String replaced = str.replace("World", "Language");
+        println("replace: " + replaced);
+        
+        char c = str.charAt(7);
+        print("charAt(7): ");
+        println(c);
+    }
+}
+
+public class LiteralsDemo {
+    public static void demonstrate() {
+        println("\n=== Enhanced Literals ===");
+        
+        int hex = 0xFF;
+        print("0xFF = ");
+        println(hex);
+        
+        int binary = 0b1010;
+        print("0b1010 = ");
+        println(binary);
+        
+        int octal = 0o77;
+        print("0o77 = ");
+        println(octal);
+        
+        int large = 1_000_000;
+        print("1_000_000 = ");
+        println(large);
+        
+        long big = 1_000_000_000L;
+        print("1_000_000_000L = ");
+        println((int)big);
+        
+        float f = 3.14159f;
+        double d = 2.718281828459045;
+        print("Float pi: ");
+        println(f);
+        print("Double e: ");
+        println(d);
+    }
+}
+
+public class ControlFlowDemo {
+    public static void demonstrate() {
+        println("\n=== Control Flow ===");
+        
+        int score = 85;
+        print("Score: ");
+        println(score);
+        
+        if (score >= 90) {
+            println("Grade: A");
+        } else if (score >= 80) {
+            println("Grade: B");
+        } else if (score >= 70) {
+            println("Grade: C");
+        } else {
+            println("Grade: D");
+        }
+        
+        int day = 3;
+        print("Day ");
+        print(day);
+        print(": ");
+        
+        switch (day) {
+            case 1:
+                println("Monday");
+                break;
+            case 2:
+                println("Tuesday");
+                break;
+            case 3:
+                println("Wednesday");
+                break;
+            case 4:
+                println("Thursday");
+                break;
+            case 5:
+                println("Friday");
+                break;
+            default:
+                println("Weekend");
+                break;
+        }
+        
+        print("For loop: ");
+        for (int i = 0; i < 5; i = i + 1) {
+            print(i);
+            if (i < 4) {
+                print(" ");
+            }
+        }
+        println("");
+        
+        print("While loop: ");
+        int j = 0;
+        while (j < 5) {
+            print(j);
+            if (j < 4) {
+                print(" ");
+            }
+            j = j + 1;
+        }
+        println("");
+        
+        print("Do-while loop: ");
+        int k = 0;
+        do {
+            print(k);
+            if (k < 4) {
+                print(" ");
+            }
+            k = k + 1;
+        } while (k < 5);
+        println("");
+        
+        print("Odd numbers < 10: ");
+        for (int n = 0; n < 20; n = n + 1) {
+            if (n >= 10) {
+                break;
+            }
+            if (n % 2 == 0) {
+                continue;
+            }
+            print(n);
+            print(" ");
+        }
+        println("");
+    }
+}
+
+public class TypeCastDemo {
+    public static void demonstrate() {
+        println("\n=== Type Casting ===");
+        
+        int i = 65;
+        char c = (char)i;
+        long l = (long)i;
+        float f = (float)i;
+        double d = (double)i;
+        
+        print("int 65 to char: ");
+        println(c);
+        print("int 65 to long: ");
+        println((int)l);
+        print("int 65 to float: ");
+        println(f);
+        print("int 65 to double: ");
+        println(d);
+        
+        double pi = 3.14159;
+        int truncated = (int)pi;
+        print("double 3.14159 to int: ");
+        println(truncated);
+    }
+}
+
+public class ModernSyntaxDemo {
+    public static void demonstrate() {
+        println("\n=== Modern Syntax (var/let/auto) ===");
+        
+        var count: int = 42;
+        print("var count: int = ");
+        println(count);
+        
+        let name: String = "Cavvy";
+        print("let name: String = ");
+        println(name);
+        
+        auto inferredInt = 100;
+        auto inferredDouble = 3.14;
+        auto inferredString = "Inferred";
+        auto inferredBool = true;
+        
+        print("auto inferredInt = ");
+        println(inferredInt);
+        print("auto inferredDouble = ");
+        println(inferredDouble);
+        print("auto inferredString = ");
+        println(inferredString);
+        print("auto inferredBool = ");
+        println(inferredBool);
+    }
+}
+
+public int main() {
+    println("==============================================================");
+    println("         Cavvy Programming Language Showcase                  ");
+    println("              Version 0.5.0.x Features Demo                   ");
+    println("==============================================================");
+    
+    println("Debug mode is enabled");
+    
+    LiteralsDemo.demonstrate();
+    
+    ModernSyntaxDemo.demonstrate();
+    
+    TypeCastDemo.demonstrate();
+    
+    ControlFlowDemo.demonstrate();
+    
+    StringDemo.demonstrate();
+    
+    println("\n=== Method Overloading ===");
+    Utils.print();
+    Utils.print(42);
+    Utils.print(3.14159);
+    Utils.print("Hello Cavvy!");
+    Utils.print(10, 20);
+    
+    println("\n=== Varargs ===");
+    int sum1 = Utils.sum(1, 2, 3, 4, 5);
+    print("sum(1, 2, 3, 4, 5) = ");
+    println(sum1);
+    
+    int sum2 = Utils.sum(10, 20);
+    print("sum(10, 20) = ");
+    println(sum2);
+    
+    int result = Utils.multiplyAndAdd(2, 1, 2, 3, 4);
+    print("multiplyAndAdd(2, 1, 2, 3, 4) = ");
+    println(result);
+    
+    println("\n=== Array Operations ===");
+    int[] arr = {5, 2, 8, 1, 9};
+    print("Array: ");
+    ArrayOps.printArray(arr);
+    
+    int[][] matrix = {
+        {1, 2, 3},
+        {4, 5, 6},
+        {7, 8, 9}
+    };
+    println("Matrix:");
+    ArrayOps.printMatrix(matrix);
+    print("Matrix dimensions: ");
+    print(matrix.length);
+    print("x");
+    println(matrix[0].length);
+    
+    println("\n=== Object-Oriented Features ===");
+    
+    Rectangle rect = new Rectangle(10, 20, 30, 40);
+    println("--- Rectangle ---");
+    rect.printInfo();
+    
+    Circle circle = new Circle(5, 5, 10.0);
+    println("\n--- Circle ---");
+    circle.printInfo();
+    
+    println("\n=== instanceof Operator ===");
+    Shape shape1 = rect;
+    Shape shape2 = circle;
+    
+    if (shape1 instanceof Rectangle) {
+        println("shape1 is a Rectangle");
+    }
+    if (shape2 instanceof Circle) {
+        println("shape2 is a Circle");
+    }
+    if (shape1 instanceof Shape) {
+        println("shape1 is a Shape");
+    }
+    
+    println("\n=== Final Class & Static Members ===");
+    Constants consts = new Constants();
+    consts.showInfo();
+    print("APP_NAME: ");
+    println(Constants.APP_NAME);
+    
+    println("Showcase program completed successfully");
+    
+    println("\n==============================================================");
+    println("              All Features Demonstrated!                      ");
+    println("==============================================================");
+    
+    return 0;
+}

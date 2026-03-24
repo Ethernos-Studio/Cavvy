@@ -1,0 +1,34 @@
+// 测试构造函数和抽象方法
+public abstract class Shape {
+    protected String name;
+    
+    public Shape(String n) {
+        this.name = n;
+    }
+    
+    public abstract int getArea();
+    
+    public void printName() {
+        println(this.name);
+    }
+}
+
+public class Circle extends Shape {
+    private int radius;
+    
+    public Circle(String n, int r) {
+        super(n);
+        this.radius = r;
+    }
+    
+    public int getArea() {
+        return 3 * this.radius * this.radius;
+    }
+}
+
+public int main() {
+    Circle c = new Circle("MyCircle", 5);
+    c.printName();
+    println(c.getArea());
+    return 0;
+}

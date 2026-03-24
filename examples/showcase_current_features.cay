@@ -1,0 +1,595 @@
+/*
+ * Cavvy 语言当前版本最强功能展示程序
+ * 版本: 0.5.0.x
+ */
+
+// ==================== 预处理器指令展示 ====================
+
+#define DEBUG_MODE
+#define VERSION 1
+#define MAX_SIZE 100
+
+#ifdef DEBUG_MODE
+#define LOG_PREFIX "[DEBUG] "
+#else
+#define LOG_PREFIX ""
+#endif
+
+// ==================== 接口定义 ====================
+
+public interface Printable {
+    void printInfo();
+}
+
+public interface Calculable {
+    int calculate();
+    double calculateDouble();
+}
+
+// ==================== 抽象类 ====================
+
+public class Shape implements Printable {
+    protected static String name;
+    protected static int x;
+    protected static int y;
+    
+    public static void setName(String n) {
+        name = n;
+    }
+    
+    public static void setPosition(int newX, int newY) {
+        x = newX;
+        y = newY;
+    }
+    
+    public int getArea() {
+        return 0;
+    }
+    
+    public double getPerimeter() {
+        return 0.0;
+    }
+    
+    public void move(int dx, int dy) {
+        x = x + dx;
+        y = y + dy;
+    }
+    
+    public void printInfo() {
+        print("Shape: ");
+        println(name);
+        print("Position: (");
+        print(x);
+        print(", ");
+        print(y);
+        println(")");
+    }
+}
+
+// ==================== 具体类：矩形 ====================
+
+public class Rectangle extends Shape implements Calculable {
+    private static int width;
+    private static int height;
+    
+    public static void init(int newX, int newY, int w, int h) {
+        setPosition(newX, newY);
+        setName("Rectangle");
+        width = w;
+        height = h;
+    }
+    
+    public int getArea() {
+        return width * height;
+    }
+    
+    public double getPerimeter() {
+        return 2.0 * (width + height);
+    }
+    
+    public int calculate() {
+        return getArea();
+    }
+    
+    public double calculateDouble() {
+        return getPerimeter();
+    }
+    
+    public void printInfo() {
+        print("Width: ");
+        println(width);
+        print("Height: ");
+        println(height);
+        print("Area: ");
+        println(getArea());
+    }
+}
+
+// ==================== 具体类：圆形 ====================
+
+public class Circle extends Shape {
+    private static double radius;
+    private static final double PI = 3.14159265359;
+    
+    public static void init(int newX, int newY, double r) {
+        setPosition(newX, newY);
+        setName("Circle");
+        radius = r;
+    }
+    
+    public int getArea() {
+        return (int)(PI * radius * radius);
+    }
+    
+    public double getPerimeter() {
+        return 2.0 * PI * radius;
+    }
+    
+    public void printInfo() {
+        print("Radius: ");
+        println((int)radius);
+        print("Area: ");
+        println(getArea());
+    }
+}
+
+// ==================== final 类示例 ====================
+
+public final class Constants {
+    public static final int MAX_VALUE = 1_000_000;
+    public static final String APP_NAME = "Cavvy Showcase";
+    
+    // 静态初始化块
+    static {
+        println("Constants class initialized!");
+    }
+    
+    // final 方法
+    public final void showInfo() {
+        print("MAX_VALUE: ");
+        println(MAX_VALUE);
+    }
+}
+
+// ==================== 工具类：方法重载和可变参数 ====================
+
+public class Utils {
+    // 方法重载：无参数
+    public static void print() {
+        println("No arguments provided");
+    }
+    
+    // 方法重载：int
+    public static void print(int x) {
+        print("Integer: ");
+        println(x);
+    }
+    
+    // 方法重载：double
+    public static void print(double x) {
+        print("Double: ");
+        println(x);
+    }
+    
+    // 方法重载：String
+    public static void print(String s) {
+        print("String: ");
+        println(s);
+    }
+    
+    // 方法重载：多个参数
+    public static void print(int x, int y) {
+        print("Two integers: ");
+        print(x);
+        print(", ");
+        println(y);
+    }
+    
+    // 可变参数
+    public static int sum(int... numbers) {
+        int total = 0;
+        for (int i = 0; i < numbers.length; i = i + 1) {
+            total = total + numbers[i];
+        }
+        return total;
+    }
+    
+    // 可变参数 + 普通参数
+    public static int multiplyAndAdd(int multiplier, int... numbers) {
+        int sum = Utils.sum(numbers);
+        return multiplier * sum;
+    }
+}
+
+// ==================== 数组操作类 ====================
+
+public class ArrayOps {
+    // 打印一维数组
+    public static void printArray(int[] arr) {
+        print("[");
+        for (int i = 0; i < arr.length; i = i + 1) {
+            print(arr[i]);
+            if (i < arr.length - 1) {
+                print(", ");
+            }
+        }
+        println("]");
+    }
+    
+    // 打印二维数组
+    public static void printMatrix(int[][] matrix) {
+        for (int i = 0; i < matrix.length; i = i + 1) {
+            for (int j = 0; j < matrix[i].length; j = j + 1) {
+                print(matrix[i][j]);
+                print(" ");
+            }
+            println("");
+        }
+    }
+}
+
+// ==================== 字符串操作展示 ====================
+
+public class StringDemo {
+    public static void demonstrate() {
+        println("");
+        println("=== String Operations ===");
+        
+        String str = "Hello, Cavvy World!";
+        println("Original: " + str);
+        
+        // length()
+        print("Length: ");
+        println(str.length());
+        
+        // substring
+        String sub1 = str.substring(7);
+        println("substring(7): " + sub1);
+        
+        String sub2 = str.substring(0, 5);
+        println("substring(0, 5): " + sub2);
+        
+        // indexOf
+        int idx = str.indexOf("Cavvy");
+        print("indexOf 'Cavvy': ");
+        println(idx);
+        
+        // replace
+        String replaced = str.replace("World", "Language");
+        println("replace: " + replaced);
+        
+        // charAt
+        char c = str.charAt(7);
+        print("charAt(7): ");
+        println(c);
+    }
+}
+
+// ==================== 字面量展示 ====================
+
+public class LiteralsDemo {
+    public static void demonstrate() {
+        println("");
+        println("=== Enhanced Literals ===");
+        
+        // 十六进制
+        int hex = 0xFF;
+        print("0xFF = ");
+        println(hex);
+        
+        // 二进制
+        int binary = 0b1010;
+        print("0b1010 = ");
+        println(binary);
+        
+        // 八进制
+        int octal = 0o77;
+        print("0o77 = ");
+        println(octal);
+        
+        // 下划线分隔符
+        int large = 1_000_000;
+        print("1_000_000 = ");
+        println(large);
+        
+        // 长整型
+        long big = 1_000_000_000L;
+        print("1_000_000_000L = ");
+        println((int)big);
+        
+        // 浮点数
+        float f = 3.14159f;
+        double d = 2.718281828459045;
+        print("Float pi: ");
+        println(f);
+        print("Double e: ");
+        println(d);
+    }
+}
+
+// ==================== 控制流展示 ====================
+
+public class ControlFlowDemo {
+    public static void demonstrate() {
+        println("");
+        println("=== Control Flow ===");
+        
+        // if-else if-else
+        int score = 85;
+        print("Score: ");
+        println(score);
+        
+        if (score >= 90) {
+            println("Grade: A");
+        } else if (score >= 80) {
+            println("Grade: B");
+        } else if (score >= 70) {
+            println("Grade: C");
+        } else {
+            println("Grade: D");
+        }
+        
+        // switch
+        int day = 3;
+        print("Day ");
+        print(day);
+        print(": ");
+        
+        switch (day) {
+            case 1:
+                println("Monday");
+                break;
+            case 2:
+                println("Tuesday");
+                break;
+            case 3:
+                println("Wednesday");
+                break;
+            case 4:
+                println("Thursday");
+                break;
+            case 5:
+                println("Friday");
+                break;
+            default:
+                println("Weekend");
+                break;
+        }
+        
+        // for 循环
+        print("For loop: ");
+        for (int i = 0; i < 5; i = i + 1) {
+            print(i);
+            if (i < 4) {
+                print(" ");
+            }
+        }
+        println("");
+        
+        // while 循环
+        print("While loop: ");
+        int j = 0;
+        while (j < 5) {
+            print(j);
+            if (j < 4) {
+                print(" ");
+            }
+            j = j + 1;
+        }
+        println("");
+        
+        // do-while 循环
+        print("Do-while loop: ");
+        int k = 0;
+        do {
+            print(k);
+            if (k < 4) {
+                print(" ");
+            }
+            k = k + 1;
+        } while (k < 5);
+        println("");
+        
+        // break 和 continue
+        print("Odd numbers < 10: ");
+        for (int n = 0; n < 20; n = n + 1) {
+            if (n >= 10) {
+                break;
+            }
+            if (n % 2 == 0) {
+                continue;
+            }
+            print(n);
+            print(" ");
+        }
+        println("");
+    }
+}
+
+// ==================== 类型转换展示 ====================
+
+public class TypeCastDemo {
+    public static void demonstrate() {
+        println("");
+        println("=== Type Casting ===");
+        
+        // int 转其他类型
+        int i = 65;
+        char c = (char)i;
+        long l = (long)i;
+        float f = (float)i;
+        double d = (double)i;
+        
+        print("int 65 to char: ");
+        println(c);
+        print("int 65 to long: ");
+        println((int)l);
+        print("int 65 to float: ");
+        println(f);
+        print("int 65 to double: ");
+        println(d);
+        
+        // double 转 int
+        double pi = 3.14159;
+        int truncated = (int)pi;
+        print("double 3.14159 to int: ");
+        println(truncated);
+    }
+}
+
+// ==================== var/let/auto 展示 ====================
+
+public class ModernSyntaxDemo {
+    public static void demonstrate() {
+        println("");
+        println("=== Modern Syntax (var/let/auto) ===");
+        
+        // var 后置类型声明
+        var count: int = 42;
+        print("var count: int = ");
+        println(count);
+        
+        // let 后置类型声明
+        let name: String = "Cavvy";
+        print("let name: String = ");
+        println(name);
+        
+        // auto 类型推断
+        auto inferredInt = 100;
+        auto inferredDouble = 3.14;
+        auto inferredString = "Inferred";
+        auto inferredBool = true;
+        
+        print("auto inferredInt = ");
+        println(inferredInt);
+        print("auto inferredDouble = ");
+        println(inferredDouble);
+        print("auto inferredString = ");
+        println(inferredString);
+        print("auto inferredBool = ");
+        println(inferredBool);
+    }
+}
+
+// ==================== 主程序入口 ====================
+
+public int main() {
+    println("==============================================================");
+    println("         Cavvy Programming Language Showcase                  ");
+    println("              Version 0.5.0.x Features Demo                   ");
+    println("==============================================================");
+    
+    // 预处理器日志
+    #ifdef DEBUG_MODE
+    println("Debug mode is enabled");
+    #endif
+    
+    // 字面量展示
+    LiteralsDemo.demonstrate();
+    
+    // 现代语法展示
+    ModernSyntaxDemo.demonstrate();
+    
+    // 类型转换展示
+    TypeCastDemo.demonstrate();
+    
+    // 控制流展示
+    ControlFlowDemo.demonstrate();
+    
+    // 字符串操作展示
+    StringDemo.demonstrate();
+    
+    // 方法重载展示
+    println("");
+    println("=== Method Overloading ===");
+    Utils.print();
+    Utils.print(42);
+    Utils.print(3.14159);
+    Utils.print("Hello Cavvy!");
+    Utils.print(10, 20);
+    
+    // 可变参数展示
+    println("");
+    println("=== Varargs ===");
+    int sum1 = Utils.sum(1, 2, 3, 4, 5);
+    print("sum(1, 2, 3, 4, 5) = ");
+    println(sum1);
+    
+    int sum2 = Utils.sum(10, 20);
+    print("sum(10, 20) = ");
+    println(sum2);
+    
+    int result = Utils.multiplyAndAdd(2, 1, 2, 3, 4);
+    print("multiplyAndAdd(2, 1, 2, 3, 4) = ");
+    println(result);
+    
+    // 数组操作展示
+    println("");
+    println("=== Array Operations ===");
+    int[] arr = {5, 2, 8, 1, 9};
+    print("Array: ");
+    ArrayOps.printArray(arr);
+    
+    // 二维数组
+    int[][] matrix = {
+        {1, 2, 3},
+        {4, 5, 6},
+        {7, 8, 9}
+    };
+    println("Matrix:");
+    ArrayOps.printMatrix(matrix);
+    print("Matrix dimensions: ");
+    print(matrix.length);
+    print("x");
+    println(matrix[0].length);
+    
+    // 面向对象展示
+    println("");
+    println("=== Object-Oriented Features ===");
+    
+    // 创建矩形对象
+    Rectangle.init(10, 20, 30, 40);
+    Rectangle rect = new Rectangle();
+    println("--- Rectangle ---");
+    rect.printInfo();
+    
+    // 创建圆形对象
+    Circle.init(5, 5, 10.0);
+    Circle circle = new Circle();
+    println("");
+    println("--- Circle ---");
+    circle.printInfo();
+    
+    // instanceof 测试
+    println("");
+    println("=== instanceof Operator ===");
+    Shape shape1 = rect;
+    Shape shape2 = circle;
+    
+    if (shape1 instanceof Rectangle) {
+        println("shape1 is a Rectangle");
+    }
+    if (shape2 instanceof Circle) {
+        println("shape2 is a Circle");
+    }
+    if (shape1 instanceof Shape) {
+        println("shape1 is a Shape");
+    }
+    
+    // final 类和静态成员展示
+    println("");
+    println("=== Final Class & Static Members ===");
+    Constants consts = new Constants();
+    consts.showInfo();
+    print("APP_NAME: ");
+    println(Constants.APP_NAME);
+    
+    println("Showcase program completed successfully");
+    
+    println("");
+    println("==============================================================");
+    println("              All Features Demonstrated!                      ");
+    println("==============================================================");
+    
+    return 0;
+}

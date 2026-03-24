@@ -1,0 +1,70 @@
+/*
+ * Cavvy 语言当前版本最强功能展示程序
+ * 版本: 0.5.0.x
+ * 
+ * 本程序展示 Cavvy 目前支持的所有核心功能：
+ * 1. 预处理器指令 (#define, #ifdef, #ifndef, #if, #elif, #else, #endif)
+ * 2. 多种数据类型 (int, long, float, double, char, boolean, String)
+ * 3. 字面量增强 (0x十六进制, 0b二进制, 0o八进制, 下划线分隔符)
+ * 4. 类型转换 (显式转换)
+ * 5. 控制流 (if/else, for, while, do-while, switch, break/continue)
+ * 6. 数组 (一维、多维、初始化、length属性)
+ * 7. 字符串增强 (length, substring, indexOf, replace, charAt)
+ * 8. 方法重载 (同名不同参数)
+ * 9. 可变参数 (...)
+ * 10. 面向对象 (类、继承、抽象类、接口、多态、方法重写)
+ * 11. 访问控制 (public/private/protected)
+ * 12. final 类和 final 方法
+ * 13. 静态成员和静态初始化块
+ * 14. var/let 后置类型声明
+ * 15. auto 自动类型推断
+ * 16. 顶层 main 函数
+ * 17. @main 注解
+ * 18. instanceof 运算符
+ * 19. FFI 外部函数声明 (extern)
+ * 20. 内存分配器 (GlobalAlloc, Arena)
+ */
+
+// ==================== 预处理器指令展示 ====================
+
+#define DEBUG_MODE
+#define VERSION 1
+#define MAX_SIZE 100
+
+#ifdef DEBUG_MODE
+#define LOG_PREFIX "[DEBUG] "
+#else
+#define LOG_PREFIX ""
+#endif
+
+// ==================== 接口定义 ====================
+
+public interface Printable {
+    void printInfo();
+}
+
+public interface Calculable {
+    int calculate();
+    double calculateDouble();
+}
+
+// ==================== 抽象类 ====================
+
+public abstract class Shape implements Printable {
+    protected String name;
+    protected int x;
+    protected int y;
+    
+    public Shape(String name, int x, int y) {
+        this.name = name;
+        this.x = x;
+        this.y = y;
+    }
+    
+    public abstract int getArea();
+    public abstract double getPerimeter();
+    
+    public void move(int dx, int dy) {
+        this.x = this.x + dx;
+        this.y = this.y + dy;
+    }
