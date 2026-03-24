@@ -99,15 +99,43 @@ impl IRGenerator {
             }
         }
 
-        // 首先计算所有类的实例布局
-        for class in &program.classes {
+        // 首先计算所有类的实例布局（按继承顺序：父类先于子类）
+        // 使用拓扑排序确保父类先于子类计算
+        let mut computed = std::collections::HashSet::new();
+        let classes: std::collections::HashMap<String, &crate::ast::ClassDecl> = program.classes.iter()
+            .map(|c| (c.name.clone(), c))
+            .collect();
+        
+        fn compute_layout_recursive<'a>(
+            class: &'a crate::ast::ClassDecl,
+            classes: &std::collections::HashMap<String, &'a crate::ast::ClassDecl>,
+            computed: &mut std::collections::HashSet<String>,
+            generator: &mut IRGenerator
+        ) {
+            if computed.contains(&class.name) {
+                return;
+            }
+            
+            // 先计算父类
+            if let Some(ref parent_name) = class.parent {
+                if let Some(parent_class) = classes.get(parent_name) {
+                    compute_layout_recursive(parent_class, classes, computed, generator);
+                }
+            }
+            
+            // 计算当前类
             let instance_fields: Vec<_> = class.members.iter()
                 .filter_map(|m| match m {
                     ClassMember::Field(f) => Some(f.clone()),
                     _ => None,
                 })
                 .collect();
-            self.compute_class_layout(&class.name, &instance_fields);
+            generator.compute_class_layout(&class.name, &instance_fields, class.parent.as_deref());
+            computed.insert(class.name.clone());
+        }
+        
+        for class in &program.classes {
+            compute_layout_recursive(class, &classes, &mut computed, self);
         }
 
         for class in &program.classes {
@@ -493,7 +521,9 @@ impl IRGenerator {
         for member in &class.members {
             match member {
                 ClassMember::Method(method) => {
-                    if !method.modifiers.contains(&Modifier::Native) {
+                    // 跳过 native 和 abstract 方法（它们没有方法体）
+                    if !method.modifiers.contains(&Modifier::Native) 
+                        && !method.modifiers.contains(&Modifier::Abstract) {
                         self.generate_method(&class.name, method)?;
                     }
                 }
@@ -554,10 +584,12 @@ impl IRGenerator {
 
         self.emit_line("entry:");
         
+        // 进入函数作用域，确保变量名有正确的作用域后缀
+        self.scope_manager.enter_scope();
+        
         // 实例方法声明 this 变量
         if !is_static {
-            // 使用 this_ptr 作为变量名，避免与参数 %this 冲突
-            let this_llvm_name = self.scope_manager.declare_var("this_ptr", "i8*");
+            let this_llvm_name = self.scope_manager.declare_var("this", "i8*");
             self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
             self.emit_line(&format!("  store i8* %this, i8** %{}", this_llvm_name));
             self.var_types.insert("this".to_string(), "i8*".to_string());
@@ -607,6 +639,9 @@ impl IRGenerator {
         if method.return_type == Type::Void {
             self.emit_line("  ret void");
         }
+        
+        // 退出函数作用域
+        self.scope_manager.exit_scope();
 
         self.indent -= 1;
         self.emit_line("}");
@@ -638,6 +673,9 @@ impl IRGenerator {
         self.indent += 1;
 
         self.emit_line("entry:");
+        
+        // 进入函数作用域，确保变量名有正确的作用域后缀
+        self.scope_manager.enter_scope();
 
         let this_llvm_name = self.scope_manager.declare_var("this", "i8*");
         self.emit_line(&format!("  %{} = alloca i8*", this_llvm_name));
@@ -650,13 +688,20 @@ impl IRGenerator {
             self.emit_line(&format!("  %{} = alloca {}", llvm_name, param_type));
             self.emit_line(&format!("  store {} %{}.{}_param, {}* %{}",
                 param_type, class_name, param.name, param_type, llvm_name));
-            self.var_types.insert(param.name.clone(), param_type);
+            self.var_types.insert(param.name.clone(), param_type.clone());
+            self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
         }
 
         if let Some(ref call) = ctor.constructor_call {
             match call {
                 crate::ast::ConstructorCall::This(args) => {
-                    let target_ctor_name = self.generate_constructor_call_name(class_name, args.len());
+                    // 推断参数类型并生成正确的构造函数名
+                    let mut param_types = Vec::new();
+                    for arg in args {
+                        let arg_type = self.infer_expr_type_for_ctor(arg);
+                        param_types.push(arg_type);
+                    }
+                    let target_ctor_name = self.generate_constructor_call_name_with_types(class_name, &param_types);
                     let mut arg_strs = vec!["i8* %this".to_string()];
                     for arg in args {
                         let arg_val = self.generate_expression(arg)?;
@@ -669,7 +714,13 @@ impl IRGenerator {
                     if let Some(ref registry) = self.type_registry {
                         if let Some(class_info) = registry.get_class(class_name) {
                             if let Some(ref parent_name) = class_info.parent {
-                                let parent_ctor_name = format!("{}.__ctor", parent_name);
+                                // 推断参数类型并生成正确的构造函数名
+                                let mut param_types = Vec::new();
+                                for arg in args {
+                                    let arg_type = self.infer_expr_type_for_ctor(arg);
+                                    param_types.push(arg_type);
+                                }
+                                let parent_ctor_name = self.generate_constructor_call_name_with_types(parent_name, &param_types);
                                 let mut arg_strs = vec!["i8* %this".to_string()];
                                 for arg in args {
                                     let arg_val = self.generate_expression(arg)?;
@@ -687,6 +738,9 @@ impl IRGenerator {
         self.generate_block(&ctor.body)?;
 
         self.emit_line("  ret void");
+        
+        // 退出函数作用域
+        self.scope_manager.exit_scope();
 
         self.indent -= 1;
         self.emit_line("}");
@@ -765,12 +819,67 @@ impl IRGenerator {
         }
     }
 
-    fn generate_constructor_call_name(&self, class_name: &str, arg_count: usize) -> String {
+    /// 生成构造函数调用名称（基于参数类型列表）
+    pub fn generate_constructor_call_name_with_types(&self, class_name: &str, param_types: &[String]) -> String {
+        if param_types.is_empty() {
+            format!("{}.__ctor", class_name)
+        } else {
+            format!("{}.__ctor_{}", class_name, param_types.join("_"))
+        }
+    }
+    
+    /// 生成构造函数调用名称（基于参数数量 - 仅用于简单情况）
+    pub fn generate_constructor_call_name(&self, class_name: &str, arg_count: usize) -> String {
         if arg_count == 0 {
             format!("{}.__ctor", class_name)
         } else {
+            // 使用通用占位符，调用者应该使用 generate_constructor_call_name_with_types
             let param_types: Vec<String> = (0..arg_count).map(|_| "i".to_string()).collect();
             format!("{}.__ctor_{}", class_name, param_types.join("_"))
+        }
+    }
+
+    /// 推断表达式类型（用于构造函数调用）
+    fn infer_expr_type_for_ctor(&self, expr: &crate::ast::Expr) -> String {
+        use crate::ast::*;
+        
+        match expr {
+            Expr::Literal(lit) => {
+                match lit {
+                    LiteralValue::Int32(_) => "i".to_string(),
+                    LiteralValue::Int64(_) => "l".to_string(),
+                    LiteralValue::Float32(_) => "f".to_string(),
+                    LiteralValue::Float64(_) => "d".to_string(),
+                    LiteralValue::Bool(_) => "b".to_string(),
+                    LiteralValue::Char(_) => "c".to_string(),
+                    LiteralValue::String(_) => "s".to_string(),
+                    LiteralValue::Null => "o".to_string(),
+                }
+            }
+            Expr::Identifier(ident) => {
+                // 查找变量类型
+                if let Some(cay_type) = self.var_cay_types.get(&ident.name) {
+                    self.type_to_signature(cay_type)
+                } else {
+                    "i".to_string() // 默认int
+                }
+            }
+            Expr::MemberAccess(_) => {
+                "i".to_string() // 简化处理
+            }
+            Expr::Binary(binary) => {
+                self.infer_expr_type_for_ctor(&binary.left)
+            }
+            Expr::Unary(unary) => {
+                self.infer_expr_type_for_ctor(&unary.operand)
+            }
+            Expr::Cast(cast) => {
+                self.type_to_signature(&cast.target_type)
+            }
+            Expr::Call(_) => {
+                "i".to_string() // 简化处理
+            }
+            _ => "i".to_string(), // 默认int
         }
     }
 
