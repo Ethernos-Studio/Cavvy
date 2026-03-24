@@ -152,8 +152,8 @@ pub enum Stmt {
     Switch(SwitchStmt),
     Block(Block),
     Scope(ScopeStmt),  // 0.5.0.0: scope 栈分配块
-    Break,
-    Continue,
+    Break(Option<String>),  // 可选的标签
+    Continue(Option<String>),  // 可选的标签
 }
 
 /// 0.5.0.0: scope 语句 - 栈作用域分配块
@@ -185,6 +185,7 @@ pub struct IfStmt {
 pub struct WhileStmt {
     pub condition: Expr,
     pub body: Box<Stmt>,
+    pub label: Option<String>,
     pub loc: SourceLocation,
 }
 
@@ -194,6 +195,7 @@ pub struct ForStmt {
     pub condition: Option<Expr>,
     pub update: Option<Expr>,
     pub body: Box<Stmt>,
+    pub label: Option<String>,
     pub loc: SourceLocation,
 }
 
@@ -202,6 +204,7 @@ pub struct ForStmt {
 pub struct DoWhileStmt {
     pub condition: Expr,
     pub body: Box<Stmt>,
+    pub label: Option<String>,
     pub loc: SourceLocation,
 }
 
