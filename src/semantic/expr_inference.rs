@@ -31,6 +31,29 @@ impl SemanticAnalyzer {
                     ));
                 }
                 
+                // 处理 super 标识符
+                if name == "super" {
+                    // 检查是否在静态上下文中访问 super
+                    if self.current_method_is_static {
+                        return Err(crate::error::semantic_error(
+                            loc.line, loc.column,
+                            "non-static variable super cannot be referenced from a static context".to_string()
+                        ));
+                    }
+                    // 返回父类类型
+                    if let Some(current_class_name) = &self.current_class {
+                        if let Some(class_info) = self.type_registry.get_class(current_class_name) {
+                            if let Some(parent_name) = &class_info.parent {
+                                return Ok(Type::Object(parent_name.clone()));
+                            }
+                        }
+                    }
+                    return Err(crate::error::semantic_error(
+                        loc.line, loc.column,
+                        "super can only be used in a class that extends another class".to_string()
+                    ));
+                }
+                
                 // 首先检查是否是当前类的字段（包括静态和非静态）
                 if let Some(current_class_name) = &self.current_class {
                     if let Some(class_info) = self.type_registry.get_class(current_class_name) {

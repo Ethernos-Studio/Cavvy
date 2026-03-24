@@ -137,12 +137,12 @@ impl IRGenerator {
                 let align = self.get_type_align(&field_info.llvm_type);
                 
                 // 获取对象指针
-                // 对于 this，从作用域管理器获取 this_ptr 的 LLVM 名称；对于其他变量，加载其值
+                // 对于 this，从作用域管理器获取 this 的 LLVM 名称；对于其他变量，加载其值
                 let obj_ptr = if let Expr::Identifier(name) = &*member.object {
                     if name == "this" {
-                        // 从作用域管理器获取 this_ptr 的 LLVM 名称，然后加载其值
-                        let this_llvm_name = self.scope_manager.get_llvm_name("this_ptr")
-                            .unwrap_or_else(|| "this_ptr_s1".to_string());
+                        // 从作用域管理器获取 this 的 LLVM 名称，然后加载其值
+                        let this_llvm_name = self.scope_manager.get_llvm_name("this")
+                            .unwrap_or_else(|| "this_s1".to_string());
                         let temp = self.new_temp();
                         self.emit_line(&format!("  {} = load i8*, i8** %{}, align 8", 
                             temp, this_llvm_name));
