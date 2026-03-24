@@ -198,7 +198,7 @@ paths = [{}]
         )
     }
     
-    /// 解析配置TOML（简化版）
+    /// 解析配置TOML（TODO: 实现完整的解析逻辑）
     fn parse_config_toml(&mut self, content: &str) -> Result<(), String> {
         // 简单的键值对解析
         for line in content.lines() {

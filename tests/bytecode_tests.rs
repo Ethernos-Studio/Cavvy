@@ -114,7 +114,7 @@ fn test_cay_run_bytecode() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     let stdout = String::from_utf8_lossy(&output.stdout);
     
-    // 检查是否成功编译（由于字节码到IR的转换是简化的，可能无法完全运行）
+    // 检查是否成功编译（由于字节码到IR的转换是未完成的，可能无法完全运行）
     // 但至少应该能处理文件
     
     // 清理

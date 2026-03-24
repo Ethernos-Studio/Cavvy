@@ -145,8 +145,7 @@ impl BytecodeObfuscator {
     /// 更新常量池中的名称
     fn update_names_in_constant_pool(&self, constant_pool: &mut ConstantPool) {
         // 注意：这里我们需要重建常量池，因为字符串是不可变的
-        // 在实际实现中，可能需要更复杂的处理
-        // 这里简化处理，仅记录映射关系到字符串表
+        // TODO: 实现字符串表的更新逻辑
     }
 
     /// 混淆控制流
@@ -239,7 +238,7 @@ impl BytecodeObfuscator {
     /// 加密字符串
     fn encrypt_strings(&mut self, module: &mut BytecodeModule) {
         // 遍历常量池，加密所有字符串常量
-        // 这里简化处理，实际实现需要更复杂的加密方案
+        // TODO: 实现更复杂的加密方案
         let key = 0x55u8; // 简单的XOR密钥
 
         // 将加密信息存入元数据

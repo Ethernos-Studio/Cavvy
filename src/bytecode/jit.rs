@@ -940,7 +940,7 @@ declare void @cavvy_array_set(i8*, i32, i8*)
                     let label_false = ctx.next_label();
                     ir.push_str(&format!("  br i1 {}, label %{}, label %{}\n", val, label_true, label_false));
                     ir.push_str(&format!("{}:\n", label_true));
-                    // 这里简化处理，实际需要计算跳转目标
+                    // TODO: 处理跳转目标
                 }
             }
 

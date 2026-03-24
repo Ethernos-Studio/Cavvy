@@ -182,7 +182,7 @@ fn generate_bytecode_from_ast(
             param_name_indices,
             modifiers,
             body,
-            max_locals: 10, // 简化处理
+            max_locals: 10, // TODO: 动态计算
             max_stack: 10,
         };
 
@@ -223,7 +223,7 @@ fn generate_bytecode_from_ast(
                             is_static: field.modifiers.contains(&Modifier::Static),
                             is_final: field.modifiers.contains(&Modifier::Final),
                         },
-                        initial_value: None, // 简化处理
+                        initial_value: None, // TODO: 处理字段初始化值
                     };
                     fields.push(field_def);
                 }
@@ -323,7 +323,7 @@ fn generate_statement(
         Stmt::VarDecl(var_decl) => {
             if let Some(ref init) = var_decl.initializer {
                 generate_expression(init, instructions, module)?;
-                // 存储到局部变量（简化处理，使用索引0）
+                // 存储到局部变量, TODO: 动态计算局部变量索引
                 instructions.push(Instruction::istore(0));
             }
         }
@@ -336,7 +336,7 @@ fn generate_statement(
         }
         Stmt::If(if_stmt) => {
             generate_expression(&if_stmt.condition, instructions, module)?;
-            // 条件跳转（简化处理）
+            // 条件跳转 TODO: 动态计算跳转偏移量
             let jump_offset = 0i16; // 实际需要计算
             instructions.push(Instruction::ifeq(jump_offset));
 
@@ -354,7 +354,7 @@ fn generate_statement(
             }
         }
         _ => {
-            // 其他语句类型简化处理
+            // 其他语句类型 TODO: 处理其他语句类型
         }
     }
 
@@ -412,7 +412,7 @@ fn generate_expression(
             }
         }
         Expr::Identifier(ident) => {
-            // 加载局部变量（简化处理）
+            // 加载局部变量 TODO: 动态计算局部变量索引
             let _name = &ident.name;
             instructions.push(Instruction::iload(0));
         }
@@ -435,14 +435,14 @@ fn generate_expression(
                 generate_expression(arg, instructions, module)?;
             }
 
-            // 调用函数（简化处理）
+            // 调用函数 TODO: 处理函数调用
             if let Expr::Identifier(ident) = call.callee.as_ref() {
                 let index = module.constant_pool.add_utf8(&ident.name);
                 instructions.push(Instruction::invokestatic(index));
             }
         }
         _ => {
-            // 其他表达式类型简化处理
+            // 其他表达式类型 TODO: 处理其他表达式类型
         }
     }
 
