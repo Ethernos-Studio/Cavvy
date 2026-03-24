@@ -6,8 +6,14 @@ use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, Compilation
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\f]+")]
 #[logos(skip r"//[^\n]*")]
-#[logos(skip r"/\*([^*]|\*[^/])*\*/")]
 pub enum Token {
+    // 多行注释 - 需要特殊处理以计数换行符
+    #[regex(r"/\*([^*]|\*[^/])*\*/", |lex| {
+        let slice = lex.slice();
+        let newline_count = slice.chars().filter(|&c| c == '\n').count();
+        Some(newline_count)
+    })]
+    BlockComment(Option<usize>),
     // 关键字
     #[token("public")]
     Public,
@@ -489,6 +495,13 @@ impl<'a> Lexer<'a> {
                         line: self.line,
                         column: self.column,
                     };
+
+                    // 处理多行注释 - 更新行号但不保留token
+                    if let Token::BlockComment(Some(newline_count)) = &token {
+                        self.line += newline_count;
+                        self.column = 1;
+                        continue;
+                    }
 
                     // 更新行号和列号
                     if token == Token::Newline {
