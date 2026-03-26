@@ -29,13 +29,21 @@ pub fn try_parse_lambda(parser: &mut Parser, loc: crate::error::SourceLocation) 
 
     // 期望 ')'
     if !parser.check(&crate::lexer::Token::RParen) {
-        return Err(parser.error("Expected ')' after lambda parameters"));
+        let current_token = super::super::utils::get_token_name(parser.current_token());
+        return Err(parser.error(&format!(
+            "期望 ')'，但遇到了 {}\n提示: Lambda 参数列表应以 ')' 结束，例如: (x, y) -> x + y",
+            current_token
+        )));
     }
     parser.advance(); // 跳过 ')'
 
     // 期望 '->'
     if !parser.check(&crate::lexer::Token::Arrow) {
-        return Err(parser.error("Expected '->' after lambda parameters"));
+        let current_token = super::super::utils::get_token_name(parser.current_token());
+        return Err(parser.error(&format!(
+            "期望 '->'，但遇到了 {}\n提示: Lambda 表达式格式为 (params) -> expr 或 (params) -> {{ body }}",
+            current_token
+        )));
     }
     parser.advance(); // 跳过 '->'
 
@@ -77,10 +85,17 @@ fn parse_lambda_param(parser: &mut Parser) -> cayResult<LambdaParam> {
         } else {
             // 类型后面没有标识符，回退
             parser.pos = checkpoint;
-            Err(parser.error("Expected parameter name after type"))
+            Err(parser.error("期望参数名\n提示: 类型后应跟参数名，例如: (int x, int y) -> x + y"))
         }
     } else {
-        Err(parser.error("Expected type or parameter name"))
+        let current_token = super::super::utils::get_token_name(parser.current_token());
+        Err(parser.error(&format!(
+            "期望类型或参数名，但遇到了 {}\n\
+            提示: Lambda 参数可以是:\
+            - 带类型: (int x, int y) -> ...\n\
+            - 无类型: (x, y) -> ...",
+            current_token
+        )))
     };
 
     if let Ok(param) = type_result {
@@ -96,7 +111,11 @@ fn parse_lambda_param(parser: &mut Parser) -> cayResult<LambdaParam> {
             param_type: None,
         })
     } else {
-        Err(parser.error("Expected parameter name"))
+        let current_token = super::super::utils::get_token_name(parser.current_token());
+        Err(parser.error(&format!(
+            "期望参数名，但遇到了 {}\n提示: Lambda 参数应为标识符，例如: (x, y) -> x + y",
+            current_token
+        )))
     }
 }
 
@@ -109,7 +128,7 @@ fn parse_lambda_block(parser: &mut Parser) -> cayResult<Block> {
         statements.push(stmt);
     }
 
-    parser.consume(&crate::lexer::Token::RBrace, "Expected '}' after lambda block")?;
+    parser.consume(&crate::lexer::Token::RBrace, "期望 '}'\n提示: Lambda 代码块应以 '}' 结束")?;
 
     Ok(Block {
         statements,

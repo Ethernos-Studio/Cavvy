@@ -17,7 +17,7 @@ pub fn parse_postfix(parser: &mut Parser) -> cayResult<Expr> {
         if parser.match_token(&crate::lexer::Token::LParen) {
             // 函数调用
             let args = parse_arguments(parser)?;
-            parser.consume(&crate::lexer::Token::RParen, "Expected ')' after arguments")?;
+            parser.consume(&crate::lexer::Token::RParen, "期望 ')'\n提示: 函数调用参数列表应以 ')' 结束")?;
             expr = Expr::Call(CallExpr {
                 callee: Box::new(expr),
                 args,
@@ -25,7 +25,7 @@ pub fn parse_postfix(parser: &mut Parser) -> cayResult<Expr> {
             });
         } else if parser.match_token(&crate::lexer::Token::Dot) {
             // 成员访问
-            let member = parser.consume_identifier("Expected member name after '.'")?;
+            let member = parser.consume_identifier("期望成员名\n提示: '.' 后应跟成员名，例如: obj.field 或 obj.method()")?;
             expr = Expr::MemberAccess(MemberAccessExpr {
                 object: Box::new(expr),
                 member,
@@ -34,7 +34,7 @@ pub fn parse_postfix(parser: &mut Parser) -> cayResult<Expr> {
         } else if parser.match_token(&crate::lexer::Token::LBracket) {
             // 数组索引访问: arr[index]
             let index = parse_expression(parser)?;
-            parser.consume(&crate::lexer::Token::RBracket, "Expected ']' after index")?;
+            parser.consume(&crate::lexer::Token::RBracket, "期望 ']'\n提示: 数组索引应以 ']' 结束，例如: arr[0]")?;
             expr = Expr::ArrayAccess(ArrayAccessExpr {
                 array: Box::new(expr),
                 index: Box::new(index),

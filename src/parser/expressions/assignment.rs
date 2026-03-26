@@ -39,7 +39,7 @@ fn parse_ternary(parser: &mut Parser) -> cayResult<Expr> {
     // 检查是否有 ? 标记
     if parser.match_token(&crate::lexer::Token::Question) {
         let true_branch = Box::new(parse_or(parser)?);
-        parser.consume(&crate::lexer::Token::Colon, "Expected ':' after '?' in ternary expression")?;
+        parser.consume(&crate::lexer::Token::Colon, "期望 ':'\n提示: 三元运算符格式为 condition ? true_expr : false_expr")?;
         let false_branch = Box::new(parse_ternary(parser)?); // 右结合
 
         return Ok(Expr::Ternary(TernaryExpr {

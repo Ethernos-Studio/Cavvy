@@ -68,7 +68,77 @@ impl Parser {
             } else if self.check(&crate::lexer::Token::Extern) {
                 extern_declarations.push(self.parse_extern_declaration()?);
             } else {
-                return Err(self.error("Expected class, interface, extern declaration, or top-level function declaration"));
+                let current_token = utils::current_token(self);
+                let (token_desc, suggestion) = match current_token {
+                    crate::lexer::Token::Semicolon => (
+                        "分号(;)".to_string(),
+                        "顶层声明不能是空语句。可能的问题:\n    - 多余的逗号或分号\n    - 缺少声明内容".to_string()
+                    ),
+                    crate::lexer::Token::LBrace => (
+                        "左花括号({)".to_string(),
+                        "顶层声明不能以代码块开始。可能的问题:\n    - 缺少类或函数声明\n    - 代码块应在函数或方法体内".to_string()
+                    ),
+                    crate::lexer::Token::RBrace => (
+                        "右花括号(})".to_string(),
+                        "文件提前结束或多余的右花括号。可能的问题:\n    - 前面的声明缺少匹配的左花括号\n    - 多余的右花括号".to_string()
+                    ),
+                    crate::lexer::Token::LParen => (
+                        "左圆括号(()".to_string(),
+                        "顶层声明不能以括号开始。可能的问题:\n    - 缺少函数声明\n    - Lambda 表达式不能作为顶层声明".to_string()
+                    ),
+                    crate::lexer::Token::If | crate::lexer::Token::While |
+                    crate::lexer::Token::For | crate::lexer::Token::Do |
+                    crate::lexer::Token::Switch | crate::lexer::Token::Return |
+                    crate::lexer::Token::Break | crate::lexer::Token::Continue => {
+                        let kw = format!("{:?}", current_token).to_lowercase();
+                        (
+                            format!("关键字({})", kw),
+                            format!("{} 是控制流语句，不能作为顶层声明。可能的问题:\n    - 控制流语句只能在函数或方法体内使用\n    - 缺少函数声明", kw)
+                        )
+                    }
+                    crate::lexer::Token::Int | crate::lexer::Token::Long |
+                    crate::lexer::Token::Float | crate::lexer::Token::Double |
+                    crate::lexer::Token::Bool | crate::lexer::Token::Char |
+                    crate::lexer::Token::String => {
+                        let kw = format!("{:?}", current_token).to_lowercase();
+                        (
+                            format!("关键字({})", kw),
+                            format!("类型 '{}' 不能单独作为顶层声明。可能的问题:\n    - 缺少变量或函数声明，如: {} x; 或 {} main() {{ ... }}\n    - 类型后缺少标识符", kw, kw, kw)
+                        )
+                    }
+                    crate::lexer::Token::Identifier(name) => (
+                        format!("标识符('{}')", name),
+                        format!("'{}' 不能作为顶层声明开始。可能的问题:\n    - 需要先声明类或函数\n    - 语句位置错误，应在函数体内\n    - 如果是方法调用，需要在函数或 main 函数中执行", name)
+                    ),
+                    crate::lexer::Token::IntegerLiteral(Some((val, _))) => (
+                        format!("整数({})", val),
+                        "整数字面量不能作为顶层声明。可能的问题:\n    - 缺少变量声明，如: int x = 10;\n    - 语句位置错误，应在函数体内".to_string()
+                    ),
+                    crate::lexer::Token::StringLiteral(Some(s)) => (
+                        format!("字符串(\"{}\")", s),
+                        "字符串字面量不能作为顶层声明。可能的问题:\n    - 缺少变量声明，如: String s = \"hello\";\n    - 语句位置错误，应在函数体内".to_string()
+                    ),
+                    crate::lexer::Token::Private | crate::lexer::Token::Protected |
+                    crate::lexer::Token::Static | crate::lexer::Token::Final |
+                    crate::lexer::Token::Abstract => {
+                        let kw = format!("{:?}", current_token).to_lowercase();
+                        (
+                            format!("关键字({})", kw),
+                            format!("修饰符 '{}' 不能单独作为顶层声明。可能的问题:\n    - 修饰符后缺少类或函数声明\n    - 顶层声明应以 class、interface 或 public 开始", kw)
+                        )
+                    }
+                    _ => {
+                        let token_name = utils::get_token_name(current_token);
+                        (
+                            token_name.clone(),
+                            format!("{} 不能作为顶层声明。有效的顶层声明包括:\n    - 类: class MyClass {{ ... }}\n    - 接口: interface MyInterface {{ ... }}\n    - 外部函数: extern {{ ... }}\n    - 主函数: public int main() {{ ... }}", token_name)
+                        )
+                    }
+                };
+                return Err(self.error(&format!(
+                    "期望类、接口、extern 声明或顶层函数声明，但遇到了 {}\n提示: {}",
+                    token_desc, suggestion
+                )));
             }
         }
 
@@ -307,22 +377,29 @@ impl Parser {
         let loc = self.current_loc();
 
         // 必须是以 public 开始
-        self.consume(&crate::lexer::Token::Public, "Expected 'public' for top-level function")?;
+        self.consume(&crate::lexer::Token::Public, "期望 'public'\n提示: 顶层函数应以 public 开头，例如: public int main() { ... }")?;
 
         // 解析返回类型
-        let return_type = match self.current_token() {
+        let current_token = self.current_token().clone();
+        let return_type = match current_token {
             crate::lexer::Token::Int => { self.advance(); crate::types::Type::Int32 }
             crate::lexer::Token::Void => { self.advance(); crate::types::Type::Void }
-            _ => return Err(self.error("Top-level main function must return int or void")),
+            _ => {
+                let token_desc = utils::get_token_name(&current_token);
+                return Err(self.error(&format!(
+                    "期望 'int' 或 'void'，但遇到了 {}\n提示: 顶层 main 函数必须返回 int 或 void，例如: public int main() {{ ... }}",
+                    token_desc
+                )));
+            }
         };
 
         // 解析函数名
-        let name = self.consume_identifier("Expected function name")?;
+        let name = self.consume_identifier("期望函数名\n提示: 返回类型后应跟函数名，例如: public int main() { ... }")?;
 
         // 解析参数列表
-        self.consume(&crate::lexer::Token::LParen, "Expected '(' after function name")?;
+        self.consume(&crate::lexer::Token::LParen, "期望 '('\n提示: 函数名后应跟 '(' 开始参数列表，例如: main() 或 main(String[] args)")?;
         let params = self.parse_parameters()?;
-        self.consume(&crate::lexer::Token::RParen, "Expected ')' after parameters")?;
+        self.consume(&crate::lexer::Token::RParen, "期望 ')'\n提示: 参数列表应以 ')' 结束")?;
 
         // 解析函数体
         let body = self.parse_block()?;
@@ -342,7 +419,7 @@ impl Parser {
         let loc = self.current_loc();
 
         // 消费 extern 关键字
-        self.consume(&crate::lexer::Token::Extern, "Expected 'extern'")?;
+        self.consume(&crate::lexer::Token::Extern, "期望 'extern'\n提示: 外部函数声明应以 extern 开头，例如: extern { ... }")?;
 
         // 解析调用约定（可选）
         let calling_convention = self.parse_calling_convention()?;
@@ -358,13 +435,13 @@ impl Parser {
            matches!(self.current_token(), crate::lexer::Token::StringLiteral(Some(_))) {
             // 字符串字面量指定调用约定，如 extern "C" { ... }
             self.advance(); // 消费字符串字面量
-            self.consume(&crate::lexer::Token::LBrace, "Expected '{' after extern calling convention")?;
+            self.consume(&crate::lexer::Token::LBrace, "期望 '{'\n提示: 调用约定后应跟 '{' 开始外部函数块，例如: extern \"C\" { ... }")?;
 
             while !self.check(&crate::lexer::Token::RBrace) && !self.is_at_end() {
                 functions.push(self.parse_extern_function()?);
             }
 
-            self.consume(&crate::lexer::Token::RBrace, "Expected '}' after extern block")?;
+            self.consume(&crate::lexer::Token::RBrace, "期望 '}'\n提示: 外部函数块应以 '}' 结束")?;
         } else if self.check(&crate::lexer::Token::LBrace) {
             // extern { ... } - 默认 C 调用约定
             self.advance(); // 消费 {
@@ -373,7 +450,7 @@ impl Parser {
                 functions.push(self.parse_extern_function()?);
             }
 
-            self.consume(&crate::lexer::Token::RBrace, "Expected '}' after extern block")?;
+            self.consume(&crate::lexer::Token::RBrace, "期望 '}'\n提示: 外部函数块应以 '}' 结束")?;
         } else {
             // 单个函数声明: extern type func(params);
             functions.push(self.parse_extern_function()?);
