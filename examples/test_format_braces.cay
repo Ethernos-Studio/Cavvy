@@ -1,0 +1,43 @@
+/**
+ * Format 字符串大括号占位符测试
+ *
+ * 测试 {} 和 {name} 占位符格式
+ * 版本: 0.5.1.0
+ */
+
+public int main() {
+    println("=== 大括号占位符测试 ===");
+
+    /* 测试1: 顺序占位符 {} */
+    println("\n--- 测试1: 顺序占位符 {} ---");
+    String name = "Alice";
+    int age = 25;
+    println("Name: {}, Age: {}", name, age);
+
+    /* 测试2: 命名占位符 {name} */
+    println("\n--- 测试2: 命名占位符 {name} ---");
+    String user = "Bob";
+    int score = 95;
+    println("User: {user}, Score: {score}", user, score);
+
+    /* 测试3: 混合使用 {} 和 C风格 %d */
+    println("\n--- 测试3: 混合使用 ---");
+    int x = 10;
+    int y = 20;
+    println("x = %d, y = {}", x, y);
+
+    /* 测试4: 转义大括号 {{ }} */
+    println("\n--- 测试4: 转义大括号 ---");
+    println("Use {{ and }} for braces");
+
+    /* 测试5: 复杂混合 */
+    println("\n--- 测试5: 复杂混合 ---");
+    String product = "Book";
+    int price = 29;
+    int quantity = 3;
+    int total = price * quantity;
+    println("Product: {}, Price: {}, Qty: {}, Total: {}", product, price, quantity, total);
+
+    println("\n=== 所有测试完成 ===");
+    return 0;
+}

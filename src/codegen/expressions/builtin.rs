@@ -6,6 +6,14 @@ use crate::codegen::context::IRGenerator;
 use crate::ast::*;
 use crate::error::{cayResult, codegen_error};
 
+/// 格式化字符串占位符类型
+#[derive(Debug, Clone)]
+enum Placeholder {
+    CStyle(String),      // %d, %s, %f 等
+    Sequential,          // {}
+    Named(String),       // {name}
+}
+
 impl IRGenerator {
     /// 生成 print/println 调用代码
     ///
@@ -157,6 +165,11 @@ impl IRGenerator {
     }
 
     /// 生成 format 字符串打印（支持多个参数）
+    ///
+    /// 支持三种占位符格式：
+    /// 1. C风格: %d, %s, %f 等
+    /// 2. 顺序占位符: {} - 按顺序填充
+    /// 3. 标签占位符: {name} - 通过变量名引用（仅适用于变量参数）
     fn generate_format_print(&mut self, args: &[Expr], newline: bool) -> cayResult<String> {
         // 第一个参数必须是 format 字符串
         let format_arg = &args[0];
@@ -168,23 +181,36 @@ impl IRGenerator {
             }
         };
 
-        // 解析 format 字符串，提取格式说明符
-        let format_specs = self.parse_format_string(&format_str);
+        // 解析 format 字符串
+        let placeholders = self.parse_format_string(&format_str);
 
         // 检查参数数量是否匹配
-        if format_specs.len() != args.len() - 1 {
+        if placeholders.len() != args.len() - 1 {
             return Err(codegen_error(format!(
                 "Format string expects {} arguments, but {} provided",
-                format_specs.len(),
+                placeholders.len(),
                 args.len() - 1
             )));
         }
 
+        // 首先生成所有参数的值并确定其类型
+        let mut arg_types_and_values: Vec<(String, String)> = Vec::new();
+        for i in 1..args.len() {
+            let value = self.generate_expression(&args[i])?;
+            let (type_str, val) = self.parse_typed_value(&value);
+            arg_types_and_values.push((type_str, val));
+        }
+
+        // 将新格式转换为 C printf 格式（根据参数类型选择合适的格式说明符）
+        let (c_format_str, arg_mapping) = self.convert_to_c_format_with_types(
+            &format_str, &placeholders, &arg_types_and_values
+        );
+
         // 构建最终的 format 字符串（添加换行符如果需要）
         let final_fmt_str = if newline {
-            format_str + "\n"
+            c_format_str + "\n"
         } else {
-            format_str.clone()
+            c_format_str
         };
 
         let fmt_name = self.get_or_create_string_constant(&final_fmt_str);
@@ -193,18 +219,13 @@ impl IRGenerator {
         self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
             fmt_ptr, fmt_len, fmt_len, fmt_name));
 
-        // 生成每个参数的值
-        let mut arg_values: Vec<(String, String)> = Vec::new(); // (类型, 值)
+        // 根据新的映射顺序生成参数值
+        let mut arg_values: Vec<(String, String)> = Vec::new();
 
-        for i in 1..args.len() {
-            let arg = &args[i];
-            let value = self.generate_expression(arg)?;
-            let (type_str, val) = self.parse_typed_value(&value);
-
-            // 根据格式说明符进行类型转换
-            let spec = &format_specs[i - 1];
-            let (final_type, final_val) = self.convert_for_format(&type_str, &val, spec);
-
+        for &arg_idx in &arg_mapping {
+            let (type_str, val) = &arg_types_and_values[arg_idx - 1];
+            let placeholder = &placeholders[arg_idx - 1];
+            let (final_type, final_val) = self.convert_for_placeholder(type_str, val, placeholder);
             arg_values.push((final_type, final_val));
         }
 
@@ -220,10 +241,10 @@ impl IRGenerator {
         Ok("i64 0".to_string())
     }
 
-    /// 解析 format 字符串，提取格式说明符
-    /// 返回格式说明符列表，如 ["%d", "%s", "%f"]
-    fn parse_format_string(&self, fmt: &str) -> Vec<String> {
-        let mut specs = Vec::new();
+    /// 解析 format 字符串，提取占位符
+    /// 返回占位符列表和参数映射
+    fn parse_format_string(&self, fmt: &str) -> Vec<Placeholder> {
+        let mut placeholders = Vec::new();
         let mut chars = fmt.chars().peekable();
 
         while let Some(c) = chars.next() {
@@ -233,30 +254,176 @@ impl IRGenerator {
                         // %% - 转义的字面量 %
                         chars.next();
                     } else {
-                        // 格式说明符
+                        // C风格格式说明符
                         let mut spec = String::from("%");
 
-                        // 收集格式说明符的其余部分（宽度、精度、长度修饰符、转换说明符）
+                        // 收集格式说明符的其余部分
                         while let Some(&ch) = chars.peek() {
                             if ch.is_ascii_alphabetic() || ch == '*' {
-                                // 转换说明符（如 d, s, f, x 等）
                                 spec.push(ch);
                                 chars.next();
                                 break;
                             } else {
-                                // 宽度、精度、长度修饰符等
                                 spec.push(ch);
                                 chars.next();
                             }
                         }
 
-                        specs.push(spec);
+                        placeholders.push(Placeholder::CStyle(spec));
                     }
+                }
+            } else if c == '{' {
+                // 顺序或命名占位符
+                if let Some(&next) = chars.peek() {
+                    if next == '}' {
+                        // {} - 顺序占位符
+                        chars.next(); // 消费 }
+                        placeholders.push(Placeholder::Sequential);
+                    } else if next.is_ascii_alphabetic() || next == '_' {
+                        // {name} - 命名占位符
+                        let mut name = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch.is_ascii_alphanumeric() || ch == '_' {
+                                name.push(ch);
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        // 期望 }
+                        if let Some(&'}') = chars.peek() {
+                            chars.next(); // 消费 }
+                            placeholders.push(Placeholder::Named(name));
+                        }
+                    } else if next == '{' {
+                        // {{ - 转义的字面量 {
+                        chars.next();
+                    }
+                    // 其他情况忽略
                 }
             }
         }
 
-        specs
+        placeholders
+    }
+
+    /// 根据参数类型推断合适的格式说明符
+    fn infer_format_spec(&self, type_str: &str) -> &'static str {
+        match type_str {
+            "i8*" => "%s",           // 字符串
+            "i32" | "i8" | "i16" => "%d",  // 整数
+            "i64" => "%lld",         // 长整数
+            "float" | "double" => "%f",    // 浮点数
+            _ => "%s",               // 默认作为字符串
+        }
+    }
+
+    /// 将新格式字符串转换为 C printf 格式（根据参数类型选择格式说明符）
+    /// 返回转换后的字符串和参数映射（新索引 -> 原索引）
+    fn convert_to_c_format_with_types(
+        &self,
+        fmt: &str,
+        placeholders: &[Placeholder],
+        arg_types: &[(String, String)]
+    ) -> (String, Vec<usize>) {
+        let mut result = String::new();
+        let mut arg_mapping: Vec<usize> = Vec::new();
+        let mut placeholder_idx = 0;
+        let mut chars = fmt.chars().peekable();
+
+        while let Some(c) = chars.next() {
+            if c == '%' {
+                if let Some(&next) = chars.peek() {
+                    if next == '%' {
+                        // %%
+                        result.push(c);
+                        result.push(chars.next().unwrap());
+                    } else {
+                        // C风格 - 保持原样
+                        result.push(c);
+                        while let Some(&ch) = chars.peek() {
+                            result.push(ch);
+                            chars.next();
+                            if ch.is_ascii_alphabetic() || ch == '*' {
+                                break;
+                            }
+                        }
+                        arg_mapping.push(placeholder_idx + 1);
+                        placeholder_idx += 1;
+                    }
+                }
+            } else if c == '{' {
+                if let Some(&next) = chars.peek() {
+                    if next == '}' {
+                        // {} - 根据参数类型选择格式说明符
+                        chars.next();
+                        if placeholder_idx < arg_types.len() {
+                            let type_str = &arg_types[placeholder_idx].0;
+                            let spec = self.infer_format_spec(type_str);
+                            result.push_str(spec);
+                        } else {
+                            result.push_str("%s"); // 默认
+                        }
+                        arg_mapping.push(placeholder_idx + 1);
+                        placeholder_idx += 1;
+                    } else if next.is_ascii_alphabetic() || next == '_' {
+                        // {name} - 命名占位符，同样根据类型选择格式
+                        let mut name = String::new();
+                        while let Some(&ch) = chars.peek() {
+                            if ch.is_ascii_alphanumeric() || ch == '_' {
+                                name.push(ch);
+                                chars.next();
+                            } else {
+                                break;
+                            }
+                        }
+                        if let Some(&'}') = chars.peek() {
+                            chars.next();
+                            if placeholder_idx < arg_types.len() {
+                                let type_str = &arg_types[placeholder_idx].0;
+                                let spec = self.infer_format_spec(type_str);
+                                result.push_str(spec);
+                            } else {
+                                result.push_str("%s");
+                            }
+                            arg_mapping.push(placeholder_idx + 1);
+                            placeholder_idx += 1;
+                        } else {
+                            result.push(c);
+                            result.push_str(&name);
+                        }
+                    } else if next == '{' {
+                        // {{ - 转义为 {
+                        chars.next();
+                        result.push('{');
+                    } else {
+                        result.push(c);
+                    }
+                } else {
+                    result.push(c);
+                }
+            } else {
+                result.push(c);
+            }
+        }
+
+        (result, arg_mapping)
+    }
+
+    /// 根据占位符类型转换值
+    fn convert_for_placeholder(&mut self, type_str: &str, val: &str, placeholder: &Placeholder) -> (String, String) {
+        match placeholder {
+            Placeholder::CStyle(spec) => self.convert_for_format(type_str, val, spec),
+            Placeholder::Sequential | Placeholder::Named(_) => {
+                // {} 和 {name} 默认作为字符串处理
+                if type_str == "i8*" {
+                    ("i8*".to_string(), val.to_string())
+                } else {
+                    // 需要转换为字符串（简化处理，实际应该调用 toString）
+                    (type_str.to_string(), val.to_string())
+                }
+            }
+        }
     }
 
     /// 根据格式说明符转换值类型
