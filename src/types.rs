@@ -371,6 +371,11 @@ impl TypeRegistry {
         self.classes.get(name)
     }
 
+    /// 获取类的可变引用
+    pub fn get_class_mut(&mut self, name: &str) -> Option<&mut ClassInfo> {
+        self.classes.get_mut(name)
+    }
+
     /// 根据类名和方法名获取方法（获取第一个匹配的方法，用于无参数类型信息的情况，支持继承）
     pub fn get_method(&self, class_name: &str, method_name: &str) -> Option<&MethodInfo> {
         if let Some(class_info) = self.classes.get(class_name) {

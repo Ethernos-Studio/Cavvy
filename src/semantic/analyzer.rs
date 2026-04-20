@@ -48,6 +48,9 @@ impl SemanticAnalyzer {
         // 第一遍：收集所有类定义
         self.collect_classes(program)?;
 
+        // 注册运行时函数到 NetworkUtils 类
+        self.register_runtime_functions();
+
         // 检查主类冲突（在收集类之后，类型检查之前）
         self.check_main_class_conflicts(program)?;
 
@@ -65,6 +68,32 @@ impl SemanticAnalyzer {
         }
 
         Ok(())
+    }
+
+    /// 注册运行时函数到相应的类
+    fn register_runtime_functions(&mut self) {
+        // 向 NetworkUtils 类添加 __cay_buffer_to_string 方法
+        if let Some(class_info) = self.type_registry.get_class_mut("NetworkUtils") {
+            // 创建方法信息: String __cay_buffer_to_string(long buffer, int length)
+            let method = MethodInfo {
+                name: "__cay_buffer_to_string".to_string(),
+                class_name: "NetworkUtils".to_string(),
+                params: vec![
+                    ParameterInfo::new("buffer".to_string(), Type::Int64),
+                    ParameterInfo::new("length".to_string(), Type::Int32),
+                ],
+                return_type: Type::String,
+                is_public: true,
+                is_private: false,
+                is_protected: false,
+                is_static: true,
+                is_native: true,
+                is_override: false,
+                is_final: false,
+            };
+
+            class_info.add_method(method);
+        }
     }
 
     /// 获取类型注册表（用于代码生成）

@@ -74,25 +74,25 @@ extern {
     long sendto(int sockfd, long buf, long len, int flags, long dest_addr, int addrlen);
     long recvfrom(int sockfd, long buf, long len, int flags, long src_addr, long addrlen);
     int shutdown(int sockfd, int how);
-    
+
     /* 地址转换 */
     int inet_pton(int af, long src, long dst);
     long inet_ntop(int af, long src, long dst, int size);
     int inet_aton(long cp, long inp);
     long inet_addr(long cp);
     long inet_ntoa(long in);
-    
+
     /* 主机信息 */
     long gethostbyname(long name);
     long gethostbyaddr(long addr, int len, int type);
     void herror(long s);
-    
+
     /* IO控制 */
     int fcntl(int fd, int cmd, int arg);
     int setsockopt(int sockfd, int level, int optname, long optval, int optlen);
     int getsockopt(int sockfd, int level, int optname, long optval, long optlen);
     int select(int nfds, long readfds, long writefds, long exceptfds, long timeout);
-    
+
     /* 内存分配 */
     long malloc(int size);
     void free(long ptr);
@@ -912,11 +912,11 @@ public class NetworkUtils {
      * @param buffer 缓冲区指针
      * @param length 数据长度
      * @return 字符串
-     * @note 由于Cavvy限制，此功能需要运行时支持
+     * @note 使用运行时函数 __cay_buffer_to_string
      */
     public static String bufferToString(long buffer, int length) {
-        /* 暂时返回空字符串，实际实现需要运行时支持 */
-        return "";
+        /* 调用运行时函数将缓冲区转换为字符串 */
+        return __cay_buffer_to_string(buffer, length);
     }
     
     /**

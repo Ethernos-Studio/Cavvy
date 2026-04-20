@@ -227,9 +227,9 @@ impl IRGenerator {
                     }
                     else {
                         // 类型不兼容，报错
-                        return Err(crate::error::semantic_error(
-                            var.loc.line, var.loc.column,
-                            format!("Cannot convert {} to {} in variable initialization", value_type, var_type)
+                        return Err(crate::error::codegen_error(
+                            format!("Cannot convert {} to {} in variable initialization '{}' at line {}", 
+                                value_type, var_type, var.name, var.loc.line)
                         ));
                     }
                 } else {

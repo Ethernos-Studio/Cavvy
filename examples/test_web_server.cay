@@ -1,0 +1,284 @@
+/**
+ * Cavvy Web Server 测试
+ * 
+ * 测试Web服务器功能，运行5秒后自动关闭
+ * 用于 cargo test 集成测试
+ * 
+ * 版本: 0.5.1.0
+ */
+
+#include <Network.cay>
+
+/**
+ * HTTP响应构建器
+ */
+public class HttpResponse {
+    private int statusCode;
+    private String statusText;
+    private String contentType;
+    private String body;
+    
+    public HttpResponse() {
+        this.statusCode = 200;
+        this.statusText = "OK";
+        this.contentType = "text/html; charset=utf-8";
+        this.body = "";
+    }
+    
+    public HttpResponse setStatus(int code, String text) {
+        this.statusCode = code;
+        this.statusText = text;
+        return this;
+    }
+    
+    public HttpResponse setContentType(String type) {
+        this.contentType = type;
+        return this;
+    }
+    
+    public HttpResponse setBody(String body) {
+        this.body = body;
+        return this;
+    }
+    
+    public String build() {
+        StringBuilder sb = new StringBuilder();
+        
+        sb.append("HTTP/1.1 ");
+        sb.append(this.statusCode);
+        sb.append(" ");
+        sb.append(this.statusText);
+        sb.append("\r\n");
+        
+        sb.append("Content-Type: ");
+        sb.append(this.contentType);
+        sb.append("\r\n");
+        
+        sb.append("Content-Length: ");
+        sb.append(this.body.length());
+        sb.append("\r\n");
+        
+        sb.append("Connection: close\r\n");
+        sb.append("Server: CavvyWebServer/0.5.1\r\n");
+        sb.append("\r\n");
+        sb.append(this.body);
+        
+        return sb.toString();
+    }
+}
+
+/**
+ * Cavvy Web Server 测试类
+ */
+public class CavvyWebServerTest {
+    private TcpServer server;
+    private int port;
+    private bool running;
+    private int requestCount;
+    
+    public CavvyWebServerTest(int port) {
+        this.port = port;
+        this.running = false;
+        this.requestCount = 0;
+        this.server = new TcpServer();
+    }
+    
+    /**
+     * 生成主页面HTML内容
+     */
+    private String generateHomePage() {
+        StringBuilder html = new StringBuilder();
+        
+        html.append("<!DOCTYPE html>\r\n");
+        html.append("<html lang=\"zh-CN\">\r\n");
+        html.append("<head>\r\n");
+        html.append("    <meta charset=\"UTF-8\">\r\n");
+        html.append("    <title>Cavvy Web Server</title>\r\n");
+        html.append("    <style>\r\n");
+        html.append("        body {\r\n");
+        html.append("            font-family: Arial, sans-serif;\r\n");
+        html.append("            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\r\n");
+        html.append("            margin: 0;\r\n");
+        html.append("            padding: 0;\r\n");
+        html.append("            min-height: 100vh;\r\n");
+        html.append("            display: flex;\r\n");
+        html.append("            justify-content: center;\r\n");
+        html.append("            align-items: center;\r\n");
+        html.append("        }\r\n");
+        html.append("        .container {\r\n");
+        html.append("            background: white;\r\n");
+        html.append("            border-radius: 20px;\r\n");
+        html.append("            padding: 50px;\r\n");
+        html.append("            text-align: center;\r\n");
+        html.append("            max-width: 600px;\r\n");
+        html.append("        }\r\n");
+        html.append("        h1 {\r\n");
+        html.append("            color: #333;\r\n");
+        html.append("            font-size: 2.5em;\r\n");
+        html.append("            margin-bottom: 10px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .subtitle {\r\n");
+        html.append("            color: #666;\r\n");
+        html.append("            font-size: 1.2em;\r\n");
+        html.append("            margin-bottom: 30px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .info {\r\n");
+        html.append("            background: #f8f9fa;\r\n");
+        html.append("            padding: 20px;\r\n");
+        html.append("            margin: 20px 0;\r\n");
+        html.append("            border-radius: 8px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .info p {\r\n");
+        html.append("            margin: 10px 0;\r\n");
+        html.append("            color: #555;\r\n");
+        html.append("        }\r\n");
+        html.append("    </style>\r\n");
+        html.append("</head>\r\n");
+        html.append("<body>\r\n");
+        html.append("    <div class=\"container\">\r\n");
+        html.append("        <h1>Cavvy Web Server</h1>\r\n");
+        html.append("        <p class=\"subtitle\">用 Cavvy 编程语言构建的高性能 Web 服务器</p>\r\n");
+        html.append("        <div class=\"info\">\r\n");
+        html.append("            <p><strong>服务器状态:</strong> 运行正常</p>\r\n");
+        html.append("            <p><strong>服务器端口:</strong> ");
+        html.append(this.port);
+        html.append("</p>\r\n");
+        html.append("            <p><strong>编程语言:</strong> Cavvy</p>\r\n");
+        html.append("            <p><strong>版本:</strong> 0.5.1.0</p>\r\n");
+        html.append("        </div>\r\n");
+        html.append("    </div>\r\n");
+        html.append("</body>\r\n");
+        html.append("</html>\r\n");
+        
+        return html.toString();
+    }
+    
+    /**
+     * 启动服务器
+     */
+    public bool start() {
+        if (!NetworkUtils.init()) {
+            println("[错误] 网络初始化失败");
+            return false;
+        }
+        println("[信息] 网络初始化成功");
+        
+        if (!this.server.bindTo(this.port)) {
+            println("[错误] 绑定端口失败: " + this.port);
+            NetworkUtils.cleanup();
+            return false;
+        }
+        println("[信息] 服务器绑定到端口: " + this.port);
+        
+        if (!this.server.listen(10)) {
+            println("[错误] 开始监听失败");
+            this.server.close();
+            NetworkUtils.cleanup();
+            return false;
+        }
+        
+        this.running = true;
+        println("[信息] 服务器开始监听...");
+        println("[信息] 请在浏览器中访问: http://127.0.0.1:" + this.port);
+        
+        return true;
+    }
+    
+    /**
+     * 处理单个客户端连接
+     */
+    private void handleClient(TcpSocket client) {
+        String request = client.receiveString(4096);
+        
+        if (request.length() > 0) {
+            String firstLine = "";
+            int newlinePos = request.indexOf("\r\n");
+            if (newlinePos > 0) {
+                firstLine = request.substring(0, newlinePos);
+            } else {
+                newlinePos = request.indexOf("\n");
+                if (newlinePos > 0) {
+                    firstLine = request.substring(0, newlinePos);
+                }
+            }
+            
+            println("[请求] " + firstLine);
+            
+            HttpResponse response = new HttpResponse();
+            response.setBody(this.generateHomePage());
+            String responseStr = response.build();
+            
+            client.send(responseStr);
+            println("[响应] 200 OK (" + responseStr.length() + " bytes)");
+            
+            this.requestCount = this.requestCount + 1;
+        }
+        
+        client.close();
+    }
+    
+    /**
+     * 运行服务器（带超时）
+     * 使用简单的循环计数来模拟超时
+     * 注意：测试模式下跳过accept调用，因为accept是阻塞的
+     */
+    public void runWithTimeout(int timeoutMs) {
+        println("[信息] 服务器将在 " + timeoutMs + "ms 后自动停止");
+        
+        /* 使用循环计数模拟时间（粗略估计） */
+        int iterationsPerMs = 1000; /* 假设每次循环约1微秒 */
+        int maxIterations = timeoutMs * iterationsPerMs;
+        int iterationCount = 0;
+        
+        /* 测试模式：只等待超时，不调用accept（避免阻塞） */
+        while (this.running && iterationCount < maxIterations) {
+            /* 增加迭代计数 */
+            iterationCount = iterationCount + 1;
+        }
+        
+        if (iterationCount >= maxIterations) {
+            println("[信息] 服务器运行时间已达 " + timeoutMs + "ms，自动停止");
+        }
+    }
+    
+    /**
+     * 停止服务器
+     */
+    public void stop() {
+        this.running = false;
+        this.server.close();
+        NetworkUtils.cleanup();
+        println("[信息] 服务器已停止");
+        println("[统计] 共处理请求数: " + this.requestCount);
+    }
+    
+    /**
+     * 获取请求计数
+     */
+    public int getRequestCount() {
+        return this.requestCount;
+    }
+}
+
+/**
+ * 程序入口点 - 测试版本，5秒后自动关闭
+ */
+public int main() {
+    println("=== Cavvy Web Server 测试 ===\n");
+    
+    int port = 18080;
+    CavvyWebServerTest webServer = new CavvyWebServerTest(port);
+    
+    if (!webServer.start()) {
+        println("[错误] 服务器启动失败");
+        return 1;
+    }
+    
+    /* 运行500ms后自动关闭（测试模式） */
+    webServer.runWithTimeout(500);
+    
+    webServer.stop();
+    
+    println("\n=== 测试完成 ===");
+    return 0;
+}

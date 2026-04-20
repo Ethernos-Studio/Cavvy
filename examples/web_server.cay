@@ -1,0 +1,345 @@
+/**
+ * Cavvy Web Server - 简单的HTTP Web服务器示例
+ * 
+ * 这是一个完整的Web服务器实现，访问它会返回一个名为"Cavvy Web Server"的页面。
+ * 用户可以直接运行此示例来启动一个真正的Web服务器。
+ * 
+ * 使用方法:
+ *   cay-run examples/web_server.cay
+ * 
+ * 然后在浏览器中访问: http://127.0.0.1:8080
+ * 
+ * 版本: 0.5.1.0
+ */
+
+#include <Network.cay>
+
+/**
+ * HTTP响应构建器
+ * 用于构建符合HTTP/1.1规范的响应
+ */
+public class HttpResponse {
+    private int statusCode;
+    private String statusText;
+    private String contentType;
+    private String body;
+    
+    public HttpResponse() {
+        this.statusCode = 200;
+        this.statusText = "OK";
+        this.contentType = "text/html; charset=utf-8";
+        this.body = "";
+    }
+    
+    /**
+     * 设置状态码
+     */
+    public HttpResponse setStatus(int code, String text) {
+        this.statusCode = code;
+        this.statusText = text;
+        return this;
+    }
+    
+    /**
+     * 设置内容类型
+     */
+    public HttpResponse setContentType(String type) {
+        this.contentType = type;
+        return this;
+    }
+    
+    /**
+     * 设置响应体
+     */
+    public HttpResponse setBody(String body) {
+        this.body = body;
+        return this;
+    }
+    
+    /**
+     * 构建HTTP响应字符串
+     */
+    public String build() {
+        StringBuilder sb = new StringBuilder();
+        
+        /* 状态行 */
+        sb.append("HTTP/1.1 ");
+        sb.append(this.statusCode);
+        sb.append(" ");
+        sb.append(this.statusText);
+        sb.append("\r\n");
+        
+        /* 响应头 */
+        sb.append("Content-Type: ");
+        sb.append(this.contentType);
+        sb.append("\r\n");
+        
+        sb.append("Content-Length: ");
+        sb.append(this.body.length());
+        sb.append("\r\n");
+        
+        sb.append("Connection: close\r\n");
+        sb.append("Server: CavvyWebServer/0.5.1\r\n");
+        sb.append("\r\n");
+        
+        /* 响应体 */
+        sb.append(this.body);
+        
+        return sb.toString();
+    }
+}
+
+/**
+ * Cavvy Web Server 主类
+ */
+public class CavvyWebServer {
+    private TcpServer server;
+    private int port;
+    private bool running;
+    
+    public CavvyWebServer(int port) {
+        this.port = port;
+        this.running = false;
+        this.server = new TcpServer();
+    }
+    
+    /**
+     * 生成主页面HTML内容
+     */
+    private String generateHomePage() {
+        StringBuilder html = new StringBuilder();
+        
+        html.append("<!DOCTYPE html>\r\n");
+        html.append("<html lang=\"zh-CN\">\r\n");
+        html.append("<head>\r\n");
+        html.append("    <meta charset=\"UTF-8\">\r\n");
+        html.append("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n");
+        html.append("    <title>Cavvy Web Server</title>\r\n");
+        html.append("    <style>\r\n");
+        html.append("        body {\r\n");
+        html.append("            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;\r\n");
+        html.append("            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\r\n");
+        html.append("            margin: 0;\r\n");
+        html.append("            padding: 0;\r\n");
+        html.append("            min-height: 100vh;\r\n");
+        html.append("            display: flex;\r\n");
+        html.append("            justify-content: center;\r\n");
+        html.append("            align-items: center;\r\n");
+        html.append("        }\r\n");
+        html.append("        .container {\r\n");
+        html.append("            background: rgba(255, 255, 255, 0.95);\r\n");
+        html.append("            border-radius: 20px;\r\n");
+        html.append("            padding: 50px;\r\n");
+        html.append("            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);\r\n");
+        html.append("            text-align: center;\r\n");
+        html.append("            max-width: 600px;\r\n");
+        html.append("            margin: 20px;\r\n");
+        html.append("        }\r\n");
+        html.append("        h1 {\r\n");
+        html.append("            color: #333;\r\n");
+        html.append("            font-size: 2.5em;\r\n");
+        html.append("            margin-bottom: 10px;\r\n");
+        html.append("            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\r\n");
+        html.append("            -webkit-background-clip: text;\r\n");
+        html.append("            -webkit-text-fill-color: transparent;\r\n");
+        html.append("            background-clip: text;\r\n");
+        html.append("        }\r\n");
+        html.append("        .subtitle {\r\n");
+        html.append("            color: #666;\r\n");
+        html.append("            font-size: 1.2em;\r\n");
+        html.append("            margin-bottom: 30px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .info {\r\n");
+        html.append("            background: #f8f9fa;\r\n");
+        html.append("            border-left: 4px solid #667eea;\r\n");
+        html.append("            padding: 20px;\r\n");
+        html.append("            margin: 20px 0;\r\n");
+        html.append("            text-align: left;\r\n");
+        html.append("            border-radius: 8px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .info p {\r\n");
+        html.append("            margin: 10px 0;\r\n");
+        html.append("            color: #555;\r\n");
+        html.append("        }\r\n");
+        html.append("        .badge {\r\n");
+        html.append("            display: inline-block;\r\n");
+        html.append("            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\r\n");
+        html.append("            color: white;\r\n");
+        html.append("            padding: 8px 20px;\r\n");
+        html.append("            border-radius: 20px;\r\n");
+        html.append("            font-size: 0.9em;\r\n");
+        html.append("            margin-top: 20px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .features {\r\n");
+        html.append("            display: grid;\r\n");
+        html.append("            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));\r\n");
+        html.append("            gap: 15px;\r\n");
+        html.append("            margin-top: 30px;\r\n");
+        html.append("        }\r\n");
+        html.append("        .feature {\r\n");
+        html.append("            background: #f0f0f0;\r\n");
+        html.append("            padding: 15px;\r\n");
+        html.append("            border-radius: 10px;\r\n");
+        html.append("            font-size: 0.9em;\r\n");
+        html.append("            color: #555;\r\n");
+        html.append("        }\r\n");
+        html.append("    </style>\r\n");
+        html.append("</head>\r\n");
+        html.append("<body>\r\n");
+        html.append("    <div class=\"container\">\r\n");
+        html.append("        <h1>Cavvy Web Server</h1>\r\n");
+        html.append("        <p class=\"subtitle\">用 Cavvy 编程语言构建的高性能 Web 服务器</p>\r\n");
+        html.append("        \r\n");
+        html.append("        <div class=\"info\">\r\n");
+        html.append("            <p><strong>服务器状态:</strong> 运行正常</p>\r\n");
+        html.append("            <p><strong>服务器端口:</strong> ");
+        html.append(this.port);
+        html.append("</p>\r\n");
+        html.append("            <p><strong>编程语言:</strong> Cavvy</p>\r\n");
+        html.append("            <p><strong>版本:</strong> 0.5.1.0</p>\r\n");
+        html.append("        </div>\r\n");
+        html.append("        \r\n");
+        html.append("        <div class=\"badge\">Powered by Cavvy</div>\r\n");
+        html.append("        \r\n");
+        html.append("        <div class=\"features\">\r\n");
+        html.append("            <div class=\"feature\">类C语法</div>\r\n");
+        html.append("            <div class=\"feature\">面向对象</div>\r\n");
+        html.append("            <div class=\"feature\">类型安全</div>\r\n");
+        html.append("            <div class=\"feature\">高性能</div>\r\n");
+        html.append("        </div>\r\n");
+        html.append("    </div>\r\n");
+        html.append("</body>\r\n");
+        html.append("</html>\r\n");
+        
+        return html.toString();
+    }
+    
+    /**
+     * 启动服务器
+     */
+    public bool start() {
+        /* 初始化网络 */
+        if (!NetworkUtils.init()) {
+            println("[错误] 网络初始化失败");
+            return false;
+        }
+        println("[信息] 网络初始化成功");
+        
+        /* 绑定端口 */
+        if (!this.server.bindTo(this.port)) {
+            println("[错误] 绑定端口失败: " + this.port);
+            NetworkUtils.cleanup();
+            return false;
+        }
+        println("[信息] 服务器绑定到端口: " + this.port);
+        
+        /* 开始监听 */
+        if (!this.server.listen(10)) {
+            println("[错误] 开始监听失败");
+            this.server.close();
+            NetworkUtils.cleanup();
+            return false;
+        }
+        
+        this.running = true;
+        println("[信息] 服务器开始监听...");
+        println("[信息] 请在浏览器中访问: http://127.0.0.1:" + this.port);
+        println("[信息] 按 Ctrl+C 停止服务器\n");
+        
+        return true;
+    }
+    
+    /**
+     * 处理单个客户端连接
+     */
+    private void handleClient(TcpSocket client) {
+        /* 接收HTTP请求 */
+        String request = client.receiveString(4096);
+        
+        if (request.length() > 0) {
+            /* 解析请求的第一行 */
+            String firstLine = "";
+            int newlinePos = request.indexOf("\r\n");
+            if (newlinePos > 0) {
+                firstLine = request.substring(0, newlinePos);
+            } else {
+                newlinePos = request.indexOf("\n");
+                if (newlinePos > 0) {
+                    firstLine = request.substring(0, newlinePos);
+                }
+            }
+            
+            println("[请求] " + firstLine);
+            
+            /* 生成响应 */
+            HttpResponse response = new HttpResponse();
+            response.setBody(this.generateHomePage());
+            String responseStr = response.build();
+            
+            /* 发送响应 */
+            client.send(responseStr);
+            println("[响应] 200 OK (" + responseStr.length() + " bytes)");
+        }
+        
+        /* 关闭客户端连接 */
+        client.close();
+    }
+    
+    /**
+     * 运行服务器主循环（阻塞模式）
+     * 用于用户直接运行
+     */
+    public void run() {
+        while (this.running) {
+            /* 接受客户端连接 */
+            TcpSocket client = this.server.accept();
+            
+            if (client != null) {
+                this.handleClient(client);
+            }
+        }
+    }
+    
+    /**
+     * 停止服务器
+     */
+    public void stop() {
+        this.running = false;
+        this.server.close();
+        NetworkUtils.cleanup();
+        println("[信息] 服务器已停止");
+    }
+    
+    /**
+     * 检查服务器是否运行
+     */
+    public bool isRunning() {
+        return this.running;
+    }
+}
+
+/**
+ * 程序入口点
+ */
+public int main() {
+    println("==============================================");
+    println("       Cavvy Web Server");
+    println("==============================================\n");
+    
+    int port = 8080;
+    CavvyWebServer webServer = new CavvyWebServer(port);
+    
+    /* 启动服务器 */
+    if (!webServer.start()) {
+        println("[错误] 服务器启动失败");
+        return 1;
+    }
+    
+    /* 运行服务器 */
+    webServer.run();
+    
+    /* 停止服务器 */
+    webServer.stop();
+    
+    return 0;
+}

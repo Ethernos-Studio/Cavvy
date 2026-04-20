@@ -18,6 +18,7 @@ mod string_charat;
 mod string_replace;
 mod string_isempty;
 mod string_equals;
+mod buffer_to_string;
 
 impl IRGenerator {
     /// 发射IR头部（外部声明和运行时函数）
@@ -140,7 +141,8 @@ impl IRGenerator {
         self.emit_string_replace_runtime();
         self.emit_string_isempty_runtime();
         self.emit_string_equals_runtime();
-        
+        self.emit_buffer_to_string_runtime();
+
         // 生成内存操作函数
         self.emit_memory_runtime();
     }

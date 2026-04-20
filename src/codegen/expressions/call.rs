@@ -234,6 +234,11 @@ impl IRGenerator {
 
     /// 生成函数名 - 优先使用类型注册表中方法定义的参数类型，支持继承
     fn generate_function_name(&self, class_name: &str, method_name: &str, processed_args: &[String], has_varargs_array: bool) -> String {
+        // 特殊处理运行时 native 方法：直接返回运行时函数名
+        if method_name == "__cay_buffer_to_string" {
+            return "__cay_buffer_to_string".to_string();
+        }
+
         // 获取实际参数的类型签名
         let arg_types: Vec<String> = processed_args.iter()
             .enumerate()
@@ -746,6 +751,12 @@ impl IRGenerator {
     /// * `func_name` - extern 函数名称
     /// * `args` - 函数参数
     fn generate_extern_function_call(&mut self, func_name: &str, args: &[Expr]) -> cayResult<String> {
+        // 特殊处理运行时函数 __cay_buffer_to_string
+        // 这个函数在运行时模块中已经定义，不需要从 extern 声明中查找
+        if func_name == "__cay_buffer_to_string" {
+            return self.generate_buffer_to_string_call(args);
+        }
+
         // 获取 extern 函数信息（克隆以避免借用问题）
         let extern_func = {
             let found = self.get_extern_function(func_name);
@@ -794,5 +805,31 @@ impl IRGenerator {
                 temp, llvm_ret_type, func_name, processed_args.join(", ")));
             Ok(format!("{} {}", llvm_ret_type, temp))
         }
+    }
+
+    /// 生成 __cay_buffer_to_string 运行时函数调用
+    /// 这个函数在运行时模块中已经定义，返回 i8* (String)
+    fn generate_buffer_to_string_call(&mut self, args: &[Expr]) -> cayResult<String> {
+        if args.len() != 2 {
+            return Err(codegen_error("__cay_buffer_to_string requires 2 arguments".to_string()));
+        }
+
+        // 生成参数
+        let arg1_result = self.generate_expression(&args[0])?;
+        let arg2_result = self.generate_expression(&args[1])?;
+
+        let (arg1_type, arg1_val) = self.parse_typed_value(&arg1_result);
+        let (arg2_type, arg2_val) = self.parse_typed_value(&arg2_result);
+
+        // 转换参数类型
+        let llvm_arg1 = self.convert_arg_type(&arg1_type, &arg1_val, "i64");
+        let llvm_arg2 = self.convert_arg_type(&arg2_type, &arg2_val, "i32");
+
+        // 调用运行时函数
+        let temp = self.new_temp();
+        self.emit_line(&format!("  {} = call i8* @__cay_buffer_to_string(i64 {}, i32 {})",
+            temp, llvm_arg1, llvm_arg2));
+
+        Ok(format!("i8* {}", temp))
     }
 }

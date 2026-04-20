@@ -388,6 +388,25 @@ impl IRGenerator {
                         Type::String if member.member == "length" => Some(Type::Int32),
                         _ => None,
                     }
+                }).or_else(|| {
+                    // 如果无法从对象类型推断，尝试从当前类的字段信息获取
+                    // 这用于处理 this.field 的情况
+                    if let Expr::Identifier(obj_name) = member.object.as_ref() {
+                        let obj_name_str = obj_name.as_ref();
+                        // 检查是否是 this 或当前类实例
+                        if obj_name_str == "this" || (obj_name_str == self.current_class.as_str()) {
+                            // 从类型注册表获取当前类的字段信息
+                            if let Some(ref registry) = self.type_registry {
+                                if let Some(class_info) = registry.get_class(&self.current_class) {
+                                    // 查找字段 (HashMap<String, FieldInfo>)
+                                    if let Some(field_info) = class_info.fields.get(&member.member) {
+                                        return Some(field_info.field_type.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    None
                 })
             },
             Expr::ArrayAccess(arr) => {

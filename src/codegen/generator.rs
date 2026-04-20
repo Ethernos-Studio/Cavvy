@@ -492,6 +492,11 @@ impl IRGenerator {
     }
 
     fn generate_method_declaration(&mut self, class_name: &str, method: &MethodDecl) -> cayResult<()> {
+        // 跳过 native 方法的声明（它们在运行时或由外部提供）
+        if method.modifiers.contains(&Modifier::Native) {
+            return Ok(());
+        }
+
         let fn_name = self.generate_method_name(class_name, method);
         let ret_type = self.type_to_llvm(&method.return_type);
 
@@ -557,6 +562,11 @@ impl IRGenerator {
     }
 
     fn generate_method(&mut self, class_name: &str, method: &MethodDecl) -> cayResult<()> {
+        // 跳过 native 方法的定义（它们在运行时或由外部提供）
+        if method.modifiers.contains(&Modifier::Native) {
+            return Ok(());
+        }
+
         let fn_name = self.generate_method_name(class_name, method);
         self.current_function = fn_name.clone();
         self.current_class = class_name.to_string();
@@ -629,6 +639,10 @@ impl IRGenerator {
                 self.var_types.insert(param.name.clone(), array_type.clone());
                 // 存储Cavvy类型信息，用于准确的类型推断
                 self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
+                // 如果参数类型是对象，记录其类名以便后续方法调用解析
+                if let crate::types::Type::Object(ref class_name) = param.param_type {
+                    self.var_class_map.insert(param.name.clone(), class_name.clone());
+                }
             } else {
                 let param_type = self.type_to_llvm(&param.param_type);
                 let llvm_name = self.scope_manager.declare_var_with_flag(&param.name, &param_type, true);
@@ -638,6 +652,10 @@ impl IRGenerator {
                 self.var_types.insert(param.name.clone(), param_type.clone());
                 // 存储Cavvy类型信息，用于准确的类型推断
                 self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
+                // 如果参数类型是对象，记录其类名以便后续方法调用解析
+                if let crate::types::Type::Object(ref class_name) = param.param_type {
+                    self.var_class_map.insert(param.name.clone(), class_name.clone());
+                }
             }
         }
 
