@@ -386,7 +386,7 @@ fn get_error_code(error: &cayError) -> &'static str {
 }
 
 /// 获取错误消息（不含建议）
-fn get_error_message(error: &cayError) -> String {
+pub fn get_error_message(error: &cayError) -> String {
     match error {
         cayError::Lexer { message, .. } => format!("词法错误: {}", message),
         cayError::Parser { message, .. } => format!("语法错误: {}", message),
@@ -401,8 +401,8 @@ fn get_error_message(error: &cayError) -> String {
     }
 }
 
-/// 获取错误帮助信息
-fn get_error_help(error: &cayError) -> Option<String> {
+/// 获取帮助信息
+pub fn get_error_help(error: &cayError) -> Option<String> {
     match error {
         cayError::Lexer { suggestion, .. } => Some(suggestion.clone()),
         cayError::Parser { suggestion, .. } => Some(suggestion.clone()),
@@ -418,7 +418,7 @@ fn get_error_help(error: &cayError) -> Option<String> {
 }
 
 /// 获取错误位置
-fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
+pub fn get_error_location(error: &cayError) -> Option<(usize, usize)> {
     match error {
         cayError::Lexer { line, column, .. } => Some((*line, *column)),
         cayError::Parser { line, column, .. } => Some((*line, *column)),

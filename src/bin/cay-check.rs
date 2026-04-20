@@ -2,11 +2,91 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process;
-use cavvy::error::print_error_with_context;
+use cavvy::error::{print_error_with_context, cayError, get_error_location, get_error_message, get_error_help};
 use cavvy::lexer;
 use cavvy::parser;
 use cavvy::preprocessor;
 use cavvy::semantic;
+
+/// 使用源映射打印错误信息
+fn print_error_with_source_map(
+    error: &cayError,
+    processed_source: &str,
+    source_path: &str,
+    source_map: &std::collections::HashMap<usize, (String, usize)>,
+) {
+    // 尝试获取错误位置
+    if let Some((line, column)) = get_error_location(error) {
+        if line > 0 {
+            // 查找源映射获取原始文件和行号
+            let (orig_file, orig_line) = if let Some((file, orig_ln)) = source_map.get(&line) {
+                (file.as_str(), *orig_ln)
+            } else {
+                (source_path, line)
+            };
+            
+            // 尝试读取原始源文件
+            let (source_to_use, filename_to_use, line_to_use) = 
+                if let Ok(file_content) = fs::read_to_string(orig_file) {
+                    (file_content, orig_file, orig_line)
+                } else {
+                    (processed_source.to_string(), source_path, line)
+                };
+            
+            print_error_with_location_fixed(error, &source_to_use, filename_to_use, line_to_use, column);
+            return;
+        }
+    }
+    
+    // 没有位置信息的错误，使用默认方式
+    print_error_with_context(error, processed_source, source_path);
+}
+
+/// 打印带有位置信息的错误（修复版）
+fn print_error_with_location_fixed(
+    error: &cayError,
+    source: &str,
+    filename: &str,
+    line: usize,
+    column: usize,
+) {
+    let message = get_error_message(error);
+    let help = get_error_help(error);
+    
+    // 使用 miette 风格格式
+    eprintln!("\n  × {}", message);
+    eprintln!("   ╭─[{}:{}:{}]", filename, line, column);
+    
+    // 打印源代码上下文（前后3行）
+    let lines: Vec<&str> = source.lines().collect();
+    let start_line = line.saturating_sub(3).max(1);
+    let end_line = (line + 2).min(lines.len());
+    
+    for i in start_line..=end_line {
+        if i <= lines.len() {
+            let line_content = lines[i - 1];
+            eprintln!("{:3} │ {}", i, line_content);
+            
+            if i == line {
+                // 打印错误指示器
+                let prefix_len = column.saturating_sub(1);
+                let spaces = " ".repeat(prefix_len);
+                eprintln!("    │ {} {}", spaces, "^ 错误在这里");
+            }
+        }
+    }
+    
+    eprintln!("   ╰────");
+    
+    // 打印帮助信息
+    if let Some(help_text) = help {
+        if !help_text.is_empty() {
+            eprintln!("  help: {}", help_text);
+        }
+    }
+    
+    eprintln!();
+}
 
 /// 获取系统包含路径（caylibs目录）
 fn get_system_include_paths() -> Vec<PathBuf> {
@@ -179,7 +259,8 @@ fn main() {
                 // 转换源映射格式
                 let mut map = std::collections::HashMap::new();
                 for (idx, pos) in result.source_map.mappings.iter().enumerate() {
-                    map.insert(idx + 1, (pos.file.clone(), pos.line + 1)); // 1-based line numbers
+                    // pos.line 已经是 1-based（预处理器使用 line_number + 1）
+                    map.insert(idx + 1, (pos.file.clone(), pos.line));
                 }
                 (result.code, Some(map))
             }
@@ -299,7 +380,12 @@ fn main() {
                     println!("[+] 语法检查完成! (耗时: {:?})", elapsed);
                 }
                 Err(e) => {
-                    print_error_with_context(&e, &processed_source, &source_path);
+                    // 使用源映射报告错误
+                    if let Some(ref map) = source_map {
+                        print_error_with_source_map(&e, &processed_source, &source_path, map);
+                    } else {
+                        print_error_with_context(&e, &processed_source, &source_path);
+                    }
                     process::exit(1);
                 }
             }

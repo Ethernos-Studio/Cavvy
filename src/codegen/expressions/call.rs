@@ -712,35 +712,49 @@ impl IRGenerator {
         if arg_type == param_llvm_type {
             return format!("{} {}", arg_type, arg_val);
         }
-        
+
         // double -> float 转换
         if arg_type == "double" && param_llvm_type == "float" {
             let converted = self.new_temp();
             self.emit_line(&format!("  {} = fptrunc double {} to float", converted, arg_val));
             return format!("float {}", converted);
         }
-        
+
         // float -> double 转换
         if arg_type == "float" && param_llvm_type == "double" {
             let converted = self.new_temp();
             self.emit_line(&format!("  {} = fpext float {} to double", converted, arg_val));
             return format!("double {}", converted);
         }
-        
+
         // i32 -> i64 转换
         if arg_type == "i32" && param_llvm_type == "i64" {
             let converted = self.new_temp();
             self.emit_line(&format!("  {} = sext i32 {} to i64", converted, arg_val));
             return format!("i64 {}", converted);
         }
-        
+
         // i64 -> i32 截断
         if arg_type == "i64" && param_llvm_type == "i32" {
             let converted = self.new_temp();
             self.emit_line(&format!("  {} = trunc i64 {} to i32", converted, arg_val));
             return format!("i32 {}", converted);
         }
-        
+
+        // 指针 -> i64 转换 (ptrtoint)
+        if arg_type.ends_with("*") && param_llvm_type == "i64" {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = ptrtoint {} {} to i64", converted, arg_type, arg_val));
+            return format!("i64 {}", converted);
+        }
+
+        // i64 -> 指针 转换 (inttoptr)
+        if arg_type == "i64" && param_llvm_type.ends_with("*") {
+            let converted = self.new_temp();
+            self.emit_line(&format!("  {} = inttoptr i64 {} to {}", converted, arg_val, param_llvm_type));
+            return format!("{} {}", param_llvm_type, converted);
+        }
+
         // 默认：不进行转换
         format!("{} {}", arg_type, arg_val)
     }

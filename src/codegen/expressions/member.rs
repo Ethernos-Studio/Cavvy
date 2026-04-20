@@ -67,17 +67,6 @@ impl IRGenerator {
             }
         }
 
-        // 特殊处理数组的 .length 属性
-        if member.member == "length" {
-            let obj = self.generate_expression(&member.object)?;
-            let (obj_type, obj_val) = self.parse_typed_value(&obj);
-
-            // 检查是否是数组类型（以 * 结尾）
-            if obj_type.ends_with("*") {
-                return self.generate_array_length_access(&member.object);
-            }
-        }
-        
         // 处理实例字段访问: this.fieldName 或 obj.fieldName 或 super.fieldName
         
         // 确定对象所属的类
@@ -99,6 +88,27 @@ impl IRGenerator {
         } else {
             None
         };
+        
+        // 特殊处理数组的 .length 属性（但优先检查是否是对象的字段）
+        if member.member == "length" {
+            // 首先检查是否是当前对象的字段
+            let is_field = if let Some(ref class_name) = class_name_opt {
+                self.get_instance_field(class_name, "length").is_some()
+            } else {
+                false
+            };
+            
+            // 如果不是字段，则检查是否是数组类型
+            if !is_field {
+                let obj = self.generate_expression(&member.object)?;
+                let (obj_type, obj_val) = self.parse_typed_value(&obj);
+
+                // 检查是否是数组类型（以 * 结尾）
+                if obj_type.ends_with("*") {
+                    return self.generate_array_length_access(&member.object);
+                }
+            }
+        }
         
         if let Some(class_name) = class_name_opt {
             if let Some(field_info) = self.get_instance_field(&class_name, &member.member).cloned() {

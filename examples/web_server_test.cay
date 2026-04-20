@@ -1,0 +1,8 @@
+public class Test {
+    public int main() {
+        long ptr = 0;
+        char* str = "hello";
+        ptr = str;  // 这里应该有类型转换错误
+        return 0;
+    }
+}

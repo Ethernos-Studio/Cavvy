@@ -225,6 +225,18 @@ impl IRGenerator {
                             temp, value_type, val, var_type));
                         self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
                     }
+                    // 指针到整数转换 (ptrtoint)
+                    else if value_type.ends_with("*") && var_type.starts_with("i") && !var_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = ptrtoint {} {} to {}",
+                            temp, value_type, val, var_type));
+                        self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
+                    }
+                    // 整数到指针转换 (inttoptr)
+                    else if var_type.ends_with("*") && value_type.starts_with("i") && !value_type.ends_with("*") {
+                        self.emit_line(&format!("  {} = inttoptr {} {} to {}",
+                            temp, value_type, val, var_type));
+                        self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
+                    }
                     else {
                         // 类型不兼容，报错
                         return Err(crate::error::codegen_error(

@@ -76,6 +76,9 @@ impl SemanticAnalyzer {
             // c_bool <-> bool 和 int
             (Type::CBool, Type::Bool) | (Type::Bool, Type::CBool) => true,
             (Type::CBool, Type::Int32) | (Type::Int32, Type::CBool) => true,
+            // 指针类型与 long/int 之间的兼容（用于 FFI）
+            (Type::Pointer(_), Type::Int64) | (Type::Int64, Type::Pointer(_)) => true,
+            (Type::Pointer(_), Type::Int32) | (Type::Int32, Type::Pointer(_)) => true,
             // FFI 类型之间的兼容
             (Type::CInt, Type::CLong) | (Type::CLong, Type::CInt) => true,
             (Type::CInt, Type::CShort) | (Type::CShort, Type::CInt) => true,
@@ -317,7 +320,7 @@ impl SemanticAnalyzer {
                 if !args.is_empty() {
                     return Err(semantic_error(line, column, "String.c_str() takes no arguments".to_string()));
                 }
-                Ok(Type::Int64)
+                Ok(Type::Int64)  // 返回 long 类型，与 StringBuilder.cay 中的使用一致
             }
             _ => Err(semantic_error(line, column, format!("Unknown String method '{}'", method_name))),
         }

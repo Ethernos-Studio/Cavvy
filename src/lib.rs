@@ -221,8 +221,8 @@ impl Compiler {
         let mut map = std::collections::HashMap::new();
         for (idx, pos) in source_map.mappings.iter().enumerate() {
             // idx + 1 是 1-based 的输出行号
-            // pos.line + 1 将 0-based 原始行号转换为 1-based
-            map.insert(idx + 1, (pos.file.clone(), pos.line + 1));
+            // pos.line 已经是 1-based（预处理器使用 line_number + 1）
+            map.insert(idx + 1, (pos.file.clone(), pos.line));
         }
         map
     }

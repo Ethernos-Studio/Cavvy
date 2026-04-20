@@ -410,9 +410,9 @@ impl Preprocessor {
                 
                 // 读取包含文件
                 match self.read_include_file(&path, is_system, file_path)? {
-                    Some(include_content) => {
-                        // 添加到包含栈（用于循环检测）
-                        self.include_stack.push(path.clone());
+                    Some((include_content, full_path)) => {
+                        // 添加到包含栈（用于循环检测）- 使用完整路径
+                        self.include_stack.push(full_path.clone());
                         
                         // 保存当前条件编译状态
                         let saved_conditional_stack = self.conditional_stack.clone();
@@ -422,8 +422,8 @@ impl Preprocessor {
                         self.conditional_stack = Vec::new();
                         self.skipping = false;
                         
-                        // 递归处理包含的文件
-                        let included_result = self.process_with_source_map(&include_content, &path)?;
+                        // 递归处理包含的文件 - 使用完整路径
+                        let included_result = self.process_with_source_map(&include_content, &full_path)?;
                         
                         // 恢复条件编译状态
                         self.conditional_stack = saved_conditional_stack;
@@ -558,17 +558,17 @@ impl Preprocessor {
     }
 
     /// 读取包含文件
-    fn read_include_file(&mut self, path: &str, is_system: bool, current_file: &str) -> cayResult<Option<String>> {
+    fn read_include_file(&mut self, path: &str, is_system: bool, current_file: &str) -> cayResult<Option<(String, String)>> {
         // 解析完整路径
         let full_path = self.resolve_include_path(path, is_system, current_file)?;
         
-        // 首先检测循环包含（基于当前处理链）
-        if self.include_stack.contains(&path.to_string()) {
+        // 首先检测循环包含（基于当前处理链）- 使用完整路径
+        if self.include_stack.contains(&full_path) {
             return Err(cayError::Preprocessor {
                 file: Some(current_file.to_string()),
                 line: 1,
                 column: 1,
-                message: format!("检测到循环包含: {}", path),
+                message: format!("检测到循环包含: {}", full_path),
                 suggestion: "检查头文件之间的循环依赖".to_string(),
             });
         }
@@ -591,7 +591,7 @@ impl Preprocessor {
         // 添加到已包含集合
         self.included_files.insert(full_path.clone());
         
-        Ok(Some(content))
+        Ok(Some((content, full_path)))
     }
 
     /// 解析包含文件的完整路径

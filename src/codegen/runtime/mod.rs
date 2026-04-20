@@ -149,7 +149,7 @@ impl IRGenerator {
     
     /// 生成内存操作运行时函数
     fn emit_memory_runtime(&mut self) {
-        // __cay_memset_byte: 按字节设置内存
+        // __cay_memset_byte: 按字节设置内存 (使用i64指针参数，兼容现有代码)
         self.emit_raw("define void @__cay_memset_byte(i64 %ptr, i32 %value, i32 %n) {");
         self.emit_raw("entry:");
         self.emit_raw("  %ptr_i8 = inttoptr i64 %ptr to i8*");
@@ -159,8 +159,8 @@ impl IRGenerator {
         self.emit_raw("  ret void");
         self.emit_raw("}");
         self.emit_raw("");
-        
-        // __cay_memcpy_byte: 按字节复制内存
+
+        // __cay_memcpy_byte: 按字节复制内存 (使用i64指针参数，兼容现有代码)
         self.emit_raw("define void @__cay_memcpy_byte(i64 %dest, i64 %src, i32 %n) {");
         self.emit_raw("entry:");
         self.emit_raw("  %dest_i8 = inttoptr i64 %dest to i8*");
@@ -170,7 +170,7 @@ impl IRGenerator {
         self.emit_raw("  ret void");
         self.emit_raw("}");
         self.emit_raw("");
-        
+
         // 声明 llvm.memset
         self.emit_raw("declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)");
         self.emit_raw("");

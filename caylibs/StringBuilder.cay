@@ -13,7 +13,7 @@ extern {
     /* 内存分配函数 */
     long malloc(int size);
     void free(long ptr);
-    
+
     /* 内存操作函数（运行时提供） */
     void __cay_memcpy_byte(long dest, long src, int n);
     void __cay_memset_byte(long ptr, int value, int n);

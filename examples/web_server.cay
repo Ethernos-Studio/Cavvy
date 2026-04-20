@@ -253,6 +253,10 @@ public class CavvyWebServer {
      * 处理单个客户端连接
      */
     private void handleClient(TcpSocket client) {
+        if (client == null) {
+            return;
+        }
+        
         /* 接收HTTP请求 */
         String request = client.receiveString(4096);
         
@@ -326,12 +330,27 @@ public int main() {
     println("       Cavvy Web Server");
     println("==============================================\n");
     
-    int port = 8080;
-    CavvyWebServer webServer = new CavvyWebServer(port);
+    /* 尝试多个端口 */
+    int startPort = 8080;
+    int maxPort = 8090;
+    int port = startPort;
+    CavvyWebServer webServer = null;
     
-    /* 启动服务器 */
-    if (!webServer.start()) {
-        println("[错误] 服务器启动失败");
+    while (port <= maxPort) {
+        webServer = new CavvyWebServer(port);
+        
+        if (webServer.start()) {
+            println("[信息] 服务器成功启动在端口: " + port);
+            break;
+        }
+        
+        println("[警告] 端口 " + port + " 被占用，尝试下一个端口...");
+        webServer.stop();
+        port = port + 1;
+    }
+    
+    if (port > maxPort) {
+        println("[错误] 无法找到可用端口 (" + startPort + "-" + maxPort + ")");
         return 1;
     }
     
