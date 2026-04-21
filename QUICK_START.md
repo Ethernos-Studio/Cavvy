@@ -169,9 +169,7 @@ public class Dog extends Animal {
     
     @Override
     public void speak() {
-        // 注意：当前版本可能不支持字符串拼接
-        // println(name + " says: Woof!");
-        println("Dog speaks");
+        println(name + " says: Woof!");
     }
 }
 ```
@@ -201,9 +199,7 @@ public class Circle extends Shape implements Drawable {
     
     @Override
     public void draw() {
-        // 注意：当前版本可能不支持字符串拼接
-        // println("Drawing circle with radius " + radius);
-        println("Drawing circle");
+        println("Drawing circle with radius " + radius);
     }
 }
 ```
@@ -235,15 +231,15 @@ public class Calculator {
 ## 7. Lambda 表达式
 
 ```cay
-// Lambda 表达式 - 注意：当前版本可能不支持
-// var add = (int a, int b) -> { return a + b; };
-// int result = add(3, 4);
+// Lambda 表达式
+var add = (int a, int b) -> { return a + b; };
+int result = add(3, 4);
 
 // 简写形式
-// var multiply = (int a, int b) -> a * b;
+var multiply = (int a, int b) -> a * b;
 
 // 方法引用
-// var ref = Calculator::add;
+var ref = Calculator::add;
 ```
 
 ## 8. FFI - 调用 C 函数
