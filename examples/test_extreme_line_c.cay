@@ -1,0 +1,34 @@
+// Extreme test C - 最后一层，包含错误
+
+
+
+// 大量空行来测试行号映射
+
+
+
+
+
+
+
+
+
+
+
+// 第15行左右
+
+
+
+
+
+
+
+
+
+// 第25行左右
+class ExtremeClass {
+    public static void main(String[] args) {
+        // 第28行，故意类型错误
+        int wrong = "string_not_int";
+        println("unreachable");
+    }
+}

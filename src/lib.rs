@@ -117,6 +117,12 @@ impl Compiler {
     /// # Returns
     /// 编译成功返回 Ok(())
     pub fn compile_with_source_map(&self, source: &str, source_map: std::collections::HashMap<usize, (String, usize)>, output_path: &str) -> cayResult<()> {
+        // 从source_map获取主文件路径
+        let main_file = source_map.values().next().map(|(file, _)| file.clone());
+
+        // 保留一份源映射用于语义分析错误定位
+        let source_map_for_analyzer = source_map.clone();
+
         // 1. 词法分析（带源映射）
         let tokens = lexer::lex_with_source_map(source, source_map)?;
 
@@ -139,6 +145,9 @@ impl Compiler {
 
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::new();
+        analyzer.set_current_file(main_file);
+        // 传递源映射表以支持多文件include场景下的正确错误定位
+        analyzer.set_source_map(source_map_for_analyzer);
         analyzer.analyze(&ast)?;
 
         // 4. 代码生成 - 生成LLVM IR（字符串常量已在生成器内处理）

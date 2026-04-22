@@ -65,3 +65,17 @@ fn test_include_system_angle_brackets() {
     assert!(output.contains("Greetings, World!"),
             "Should show indexed formatted string, got: {}", output);
 }
+
+// ==================== 错误行号定位测试（多级include）====================
+
+#[test]
+fn test_error_line_number_with_nested_include() {
+    let error = compile_eol_expect_error("examples/test_extreme_line_main.cay")
+        .expect("nested include type error should fail to compile");
+    // 错误应在 test_extreme_line_c.cay 的第31行
+    assert!(
+        error.contains("test_extreme_line_c.cay") && error.contains("31"),
+        "Should report error in test_extreme_line_c.cay at line 31, got: {}",
+        error
+    );
+}

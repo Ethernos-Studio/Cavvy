@@ -1,0 +1,19 @@
+// Extreme test B - 带 #pragma once
+
+#pragma once
+
+
+
+// 引入第三层
+#include "test_extreme_line_c.cay"
+
+
+
+class ClassB {
+    public static void methodB() {
+        // 第16行
+        int b = 1;
+    }
+}
+
+

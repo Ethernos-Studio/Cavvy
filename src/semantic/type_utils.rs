@@ -246,83 +246,81 @@ impl SemanticAnalyzer {
 
     /// 推断 String 方法调用的返回类型
     pub fn infer_string_method_call(&mut self, method_name: &str, args: &[Expr], line: usize, column: usize) -> cayResult<Type> {
-        use crate::error::semantic_error;
-        
         match method_name {
             "length" => {
                 if !args.is_empty() {
-                    return Err(semantic_error(line, column, "String.length() takes no arguments".to_string()));
+                    return Err(self.report_error(line, column, "String.length() takes no arguments".to_string()));
                 }
                 Ok(Type::Int32)
             }
             "substring" => {
                 if args.is_empty() || args.len() > 2 {
-                    return Err(semantic_error(line, column, "String.substring() takes 1 or 2 arguments".to_string()));
+                    return Err(self.report_error(line, column, "String.substring() takes 1 or 2 arguments".to_string()));
                 }
                 // 检查参数类型
                 for (i, arg) in args.iter().enumerate() {
                     let arg_type = self.infer_expr_type(arg)?;
                     if !arg_type.is_integer() {
-                        return Err(semantic_error(line, column, format!("Argument {} of substring() must be integer, got {}", i + 1, arg_type)));
+                        return Err(self.report_error(line, column, format!("Argument {} of substring() must be integer, got {}", i + 1, arg_type)));
                     }
                 }
                 Ok(Type::String)
             }
             "indexOf" => {
                 if args.len() != 1 {
-                    return Err(semantic_error(line, column, "String.indexOf() takes 1 argument".to_string()));
+                    return Err(self.report_error(line, column, "String.indexOf() takes 1 argument".to_string()));
                 }
                 let arg_type = self.infer_expr_type(&args[0])?;
                 if arg_type != Type::String {
-                    return Err(semantic_error(line, column, format!("Argument of indexOf() must be string, got {}", arg_type)));
+                    return Err(self.report_error(line, column, format!("Argument of indexOf() must be string, got {}", arg_type)));
                 }
                 Ok(Type::Int32)
             }
             "charAt" => {
                 if args.len() != 1 {
-                    return Err(semantic_error(line, column, "String.charAt() takes 1 argument".to_string()));
+                    return Err(self.report_error(line, column, "String.charAt() takes 1 argument".to_string()));
                 }
                 let arg_type = self.infer_expr_type(&args[0])?;
                 if !arg_type.is_integer() {
-                    return Err(semantic_error(line, column, format!("Argument of charAt() must be integer, got {}", arg_type)));
+                    return Err(self.report_error(line, column, format!("Argument of charAt() must be integer, got {}", arg_type)));
                 }
                 Ok(Type::Char)
             }
             "replace" => {
                 if args.len() != 2 {
-                    return Err(semantic_error(line, column, "String.replace() takes 2 arguments".to_string()));
+                    return Err(self.report_error(line, column, "String.replace() takes 2 arguments".to_string()));
                 }
                 for (i, arg) in args.iter().enumerate() {
                     let arg_type = self.infer_expr_type(arg)?;
                     if arg_type != Type::String {
-                        return Err(semantic_error(line, column, format!("Argument {} of replace() must be string, got {}", i + 1, arg_type)));
+                        return Err(self.report_error(line, column, format!("Argument {} of replace() must be string, got {}", i + 1, arg_type)));
                     }
                 }
                 Ok(Type::String)
             }
             "isEmpty" => {
                 if !args.is_empty() {
-                    return Err(semantic_error(line, column, "String.isEmpty() takes no arguments".to_string()));
+                    return Err(self.report_error(line, column, "String.isEmpty() takes no arguments".to_string()));
                 }
                 Ok(Type::Bool)
             }
             "equals" => {
                 if args.len() != 1 {
-                    return Err(semantic_error(line, column, "String.equals() takes 1 argument".to_string()));
+                    return Err(self.report_error(line, column, "String.equals() takes 1 argument".to_string()));
                 }
                 let arg_type = self.infer_expr_type(&args[0])?;
                 if arg_type != Type::String {
-                    return Err(semantic_error(line, column, format!("Argument of equals() must be string, got {}", arg_type)));
+                    return Err(self.report_error(line, column, format!("Argument of equals() must be string, got {}", arg_type)));
                 }
                 Ok(Type::Bool)
             }
             "c_str" => {
                 if !args.is_empty() {
-                    return Err(semantic_error(line, column, "String.c_str() takes no arguments".to_string()));
+                    return Err(self.report_error(line, column, "String.c_str() takes no arguments".to_string()));
                 }
                 Ok(Type::Int64)  // 返回 long 类型，与 StringBuilder.cay 中的使用一致
             }
-            _ => Err(semantic_error(line, column, format!("Unknown String method '{}'", method_name))),
+            _ => Err(self.report_error(line, column, format!("Unknown String method '{}'", method_name))),
         }
     }
 }

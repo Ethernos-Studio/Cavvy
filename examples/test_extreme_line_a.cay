@@ -1,0 +1,29 @@
+// Extreme test A
+
+
+
+#ifdef NON_EXISTENT
+// 这段代码应该被跳过
+class SkippedClass {
+}
+#endif
+
+
+
+#define MAGIC_NUMBER 42
+
+
+
+// 引入下一层
+#include "test_extreme_line_b.cay"
+
+
+
+// 在宏定义后使用，放到类里
+class ExtremeHelperA {
+    public static int getMagic() {
+        return MAGIC_NUMBER;
+    }
+}
+
+

@@ -2,7 +2,7 @@
 
 use crate::ast::*;
 use crate::types::{Type, ParameterInfo};
-use crate::error::{cayResult, semantic_error};
+use crate::error::cayResult;
 use super::analyzer::SemanticAnalyzer;
 use super::symbol_table::SemanticSymbolInfo;
 
@@ -152,10 +152,14 @@ impl SemanticAnalyzer {
             Stmt::VarDecl(var) => {
                 // 检查当前作用域中是否已存在同名变量
                 if self.symbol_table.lookup_current(&var.name).is_some() {
-                    self.errors.push(format!(
-                        "Variable '{}' already defined in current scope at line {}",
-                        var.name, var.loc.line
-                    ));
+                    self.errors.push(super::analyzer::SemanticErrorInfo {
+                        line: var.loc.line,
+                        column: var.loc.column,
+                        message: format!(
+                            "Variable '{}' already defined in current scope",
+                            var.name
+                        ),
+                    });
                     return Ok(());
                 }
 
@@ -166,10 +170,11 @@ impl SemanticAnalyzer {
                     if let Some(init) = &var.initializer {
                         var_type = self.infer_expr_type(init)?;
                     } else {
-                        self.errors.push(format!(
-                            "'auto' variable declaration requires an initializer at line {}",
-                            var.loc.line
-                        ));
+                        self.errors.push(super::analyzer::SemanticErrorInfo {
+                            line: var.loc.line,
+                            column: var.loc.column,
+                            message: "'auto' variable declaration requires an initializer".to_string(),
+                        });
                         var_type = Type::Int32; // 默认回退类型
                     }
                 }
@@ -177,10 +182,14 @@ impl SemanticAnalyzer {
                 if let Some(init) = &var.initializer {
                     let init_type = self.infer_expr_type(init)?;
                     if !self.types_compatible(&init_type, &var_type) {
-                        self.errors.push(format!(
-                            "Cannot assign {} to {} at line {}",
-                            init_type, var_type, var.loc.line
-                        ));
+                        self.errors.push(super::analyzer::SemanticErrorInfo {
+                            line: var.loc.line,
+                            column: var.loc.column,
+                            message: format!(
+                                "Cannot assign {} to {}",
+                                init_type, var_type
+                            ),
+                        });
                     }
                 }
                 
@@ -203,10 +212,20 @@ impl SemanticAnalyzer {
                 
                 if let Some(expected) = expected_return {
                     if !self.types_compatible(&return_type, expected) {
-                        self.errors.push(format!(
-                            "Return type mismatch: expected {}, got {}",
-                            expected, return_type
-                        ));
+                        // 尝试从表达式获取位置信息
+                        let (line, column) = if let Some(e) = expr {
+                            self.get_expr_location(e)
+                        } else {
+                            (0, 0)
+                        };
+                        self.errors.push(super::analyzer::SemanticErrorInfo {
+                            line,
+                            column,
+                            message: format!(
+                                "Return type mismatch: expected {}, got {}",
+                                expected, return_type
+                            ),
+                        });
                     }
                 }
             }

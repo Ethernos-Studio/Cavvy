@@ -13,4 +13,4 @@ mod type_utils;
 
 // 公开导出
 pub use symbol_table::{SemanticSymbolTable, SemanticSymbolInfo};
-pub use analyzer::SemanticAnalyzer;
+pub use analyzer::{SemanticAnalyzer, SemanticErrorInfo};

@@ -1,0 +1,6 @@
+// Extreme test Main
+
+#include "test_extreme_line_a.cay"
+
+class ExtremeMain {
+}

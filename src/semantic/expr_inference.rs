@@ -23,14 +23,26 @@ impl SemanticAnalyzer {
             Expr::Identifier(ident) => {
                 let name = &ident.name;
                 let loc = &ident.loc;
-                
-                // 检查是否在静态上下文中访问 this
-                if self.current_method_is_static && name == "this" {
-                    return Err(crate::error::undefined_identifier_error(
-                        loc.line, loc.column, name
+
+                // 处理 this 标识符
+                if name == "this" {
+                    // 检查是否在静态上下文中访问 this
+                    if self.current_method_is_static {
+                        return Err(crate::error::semantic_error(
+                            loc.line, loc.column,
+                            "non-static variable this cannot be referenced from a static context".to_string()
+                        ));
+                    }
+                    // 返回当前类类型
+                    if let Some(current_class_name) = &self.current_class {
+                        return Ok(Type::Object(current_class_name.clone()));
+                    }
+                    return Err(crate::error::semantic_error(
+                        loc.line, loc.column,
+                        "this can only be used inside a class".to_string()
                     ));
                 }
-                
+
                 // 处理 super 标识符
                 if name == "super" {
                     // 检查是否在静态上下文中访问 super

@@ -2,8 +2,16 @@
 
 use crate::ast::*;
 use crate::types::{Type, ParameterInfo, ClassInfo, MethodInfo, FieldInfo, TypeRegistry};
-use crate::error::{cayResult, semantic_error};
+use crate::error::{cayResult, semantic_error_with_file};
 use super::symbol_table::{SemanticSymbolTable, SemanticSymbolInfo};
+
+/// 语义分析错误信息（包含位置）
+#[derive(Debug, Clone)]
+pub struct SemanticErrorInfo {
+    pub line: usize,
+    pub column: usize,
+    pub message: String,
+}
 
 /// 语义分析器
 pub struct SemanticAnalyzer {
@@ -14,7 +22,11 @@ pub struct SemanticAnalyzer {
     pub(super) current_method: Option<String>,
     pub(super) current_method_is_static: bool,  // 当前方法是否是静态方法
     pub(super) current_method_is_constructor: bool,  // 当前是否是构造函数
-    pub(super) errors: Vec<String>,
+    pub(super) errors: Vec<SemanticErrorInfo>,
+    pub(super) current_file: Option<String>,  // 当前正在分析的文件路径
+    /// 源映射表：输出行号 -> (原始文件, 原始行号)
+    /// 用于根据AST中的原始行号反查对应的源文件
+    pub(super) source_map: Option<std::collections::HashMap<usize, (String, usize)>>,
 }
 
 impl SemanticAnalyzer {
@@ -28,6 +40,8 @@ impl SemanticAnalyzer {
             current_method_is_static: false,
             current_method_is_constructor: false,
             errors: Vec::new(),
+            current_file: None,
+            source_map: None,
         };
         
         // 注册内置函数
@@ -64,7 +78,21 @@ impl SemanticAnalyzer {
         self.type_check_program(program)?;
 
         if !self.errors.is_empty() {
-            return Err(semantic_error(0, 0, self.errors.join("\n")));
+            // 使用第一个错误的行号/列号，后续错误拼接在消息中
+            let first = &self.errors[0];
+            let mut message = first.message.clone();
+            for err in &self.errors[1..] {
+                message.push('\n');
+                message.push_str(&err.message);
+            }
+            // 尝试从 source_map 查找正确的文件路径
+            let error_file = self.resolve_file_for_line(first.line);
+            return Err(semantic_error_with_file(
+                error_file,
+                first.line,
+                first.column,
+                message
+            ));
         }
 
         Ok(())
@@ -99,5 +127,59 @@ impl SemanticAnalyzer {
     /// 获取类型注册表（用于代码生成）
     pub fn get_type_registry(&self) -> &TypeRegistry {
         &self.type_registry
+    }
+
+    /// 设置当前文件路径（用于错误报告）
+    pub fn set_current_file(&mut self, file: Option<String>) {
+        self.current_file = file;
+    }
+
+    /// 设置源映射表（用于多文件include场景下的正确错误定位）
+    pub fn set_source_map(&mut self, source_map: std::collections::HashMap<usize, (String, usize)>) {
+        self.source_map = Some(source_map);
+    }
+
+    /// 根据行号解析对应的源文件路径
+    ///
+    /// 逻辑：
+    /// 1. 优先查找 source_map 中该行号对应的文件
+    /// 2. 如果未找到，回退到 current_file
+    fn resolve_file_for_line(&self, line: usize) -> Option<String> {
+        if let Some(ref map) = self.source_map {
+            if let Some((file, _original_line)) = map.get(&line) {
+                return Some(file.clone());
+            }
+        }
+        self.current_file.clone()
+    }
+
+    /// 报告语义错误（自动包含当前文件信息）
+    pub fn report_error(&self, line: usize, column: usize, message: impl Into<String>) -> crate::error::cayError {
+        let msg = message.into();
+        semantic_error_with_file(self.current_file.clone(), line, column, msg)
+    }
+
+    /// 从表达式中提取源代码位置
+    pub fn get_expr_location(&self, expr: &Expr) -> (usize, usize) {
+        match expr {
+            Expr::Literal(_) => (0, 0),
+            Expr::Identifier(e) => (e.loc.line, e.loc.column),
+            Expr::Binary(e) => (e.loc.line, e.loc.column),
+            Expr::Unary(e) => (e.loc.line, e.loc.column),
+            Expr::Call(e) => (e.loc.line, e.loc.column),
+            Expr::MemberAccess(e) => (e.loc.line, e.loc.column),
+            Expr::ArrayAccess(e) => (e.loc.line, e.loc.column),
+            Expr::ArrayInit(e) => (e.loc.line, e.loc.column),
+            Expr::New(e) => (e.loc.line, e.loc.column),
+            Expr::Cast(e) => (e.loc.line, e.loc.column),
+            Expr::Assignment(e) => (e.loc.line, e.loc.column),
+            Expr::Ternary(e) => (e.loc.line, e.loc.column),
+            Expr::Lambda(e) => (e.loc.line, e.loc.column),
+            Expr::InstanceOf(e) => (e.loc.line, e.loc.column),
+            Expr::ArrayCreation(e) => (e.loc.line, e.loc.column),
+            Expr::MethodRef(e) => (e.loc.line, e.loc.column),
+            Expr::Alloc(e) => (e.loc.line, e.loc.column),
+            Expr::Dealloc(e) => (e.loc.line, e.loc.column),
+        }
     }
 }
