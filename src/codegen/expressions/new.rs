@@ -81,9 +81,13 @@ impl IRGenerator {
                     "i".to_string() // 默认int
                 }
             }
-            Expr::MemberAccess(_) => {
-                // 简化处理，默认int
-                "i".to_string()
+            Expr::MemberAccess(member) => {
+                // 尝试推断成员访问的类型
+                if let Some(cay_type) = self.infer_member_access_type(member) {
+                    self.type_to_signature(&cay_type)
+                } else {
+                    "i".to_string() // 默认int
+                }
             }
             Expr::Binary(binary) => {
                 // 二元表达式的类型通常是左操作数的类型
@@ -95,11 +99,64 @@ impl IRGenerator {
             Expr::Cast(cast) => {
                 self.type_to_signature(&cast.target_type)
             }
-            Expr::Call(_) => {
-                // 简化处理，默认int
-                "i".to_string()
+            Expr::Call(call) => {
+                // 尝试推断函数调用的返回类型
+                if let Some(cay_type) = self.infer_call_return_type(call) {
+                    self.type_to_signature(&cay_type)
+                } else {
+                    "i".to_string() // 默认int
+                }
             }
             _ => "i".to_string(), // 默认int
+        }
+    }
+
+    /// 推断成员访问表达式的类型
+    fn infer_member_access_type(&self, member: &MemberAccessExpr) -> Option<crate::types::Type> {
+        use crate::types::Type;
+
+        // 获取对象类型
+        let obj_type = self.infer_expr_type_for_member(&member.object)?;
+
+        match obj_type {
+            Type::Object(class_name) => {
+                // 查找类字段
+                if let Some(class_info) = self.class_layouts.get(&class_name) {
+                    if let Some(field) = class_info.fields.get(&member.member) {
+                        return Some(field.field_type.clone());
+                    }
+                }
+                None
+            }
+            Type::Array(_) if member.member == "length" => {
+                // 数组的 length 属性返回 int
+                Some(Type::Int32)
+            }
+            _ => None,
+        }
+    }
+
+    /// 推断表达式类型（用于成员访问类型推断）
+    fn infer_expr_type_for_member(&self, expr: &Expr) -> Option<crate::types::Type> {
+        use crate::types::Type;
+
+        match expr {
+            Expr::Identifier(ident) => {
+                self.var_cay_types.get(&ident.name).cloned()
+            }
+            Expr::Literal(lit) => {
+                match lit {
+                    LiteralValue::Int32(_) => Some(Type::Int32),
+                    LiteralValue::Int64(_) => Some(Type::Int64),
+                    LiteralValue::Float32(_) => Some(Type::Float32),
+                    LiteralValue::Float64(_) => Some(Type::Float64),
+                    LiteralValue::Bool(_) => Some(Type::Bool),
+                    LiteralValue::Char(_) => Some(Type::Char),
+                    LiteralValue::String(_) => Some(Type::String),
+                    LiteralValue::Null => None,
+                }
+            }
+            _ => None,
         }
     }
 }

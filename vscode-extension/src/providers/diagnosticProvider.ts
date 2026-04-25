@@ -229,7 +229,7 @@ export class CavvyDiagnosticProvider {
             }
             
             // 检查基本语法错误
-            const lineDiagnostics = this.checkLineSyntax(line, i);
+            const lineDiagnostics = this.checkLineSyntax(document, line, i);
             diagnostics.push(...lineDiagnostics);
         }
         
@@ -257,22 +257,27 @@ export class CavvyDiagnosticProvider {
         methodName: string | null;
         hasMainMethod: boolean;
         braceDepth: number;
+        loopStack: number[];  // 循环栈，存储循环开始的行号
+        returnLines: Set<number>;  // 记录有 return 语句的行号
     } = {
         inClass: false,
         inMethod: false,
         className: null,
         methodName: null,
         hasMainMethod: false,
-        braceDepth: 0
+        braceDepth: 0,
+        loopStack: [],
+        returnLines: new Set()
     };
 
     /**
      * 检查单行语法
+     * @param document 文档
      * @param line 行内容
      * @param lineNumber 行号
      * @returns 诊断数组
      */
-    private checkLineSyntax(line: string, lineNumber: number): vscode.Diagnostic[] {
+    private checkLineSyntax(document: vscode.TextDocument, line: string, lineNumber: number): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
         const trimmedLine = line.trim();
         
@@ -377,11 +382,17 @@ export class CavvyDiagnosticProvider {
             const keywords = ['if', 'for', 'while', 'switch', 'case', 'return', 'new', 'true', 'false', 'null'];
             const types = ['int', 'long', 'float', 'double', 'bool', 'char', 'string', 'void'];
             if (!keywords.includes(varName) && !types.includes(varName)) {
-                // 检查是否有声明
-                const varDeclarationPattern = new RegExp(`\\b(int|long|float|double|bool|string|char)\\s+${varName}\\b`);
-                const text = line; // 简化处理，实际应该检查整个文档
-                if (!varDeclarationPattern.test(text) && !lineWithoutComment.includes(varName + ' =')) {
-                    // 可能是未声明的变量（警告级别，因为可能只是赋值）
+                // 检查整个文档中是否有声明
+                if (!this.isVariableDeclared(document, varName, lineNumber) && !lineWithoutComment.includes(varName + ' =')) {
+                    const varIndex = line.indexOf(varName);
+                    const range = new vscode.Range(lineNumber, varIndex, lineNumber, varIndex + varName.length);
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        `变量 '${varName}' 可能未声明就使用`,
+                        vscode.DiagnosticSeverity.Warning
+                    );
+                    diagnostic.code = 'undeclared-variable';
+                    diagnostics.push(diagnostic);
                 }
             }
         }
@@ -443,11 +454,31 @@ export class CavvyDiagnosticProvider {
         }
         
         // 检查 break/continue 是否在循环内
-        if (/\bbreak\b/.test(lineWithoutComment) && !this.isInLoop(lineNumber)) {
-            // 简化检查，实际需要跟踪循环上下文
+        const breakPattern = /\bbreak\b/;
+        const continuePattern = /\bcontinue\b/;
+
+        if (breakPattern.test(lineWithoutComment) && !this.isInLoop(document, lineNumber)) {
+            const breakIndex = line.indexOf('break');
+            const range = new vscode.Range(lineNumber, breakIndex, lineNumber, breakIndex + 5);
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                "'break' 语句应在循环或 switch 语句内使用",
+                vscode.DiagnosticSeverity.Error
+            );
+            diagnostic.code = 'break-outside-loop';
+            diagnostics.push(diagnostic);
         }
-        if (/\bcontinue\b/.test(lineWithoutComment) && !this.isInLoop(lineNumber)) {
-            // 简化检查
+
+        if (continuePattern.test(lineWithoutComment) && !this.isInLoop(document, lineNumber)) {
+            const continueIndex = line.indexOf('continue');
+            const range = new vscode.Range(lineNumber, continueIndex, lineNumber, continueIndex + 8);
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                "'continue' 语句应在循环内使用",
+                vscode.DiagnosticSeverity.Error
+            );
+            diagnostic.code = 'continue-outside-loop';
+            diagnostics.push(diagnostic);
         }
         
         // 检查 return 语句
@@ -478,7 +509,7 @@ export class CavvyDiagnosticProvider {
         }
         
         // 检查死代码（return 后的代码）
-        if (this.hasReturnOnLine(lineNumber - 1) && lineWithoutComment && !lineWithoutComment.startsWith('}')) {
+        if (this.hasReturnOnLine(document, lineNumber - 1) && lineWithoutComment && !lineWithoutComment.startsWith('}')) {
             const range = new vscode.Range(lineNumber, 0, lineNumber, line.length);
             const diagnostic = new vscode.Diagnostic(
                 range,
@@ -526,19 +557,136 @@ export class CavvyDiagnosticProvider {
     }
     
     /**
-     * 检查是否在循环内（简化实现）
+     * 检查变量是否在文档中已声明（在当前行之前）
+     * @param document 文档
+     * @param varName 变量名
+     * @param currentLine 当前行号
+     * @returns 是否已声明
      */
-    private isInLoop(lineNumber: number): boolean {
-        // 实际实现需要跟踪整个文档的上下文
-        return true; // 简化处理
+    private isVariableDeclared(document: vscode.TextDocument, varName: string, currentLine: number): boolean {
+        const text = document.getText();
+        const lines = text.split('\n');
+
+        // 检查当前行之前的所有行
+        for (let i = 0; i < currentLine && i < lines.length; i++) {
+            const line = lines[i];
+            const lineWithoutString = this.removeStrings(line);
+            const lineWithoutComment = lineWithoutString.replace(/\/\/.*$/, '');
+
+            // 检查是否有变量声明
+            const varDeclarationPattern = new RegExp(`\\b(int|long|float|double|bool|string|char)\\s+${varName}\\b`);
+            if (varDeclarationPattern.test(lineWithoutComment)) {
+                return true;
+            }
+
+            // 检查是否是 for 循环中的变量声明（如 for (int i = 0; ...)）
+            const forLoopPattern = new RegExp(`\\bfor\\s*\\([^;]*\\b(int|long|float|double|bool|string|char)\\s+${varName}\\b`);
+            if (forLoopPattern.test(lineWithoutComment)) {
+                return true;
+            }
+        }
+
+        return false;
     }
-    
+
+    /**
+     * 检查指定行是否在循环体内
+     * 通过分析文档内容跟踪循环上下文
+     */
+    private isInLoop(document: vscode.TextDocument, lineNumber: number): boolean {
+        const text = document.getText();
+        const lines = text.split('\n');
+        let loopDepth = 0;
+        let braceDepth = 0;
+
+        for (let i = 0; i <= lineNumber && i < lines.length; i++) {
+            const line = lines[i];
+            const lineWithoutString = this.removeStrings(line);
+            const lineWithoutComment = lineWithoutString.replace(/\/\/.*$/, '');
+
+            // 检查循环开始（for, while, do）
+            const loopStartPattern = /\b(for|while)\s*\(/;
+            const doPattern = /\bdo\b/;
+
+            if (loopStartPattern.test(lineWithoutComment)) {
+                loopDepth++;
+            } else if (doPattern.test(lineWithoutComment)) {
+                loopDepth++;
+            }
+
+            // 跟踪花括号深度
+            for (const char of lineWithoutComment) {
+                if (char === '{') braceDepth++;
+                if (char === '}') {
+                    braceDepth--;
+                    // 如果退出循环体的花括号，减少循环深度
+                    if (loopDepth > 0 && braceDepth < this.currentContext.braceDepth) {
+                        loopDepth--;
+                    }
+                }
+            }
+
+            // 检查当前行是否在循环体内
+            if (i === lineNumber) {
+                return loopDepth > 0;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * 从行中移除字符串内容，避免误判
+     */
+    private removeStrings(line: string): string {
+        let result = '';
+        let inString = false;
+        let stringChar = '';
+        let escaped = false;
+
+        for (const char of line) {
+            if (escaped) {
+                escaped = false;
+                if (!inString) result += char;
+                continue;
+            }
+
+            if (char === '\\') {
+                escaped = true;
+                if (!inString) result += char;
+                continue;
+            }
+
+            if (!inString && (char === '"' || char === "'")) {
+                inString = true;
+                stringChar = char;
+                result += char;
+            } else if (inString && char === stringChar) {
+                inString = false;
+                result += char;
+            } else if (!inString) {
+                result += char;
+            }
+        }
+
+        return result;
+    }
+
     /**
      * 检查前一行是否有 return 语句
      */
-    private hasReturnOnLine(lineNumber: number): boolean {
-        // 简化实现
-        return false;
+    private hasReturnOnLine(document: vscode.TextDocument, lineNumber: number): boolean {
+        if (lineNumber < 0 || lineNumber >= document.lineCount) {
+            return false;
+        }
+
+        const line = document.lineAt(lineNumber).text;
+        const lineWithoutString = this.removeStrings(line);
+        const lineWithoutComment = lineWithoutString.replace(/\/\/.*$/, '');
+
+        // 检查是否有 return 语句（不在字符串内）
+        const returnPattern = /\breturn\b/;
+        return returnPattern.test(lineWithoutComment);
     }
 
     /**

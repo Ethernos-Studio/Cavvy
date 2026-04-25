@@ -111,7 +111,7 @@ impl IRGenerator {
                         fmt_ptr, fmt_len, fmt_len, fmt_name));
                     self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i8* {})",
                         fmt_ptr, val));
-                } else if type_str.starts_with("i") && type_str != "i8*" {
+                } else if type_str.starts_with("i") && !type_str.ends_with("*") {
                     let i64_fmt = self.get_i64_format_specifier();
                     let fmt_str = if newline { format!("{}\n", i64_fmt) } else { i64_fmt.to_string() };
                     let fmt_name = self.get_or_create_string_constant(&fmt_str);
@@ -419,8 +419,8 @@ impl IRGenerator {
                 if type_str == "i8*" {
                     ("i8*".to_string(), val.to_string())
                 } else {
-                    // 需要转换为字符串（简化处理，实际应该调用 toString）
-                    (type_str.to_string(), val.to_string())
+                    // 非字符串类型需要转换为字符串
+                    self.convert_to_string(type_str, val)
                 }
             }
         }
@@ -433,12 +433,12 @@ impl IRGenerator {
                 // 整数格式 - 转换为 i64
                 if type_str == "i64" {
                     ("i64".to_string(), val.to_string())
-                } else if type_str.starts_with("i") {
+                } else if type_str.starts_with("i") && !type_str.ends_with("*") {
                     let ext_temp = self.new_temp();
                     self.emit_line(&format!("  {} = sext {} {} to i64", ext_temp, type_str, val));
                     ("i64".to_string(), ext_temp)
                 } else {
-                    // 其他类型，尝试作为 i64
+                    // 其他类型（包括指针），尝试作为 i64
                     ("i64".to_string(), val.to_string())
                 }
             }
@@ -460,8 +460,8 @@ impl IRGenerator {
                 if type_str == "i8*" {
                     ("i8*".to_string(), val.to_string())
                 } else {
-                    // 尝试转换为字符串（这里简化处理，实际应该调用 toString 方法）
-                    (type_str.to_string(), val.to_string())
+                    // 非字符串类型需要转换为字符串
+                    self.convert_to_string(type_str, val)
                 }
             }
             "%c" => {
@@ -480,7 +480,7 @@ impl IRGenerator {
                 // 无符号整数 - 转换为 i64
                 if type_str == "i64" {
                     ("i64".to_string(), val.to_string())
-                } else if type_str.starts_with("i") {
+                } else if type_str.starts_with("i") && !type_str.ends_with("*") {
                     let ext_temp = self.new_temp();
                     self.emit_line(&format!("  {} = sext {} {} to i64", ext_temp, type_str, val));
                     ("i64".to_string(), ext_temp)
@@ -495,6 +495,60 @@ impl IRGenerator {
             _ => {
                 // 未知的格式说明符，使用原类型
                 (type_str.to_string(), val.to_string())
+            }
+        }
+    }
+
+    /// 将值转换为字符串类型
+    /// 根据值的类型调用相应的运行时转换函数
+    fn convert_to_string(&mut self, type_str: &str, val: &str) -> (String, String) {
+        match type_str {
+            "i8" => {
+                // 字符类型
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_char_to_string(i8 {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            "i32" => {
+                // 32位整数
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i32 {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            "i64" => {
+                // 64位整数
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_long_to_string(i64 {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            "float" => {
+                // 浮点数
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_float_to_string(float {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            "double" => {
+                // 双精度浮点数
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_double_to_string(double {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            "i1" => {
+                // 布尔类型
+                let str_temp = self.new_temp();
+                self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})", str_temp, val));
+                ("i8*".to_string(), str_temp)
+            }
+            _ => {
+                // 其他类型（包括指针），尝试直接使用
+                if type_str.ends_with("*") {
+                    (type_str.to_string(), val.to_string())
+                } else {
+                    // 未知类型，默认作为 i64 处理
+                    let str_temp = self.new_temp();
+                    self.emit_line(&format!("  {} = call i8* @__cay_long_to_string(i64 {})", str_temp, val));
+                    ("i8*".to_string(), str_temp)
+                }
             }
         }
     }
