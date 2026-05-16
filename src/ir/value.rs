@@ -122,7 +122,7 @@ impl IrValue {
                 }
             }
             IrValue::BoolConst(v) => if *v { "1".to_string() } else { "0".to_string() },
-            IrValue::StringConst(_) => "null".to_string(), // 简化
+            IrValue::StringConst(s) => format!("@.str.{}", s.len()), // 返回字符串常量名称
             IrValue::NullConst(_) => "null".to_string(),
             IrValue::Register(name, _) => name.clone(),
             IrValue::GlobalRef(name, _) => name.clone(),
@@ -160,7 +160,7 @@ impl fmt::Display for IrValue {
 pub enum IrBinaryOp {
     Add, Sub, Mul, Div, Mod,
     And, Or, Xor,
-    Shl, Shr,
+    Shl, Shr, LShr,
     FAdd, FSub, FMul, FDiv, FRem,
 }
 
@@ -177,6 +177,7 @@ impl IrBinaryOp {
             IrBinaryOp::Xor => "xor",
             IrBinaryOp::Shl => "shl",
             IrBinaryOp::Shr => "ashr",
+            IrBinaryOp::LShr => "lshr",
             IrBinaryOp::FAdd => "fadd",
             IrBinaryOp::FSub => "fsub",
             IrBinaryOp::FMul => "fmul",

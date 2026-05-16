@@ -1,0 +1,77 @@
+// 内联IR基础功能测试
+// 测试基本的算术运算和内联IR块语法
+
+public class TestInlineIrBasic {
+    
+    // 测试基本加法内联IR
+    public static int testAdd(int a, int b) {
+        int result;
+        __ir {
+            %sum = add i32 %0, %1
+            store i32 %sum, i32* %2
+        }
+        return result;
+    }
+    
+    // 测试乘法内联IR
+    public static int testMul(int a, int b) {
+        int result;
+        __ir {
+            %prod = mul i32 %0, %1
+            store i32 %prod, i32* %2
+        }
+        return result;
+    }
+    
+    // 测试减法内联IR
+    public static int testSub(int a, int b) {
+        int result;
+        __ir {
+            %diff = sub i32 %0, %1
+            store i32 %diff, i32* %2
+        }
+        return result;
+    }
+    
+    // 测试除法内联IR
+    public static int testDiv(int a, int b) {
+        int result;
+        __ir {
+            %quot = sdiv i32 %0, %1
+            store i32 %quot, i32* %2
+        }
+        return result;
+    }
+    
+    // 测试取模内联IR
+    public static int testMod(int a, int b) {
+        int result;
+        __ir {
+            %rem = srem i32 %0, %1
+            store i32 %rem, i32* %2
+        }
+        return result;
+    }
+    
+    @main
+    public static void main() {
+        int addResult = testAdd(10, 20);
+        int mulResult = testMul(5, 6);
+        int subResult = testSub(30, 15);
+        int divResult = testDiv(100, 4);
+        int modResult = testMod(17, 5);
+        
+        print("10 + 20 = ");
+        println(addResult);
+        print("5 * 6 = ");
+        println(mulResult);
+        print("30 - 15 = ");
+        println(subResult);
+        print("100 / 4 = ");
+        println(divResult);
+        print("17 % 5 = ");
+        println(modResult);
+        
+        println("All basic inline IR tests passed!");
+    }
+}

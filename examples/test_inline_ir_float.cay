@@ -1,0 +1,76 @@
+// 内联IR浮点数运算测试
+// 测试浮点数的算术运算
+
+public class TestInlineIrFloat {
+    
+    // 测试浮点加法
+    public static float testFAdd(float a, float b) {
+        float result;
+        __ir {
+            %sum = fadd float %a, %b
+            store float %sum, float* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点减法
+    public static float testFSub(float a, float b) {
+        float result;
+        __ir {
+            %diff = fsub float %a, %b
+            store float %diff, float* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点乘法
+    public static float testFMul(float a, float b) {
+        float result;
+        __ir {
+            %prod = fmul float %a, %b
+            store float %prod, float* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点除法
+    public static float testFDiv(float a, float b) {
+        float result;
+        __ir {
+            %quot = fdiv float %a, %b
+            store float %quot, float* %result
+        }
+        return result;
+    }
+    
+    // 测试双精度加法
+    public static double testDAdd(double a, double b) {
+        double result;
+        __ir {
+            %sum = fadd double %a, %b
+            store double %sum, double* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        // 测试浮点运算
+        float fadd = testFAdd(3.5f, 2.5f);
+        float fsub = testFSub(5.0f, 2.5f);
+        float fmul = testFMul(2.0f, 3.0f);
+        float fdiv = testFDiv(10.0f, 2.0f);
+        
+        println("Float operations:");
+        println("3.5 + 2.5 = " + fadd);
+        println("5.0 - 2.5 = " + fsub);
+        println("2.0 * 3.0 = " + fmul);
+        println("10.0 / 2.0 = " + fdiv);
+        
+        // 测试双精度
+        double dadd = testDAdd(1.1, 2.2);
+        println("\nDouble operations:");
+        println("1.1 + 2.2 = " + dadd);
+        
+        println("\nFloat inline IR tests completed!");
+    }
+}

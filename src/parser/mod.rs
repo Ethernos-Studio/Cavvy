@@ -22,6 +22,8 @@ pub struct Parser {
     pub pos: usize,
     /// 诊断收集器
     pub diagnostics: DiagnosticCollector,
+    /// 源代码文本（用于内联IR等需要直接访问源码的场景）
+    source: Option<String>,
 }
 
 impl Parser {
@@ -31,7 +33,23 @@ impl Parser {
             tokens, 
             pos: 0,
             diagnostics: DiagnosticCollector::new(),
+            source: None,
         }
+    }
+
+    /// 创建带源代码的语法分析器（用于内联IR解析）
+    pub fn with_source(tokens: Vec<TokenWithLocation>, source: String) -> Self {
+        Self { 
+            tokens, 
+            pos: 0,
+            diagnostics: DiagnosticCollector::new(),
+            source: Some(source),
+        }
+    }
+
+    /// 获取源代码
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_deref()
     }
 
     /// 获取诊断收集器
@@ -569,5 +587,11 @@ impl Parser {
 /// 解析令牌流生成 AST
 pub fn parse(tokens: Vec<TokenWithLocation>) -> cayResult<Program> {
     let mut parser = Parser::new(tokens);
+    parser.parse()
+}
+
+/// 解析令牌流生成 AST（带源代码，用于内联IR解析）
+pub fn parse_with_source(tokens: Vec<TokenWithLocation>, source: String) -> cayResult<Program> {
+    let mut parser = Parser::with_source(tokens, source);
     parser.parse()
 }

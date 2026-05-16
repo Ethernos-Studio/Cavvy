@@ -149,6 +149,24 @@ impl ScopeManager {
         self.scopes.push(HashMap::new());
         self.scope_counter = 0;
     }
+
+    /// 获取所有可见变量（从内层到外层）
+    ///
+    /// 返回 (变量名, VarScope) 的列表
+    pub fn get_all_visible_vars(&self) -> Vec<(String, &VarScope)> {
+        let mut result = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+
+        for scope in self.scopes.iter().rev() {
+            for (name, var_scope) in scope.iter() {
+                if seen.insert(name.clone()) {
+                    result.push((name.clone(), var_scope));
+                }
+            }
+        }
+
+        result
+    }
 }
 
 /// 类型标识符信息
@@ -191,6 +209,7 @@ pub struct IRGenerator {
     pub extern_function_map: HashMap<String, usize>,  // 函数名 -> extern_declarations索引
     pub emitted_externs: HashSet<String>,  // 已生成的extern声明（函数名 -> 签名）
     pub top_level_functions: Vec<crate::ast::TopLevelFunction>,  // 顶层函数列表
+    pub current_param_order: Vec<String>,  // 当前函数参数顺序（用于内联IR）
 }
 
 impl IRGenerator {
@@ -229,6 +248,7 @@ impl IRGenerator {
             extern_function_map: HashMap::new(),
             emitted_externs: HashSet::new(),
             top_level_functions: Vec::new(),
+            current_param_order: Vec::new(),
         }
     }
 
@@ -797,5 +817,36 @@ impl IRGenerator {
         attrs.push_str("attributes #4 = { \"win64\" }\n");
         attrs.push('\n');
         attrs
+    }
+
+    // ============================================================
+    // IR Builder Bridge 支持方法
+    // ============================================================
+
+    /// 获取当前作用域的所有变量
+    ///
+    /// 用于IR Builder Bridge收集变量信息
+    pub fn get_all_scope_vars(&self) -> Vec<(String, &VarScope)> {
+        self.scope_manager.get_all_visible_vars()
+    }
+
+    /// 获取变量的Cavvy类型
+    pub fn get_var_cay_type(&self, name: &str) -> Option<crate::types::Type> {
+        self.var_cay_types.get(name).cloned()
+    }
+
+    /// 获取CodeGen的当前函数名
+    pub fn get_current_function(&self) -> &str {
+        &self.current_function
+    }
+
+    /// 获取CodeGen的当前类名
+    pub fn get_current_class(&self) -> &str {
+        &self.current_class
+    }
+
+    /// 获取当前函数的参数顺序（用于内联IR）
+    pub fn get_current_param_order(&self) -> &[String] {
+        &self.current_param_order
     }
 }

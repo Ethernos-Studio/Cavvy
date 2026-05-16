@@ -1,0 +1,127 @@
+// 内联IR数学函数测试
+// 测试数学计算函数
+
+public class TestInlineIrMath {
+    
+    // 测试平方
+    public static int testSquare(int a) {
+        int result;
+        __ir {
+            %r = mul i32 %a, %a
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试立方
+    public static int testCube(int a) {
+        int result;
+        __ir {
+            %sqr = mul i32 %a, %a
+            %cube = mul i32 %sqr, %a
+            store i32 %cube, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试2的幂
+    public static int testPowerOfTwo(int n) {
+        int result;
+        __ir {
+            %one = add i32 0, 1
+            %r = shl i32 %one, %n
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试判断是否为2的幂
+    public static boolean testIsPowerOfTwo(int n) {
+        boolean result;
+        __ir {
+            ; n & (n-1) == 0 且 n != 0
+            %one = add i32 0, 1
+            %nm1 = sub i32 %n, %one
+            %and = and i32 %n, %nm1
+            %isZero = icmp eq i32 %and, 0
+            %isNonZero = icmp ne i32 %n, 0
+            %isPow2 = and i1 %isZero, %isNonZero
+            %r = zext i1 %isPow2 to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    // 测试取低16位
+    public static int testLow16(int a) {
+        int result;
+        __ir {
+            %mask = add i32 0, 65535
+            %r = and i32 %a, %mask
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试取高16位
+    public static int testHigh16(int a) {
+        int result;
+        __ir {
+            %sixteen = add i32 0, 16
+            %r = lshr i32 %a, %sixteen
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        println("Math function tests:");
+        
+        // 测试平方
+        int sq5 = testSquare(5);
+        int sq10 = testSquare(10);
+        println("Square(5) = " + sq5 + " (expected 25)");
+        println("Square(10) = " + sq10 + " (expected 100)");
+        
+        // 测试立方
+        int cube3 = testCube(3);
+        int cube4 = testCube(4);
+        println("Cube(3) = " + cube3 + " (expected 27)");
+        println("Cube(4) = " + cube4 + " (expected 64)");
+        
+        // 测试2的幂
+        int pow2_0 = testPowerOfTwo(0);
+        int pow2_4 = testPowerOfTwo(4);
+        int pow2_8 = testPowerOfTwo(8);
+        println("2^0 = " + pow2_0 + " (expected 1)");
+        println("2^4 = " + pow2_4 + " (expected 16)");
+        println("2^8 = " + pow2_8 + " (expected 256)");
+        
+        // 测试判断2的幂
+        println("\nIsPowerOfTwo tests:");
+        println("IsPowerOfTwo(1): " + testIsPowerOfTwo(1) + " (expected true)");
+        println("IsPowerOfTwo(2): " + testIsPowerOfTwo(2) + " (expected true)");
+        println("IsPowerOfTwo(4): " + testIsPowerOfTwo(4) + " (expected true)");
+        println("IsPowerOfTwo(3): " + testIsPowerOfTwo(3) + " (expected false)");
+        println("IsPowerOfTwo(0): " + testIsPowerOfTwo(0) + " (expected false)");
+        
+        // 测试高低位
+        int highLow = 0x12345678;
+        int low16 = testLow16(highLow);
+        int high16 = testHigh16(highLow);
+        println("\nHigh/Low 16 bits of 0x12345678:");
+        println("Low 16 bits = 0x" + low16 + " (expected 0x5678 = 22136)");
+        println("High 16 bits = 0x" + high16 + " (expected 0x1234 = 4660)");
+        
+        // 验证
+        if (sq5 == 25 && sq10 == 100 && cube3 == 27 && cube4 == 64 &&
+            pow2_0 == 1 && pow2_4 == 16 && pow2_8 == 256 &&
+            testIsPowerOfTwo(1) && testIsPowerOfTwo(2) && testIsPowerOfTwo(4) &&
+            !testIsPowerOfTwo(3) && !testIsPowerOfTwo(0) &&
+            low16 == 0x5678 && high16 == 0x1234) {
+            println("\nAll math tests passed!");
+        } else {
+            println("\nSome tests failed!");
+        }
+    }
+}

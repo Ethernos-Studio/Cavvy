@@ -147,6 +147,11 @@ impl IrModule {
         self.functions.iter_mut().find(|f| f.name == name)
     }
 
+    /// 查找外部声明
+    pub fn find_extern(&self, name: &str) -> Option<&IrExternDecl> {
+        self.extern_declarations.iter().find(|e| e.name == name)
+    }
+
     /// 验证整个模块的结构完整性
     pub fn verify(&self) -> Result<(), Vec<String>> {
         let mut errors = Vec::new();

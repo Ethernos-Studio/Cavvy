@@ -1,0 +1,91 @@
+// 内联IR位运算测试
+// 测试位运算操作
+
+public class TestInlineIrBitwise {
+    
+    // 测试按位与
+    public static int testAnd(int a, int b) {
+        int result;
+        __ir {
+            %r = and i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试按位或
+    public static int testOr(int a, int b) {
+        int result;
+        __ir {
+            %r = or i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试按位异或
+    public static int testXor(int a, int b) {
+        int result;
+        __ir {
+            %r = xor i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试左移
+    public static int testShl(int a, int b) {
+        int result;
+        __ir {
+            %r = shl i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试算术右移
+    public static int testAshr(int a, int b) {
+        int result;
+        __ir {
+            %r = ashr i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试逻辑右移
+    public static int testLshr(int a, int b) {
+        int result;
+        __ir {
+            %r = lshr i32 %a, %b
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        // 测试位运算
+        int andResult = testAnd(0b1100, 0b1010);
+        int orResult = testOr(0b1100, 0b1010);
+        int xorResult = testXor(0b1100, 0b1010);
+        int shlResult = testShl(1, 4);
+        int ashrResult = testAshr(-16, 2);
+        int lshrResult = testLshr(16, 2);
+        
+        println("Bitwise operations:");
+        println("1100 & 1010 = " + andResult + " (expected 8)");
+        println("1100 | 1010 = " + orResult + " (expected 14)");
+        println("1100 ^ 1010 = " + xorResult + " (expected 6)");
+        println("1 << 4 = " + shlResult + " (expected 16)");
+        println("-16 >> 2 = " + ashrResult + " (expected -4)");
+        println("16 >>> 2 = " + lshrResult + " (expected 4)");
+        
+        // 验证
+        if (andResult == 8 && orResult == 14 && xorResult == 6 &&
+            shlResult == 16 && ashrResult == -4 && lshrResult == 4) {
+            println("\nAll bitwise tests passed!");
+        } else {
+            println("\nSome tests failed!");
+        }
+    }
+}

@@ -316,6 +316,7 @@ pub fn get_token_name(token: &Token) -> String {
         Token::Sysv64 => "'sysv64'".to_string(),
         Token::Win64 => "'win64'".to_string(),
         Token::Native => "'native'".to_string(),
+        Token::InlineIr => "'__ir'".to_string(),
     }
 }
 

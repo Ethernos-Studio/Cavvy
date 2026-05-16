@@ -76,6 +76,22 @@ impl ScopeManager {
         self.scopes.push(HashMap::new());
         self.cay_types.clear();
     }
+
+    /// 获取所有可见变量
+    fn get_all_variables(&self) -> Vec<(String, IrValue)> {
+        let mut result = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        
+        for scope in self.scopes.iter().rev() {
+            for (name, value) in scope.iter() {
+                if seen.insert(name.clone()) {
+                    result.push((name.clone(), value.clone()));
+                }
+            }
+        }
+        
+        result
+    }
 }
 
 /// IR Builder
@@ -623,7 +639,9 @@ impl IrBuilder {
 
     fn build_block(&mut self, block: &Block) -> cayResult<()> {
         self.scope_manager.enter_scope();
-        for stmt in &block.statements {
+        eprintln!("DEBUG: build_block with {} statements", block.statements.len());
+        for (i, stmt) in block.statements.iter().enumerate() {
+            eprintln!("DEBUG:  Statement {}: {:?}", i, std::mem::discriminant(stmt));
             self.build_statement(stmt)?;
         }
         self.scope_manager.exit_scope();
@@ -661,7 +679,49 @@ impl IrBuilder {
             }
             Stmt::Break(label) => self.build_break(label)?,
             Stmt::Continue(label) => self.build_continue(label)?,
+            Stmt::InlineIr(inline_ir) => self.build_inline_ir(inline_ir)?,
         }
+        Ok(())
+    }
+
+    /// 构建内联IR语句
+    fn build_inline_ir(&mut self, inline_ir: &InlineIrStmt) -> cayResult<()> {
+        use super::inline_ir::InlineIrParser;
+        
+        // 调试：检查raw_lines
+        eprintln!("DEBUG: Inline IR raw_lines count: {}", inline_ir.raw_lines.len());
+        for (i, line) in inline_ir.raw_lines.iter().enumerate() {
+            eprintln!("DEBUG: Line {}: '{}'", i, line);
+        }
+        
+        if inline_ir.raw_lines.is_empty() {
+            return Err(crate::error::cayError::CodeGen {
+                message: "Inline IR block has no lines".to_string(),
+                suggestion: "Check parser implementation".to_string(),
+            });
+        }
+        
+        // 创建内联IR解析器
+        let parser = InlineIrParser::new();
+        
+        // 收集可用的输入变量
+        let mut inputs = Vec::new();
+        for (name, value) in self.scope_manager.get_all_variables() {
+            inputs.push((name, value));
+        }
+        
+        // 解析IR文本
+        let raw_text = inline_ir.raw_lines.join("\n");
+        let block = parser.parse(&raw_text, &inputs, &[])
+            .map_err(|e| crate::error::cayError::CodeGen { 
+                message: format!("Inline IR error: {}", e),
+                suggestion: "Check your inline IR syntax".to_string(),
+            })?;
+        
+        // 将内联IR块转换为IR指令
+        let inst = parser.to_instruction(&block);
+        self.emit(inst)?;
+        
         Ok(())
     }
 
@@ -1037,7 +1097,7 @@ impl IrBuilder {
     }
 
     // ============================================================
-    // 表达式（简化版 - 完整实现在表达式模块中）
+    // 表达式构建
     // ============================================================
 
     fn build_expression(&mut self, expr: &Expr) -> cayResult<IrValue> {
@@ -1123,7 +1183,7 @@ impl IrBuilder {
             BinaryOp::BitXor => IrBinaryOp::Xor,
             BinaryOp::Shl => IrBinaryOp::Shl,
             BinaryOp::Shr => IrBinaryOp::Shr,
-            BinaryOp::UnsignedShr => IrBinaryOp::Shr, // 简化
+            BinaryOp::UnsignedShr => IrBinaryOp::LShr,
         };
 
         self.emit(IrInstruction::BinaryOp {
@@ -1340,16 +1400,51 @@ impl IrBuilder {
             args.push(self.build_expression(arg)?);
         }
 
-        let result = self.new_temp(IrType::I32); // 默认返回类型
-        let return_ty = IrType::Void; // 简化
+        // 查找函数返回类型
+        let return_ty = self.lookup_function_return_type(&func_name);
+
+        // 创建结果寄存器
+        let result = if return_ty == IrType::Void {
+            IrValue::Undef(IrType::Void)
+        } else {
+            self.new_temp(return_ty.clone())
+        };
 
         self.emit(IrInstruction::Call {
-            result: Some(result.clone()),
+            result: if return_ty == IrType::Void { None } else { Some(result.clone()) },
             func_name,
             args,
             return_ty,
         })?;
         Ok(result)
+    }
+
+    /// 查找函数返回类型
+    fn lookup_function_return_type(&self, func_name: &str) -> IrType {
+        // 1. 查找已定义的函数
+        if let Some(func) = self.module.find_function(func_name) {
+            return func.return_type.clone();
+        }
+
+        // 2. 查找外部声明
+        if let Some(extern_decl) = self.module.find_extern(func_name) {
+            return extern_decl.return_type.clone();
+        }
+
+        // 3. 根据命名约定推断
+        if func_name.starts_with("@") {
+            // 全局函数，尝试查找
+            let clean_name = func_name.trim_start_matches("@");
+            if let Some(func) = self.module.find_function(clean_name) {
+                return func.return_type.clone();
+            }
+            if let Some(extern_decl) = self.module.find_extern(clean_name) {
+                return extern_decl.return_type.clone();
+            }
+        }
+
+        // 4. 默认返回类型为 Void
+        IrType::Void
     }
 
     fn build_assignment(&mut self, assign: &AssignmentExpr) -> cayResult<IrValue> {
@@ -1415,9 +1510,94 @@ impl IrBuilder {
     }
 
     fn build_member_access(&mut self, member: &MemberAccessExpr) -> cayResult<IrValue> {
-        // 简化：返回占位值
-        let _obj = self.build_expression(&member.object)?;
-        Ok(IrValue::IntConst(0, IrType::I32))
+        let obj = self.build_expression(&member.object)?;
+        let obj_ty = obj.ir_type();
+
+        // 处理数组的 length 属性
+        if member.member == "length" {
+            if let IrType::Array(_, len) = obj_ty {
+                return Ok(IrValue::IntConst(len as i64, IrType::I32));
+            }
+            // 对于其他类型，尝试从类型注册表获取
+            if let Some(ref registry) = self.type_registry {
+                let class_name = self.extract_class_name(&obj_ty);
+                if let Some(class_info) = registry.get_class(&class_name) {
+                    // 查找 length 字段或方法
+                    if let Some(field_info) = class_info.fields.get("length") {
+                        return Ok(IrValue::IntConst(0, IrType::from(&field_info.field_type)));
+                    }
+                }
+            }
+            // 默认返回 0 作为 length
+            return Ok(IrValue::IntConst(0, IrType::I32));
+        }
+
+        // 获取对象类型名称（从指针类型中提取）
+        let class_name = match &obj_ty {
+            IrType::Pointer(inner) => self.extract_class_name(inner),
+            _ => self.current_class.clone(),
+        };
+
+        // 查找字段偏移
+        if let Some(layout) = self.class_layouts.get(&class_name) {
+            if let Some(&offset) = layout.get(&member.member) {
+                // 获取字段类型
+                let field_ty = self.lookup_field_type(&class_name, &member.member);
+
+                // 计算字段地址: obj + offset
+                let offset_val = IrValue::IntConst(offset as i64, IrType::I64);
+                let field_ptr = self.new_temp(IrType::Pointer(Box::new(field_ty.clone())));
+                self.emit(IrInstruction::GetElementPtr {
+                    result: field_ptr.clone(),
+                    ptr: obj,
+                    indices: vec![offset_val],
+                    base_ty: IrType::I8,
+                })?;
+
+                // 加载字段值
+                let result = self.new_temp(field_ty.clone());
+                self.emit(IrInstruction::Load {
+                    result: result.clone(),
+                    ty: field_ty,
+                    ptr: field_ptr,
+                })?;
+                return Ok(result);
+            }
+        }
+
+        // 检查是否是静态字段
+        let static_name = format!("@{}.{}_s", class_name, member.member);
+        if self.module.find_function(&static_name).is_some() || self.module.find_extern(&static_name).is_some() {
+            return Ok(IrValue::GlobalRef(static_name, IrType::I32));
+        }
+
+        // 如果找不到字段，返回错误
+        Err(crate::error::codegen_error(
+            format!("Field '{}' not found in class '{}'", member.member, class_name)
+        ))
+    }
+
+    /// 从类型中提取类名
+    fn extract_class_name(&self, ty: &IrType) -> String {
+        match ty {
+            IrType::Struct { name, .. } => name.clone(),
+            IrType::Pointer(inner) => self.extract_class_name(inner),
+            _ => self.current_class.clone(),
+        }
+    }
+
+    /// 查找字段类型
+    fn lookup_field_type(&self, class_name: &str, field_name: &str) -> IrType {
+        // 从类型注册表查找类信息
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                // 尝试从类字段中查找字段类型
+                if let Some(field_info) = class_info.fields.get(field_name) {
+                    return IrType::from(&field_info.field_type);
+                }
+            }
+        }
+        IrType::I32 // 默认类型
     }
 
     fn build_cast(&mut self, cast: &CastExpr) -> cayResult<IrValue> {
@@ -1441,9 +1621,45 @@ impl IrBuilder {
         Ok(result)
     }
 
-    fn build_new(&mut self, _new_expr: &NewExpr) -> cayResult<IrValue> {
-        // 简化：返回空指针
-        Ok(IrValue::NullConst(IrType::Pointer(Box::new(IrType::I8))))
+    fn build_new(&mut self, new_expr: &NewExpr) -> cayResult<IrValue> {
+        let class_name = &new_expr.class_name;
+
+        // 获取类大小
+        let size = self.class_sizes.get(class_name).copied().unwrap_or(8);
+        let size_val = IrValue::IntConst(size as i64, IrType::I64);
+
+        // 调用 GC 分配函数 (cavvy_gc_alloc)
+        let alloc_result = self.new_temp(IrType::Pointer(Box::new(IrType::I8)));
+        self.emit(IrInstruction::Call {
+            result: Some(alloc_result.clone()),
+            func_name: "cavvy_gc_alloc".to_string(),
+            args: vec![size_val],
+            return_ty: IrType::Pointer(Box::new(IrType::I8)),
+        })?;
+
+        // 转换为对象指针类型
+        let obj_ptr_ty = IrType::Pointer(Box::new(IrType::Struct {
+            name: class_name.clone(),
+            fields: vec![],
+        }));
+        let obj_ptr = self.new_temp(obj_ptr_ty.clone());
+        self.emit(IrInstruction::Cast {
+            result: obj_ptr.clone(),
+            kind: IrCastKind::BitCast,
+            value: alloc_result,
+            to_ty: obj_ptr_ty.clone(),
+        })?;
+
+        // 调用构造函数
+        let ctor_name = format!("{}.__ctor", class_name);
+        self.emit(IrInstruction::Call {
+            result: None,
+            func_name: ctor_name,
+            args: vec![obj_ptr.clone()],
+            return_ty: IrType::Void,
+        })?;
+
+        Ok(obj_ptr)
     }
 
     fn build_ternary(&mut self, tern: &TernaryExpr) -> cayResult<IrValue> {

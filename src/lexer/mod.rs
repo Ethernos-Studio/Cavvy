@@ -106,6 +106,8 @@ pub enum Token {
     Extern,
     #[token("scope")]
     Scope,
+    #[token("__ir")]
+    InlineIr,
 
     // FFI 类型关键字
     #[token("c_int")]
@@ -371,6 +373,8 @@ pub struct Lexer<'a> {
     current_source_file: Option<String>,
     /// 源映射表：输出行号 -> (原始文件, 原始行号)
     source_map: std::collections::HashMap<usize, (String, usize)>,
+    /// 是否保留换行token（用于内联IR等需要行分隔的场景）
+    preserve_newlines: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -384,6 +388,22 @@ impl<'a> Lexer<'a> {
             collect_all_errors: false,
             current_source_file: None,
             source_map: std::collections::HashMap::new(),
+            preserve_newlines: false,
+        }
+    }
+
+    /// 创建保留换行token的词法分析器（用于内联IR解析）
+    pub fn with_preserve_newlines(source: &'a str) -> Self {
+        Self {
+            source,
+            inner: Token::lexer(source),
+            line: 1,
+            column: 1,
+            diagnostics: DiagnosticCollector::new(),
+            collect_all_errors: false,
+            current_source_file: None,
+            source_map: std::collections::HashMap::new(),
+            preserve_newlines: true,
         }
     }
 
@@ -398,6 +418,7 @@ impl<'a> Lexer<'a> {
             collect_all_errors: false,
             current_source_file: None,
             source_map,
+            preserve_newlines: false,
         }
     }
 
@@ -507,7 +528,11 @@ impl<'a> Lexer<'a> {
                     if token == Token::Newline {
                         self.line += 1;
                         self.column = 1;
-                        continue; // 不保留换行token
+                        // 根据配置决定是否保留换行token
+                        if !self.preserve_newlines {
+                            continue; // 不保留换行token
+                        }
+                        // 保留换行token，继续处理
                     } else {
                         self.column += span.end - span.start;
                     }

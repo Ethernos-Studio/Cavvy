@@ -1,0 +1,99 @@
+// 内联IR内存操作测试
+// 测试alloca, load, store, getelementptr
+
+public class TestInlineIrMemory {
+    
+    // 测试栈分配和内存操作
+    public static int testStackAlloc() {
+        int result;
+        __ir {
+            ; 分配栈空间
+            %ptr = alloca i32
+            
+            ; 存储值
+            store i32 42, i32* %ptr
+            
+            ; 加载值
+            %val = load i32, i32* %ptr
+            
+            store i32 %val, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试数组元素访问
+    public static int testArrayAccess(int[] arr, int index) {
+        int result;
+        __ir {
+            ; 获取数组元素指针
+            %elemPtr = getelementptr i32, i32* %arr, i32 %index
+            
+            ; 加载元素值
+            %val = load i32, i32* %elemPtr
+            
+            store i32 %val, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试多个值的内存操作
+    public static int testMultiStore() {
+        int result;
+        __ir {
+            ; 分配多个变量
+            %a = alloca i32
+            %b = alloca i32
+            %c = alloca i32
+            
+            ; 存储值
+            store i32 10, i32* %a
+            store i32 20, i32* %b
+            
+            ; 加载并相加
+            %va = load i32, i32* %a
+            %vb = load i32, i32* %b
+            %sum = add i32 %va, %vb
+            
+            store i32 %sum, i32* %c
+            
+            ; 返回结果
+            %vc = load i32, i32* %c
+            store i32 %vc, i32* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        // 测试栈分配
+        int stackVal = testStackAlloc();
+        println("Stack alloc test: " + stackVal + " (expected 42)");
+        
+        // 测试数组访问
+        int[] arr = new int[5];
+        arr[0] = 10;
+        arr[1] = 20;
+        arr[2] = 30;
+        arr[3] = 40;
+        arr[4] = 50;
+        
+        int elem0 = testArrayAccess(arr, 0);
+        int elem2 = testArrayAccess(arr, 2);
+        int elem4 = testArrayAccess(arr, 4);
+        
+        println("Array access tests:");
+        println("arr[0] = " + elem0 + " (expected 10)");
+        println("arr[2] = " + elem2 + " (expected 30)");
+        println("arr[4] = " + elem4 + " (expected 50)");
+        
+        // 测试多存储
+        int multiVal = testMultiStore();
+        println("\nMulti store test: " + multiVal + " (expected 30)");
+        
+        // 验证
+        if (stackVal == 42 && elem0 == 10 && elem2 == 30 && elem4 == 50 && multiVal == 30) {
+            println("\nAll memory tests passed!");
+        } else {
+            println("\nSome tests failed!");
+        }
+    }
+}

@@ -111,6 +111,7 @@ pub fn parse_statement(parser: &mut Parser) -> cayResult<Stmt> {
             parser.consume(&crate::lexer::Token::Semicolon, "期望 ';'\n提示: continue 语句应以 ';' 结束")?;
             Ok(Stmt::Continue(label))
         }
+        crate::lexer::Token::InlineIr => parse_inline_ir_statement(parser),
         _ => {
             // 检查是否是变量声明：支持任意类型标识（类名或原始类型），
             // 但要确保接下来的 token 是变量名（Identifier），以避免将函数调用等标识误判为类型。
@@ -561,4 +562,200 @@ pub fn parse_scope_statement(parser: &mut Parser) -> cayResult<Stmt> {
     let body = parse_block(parser)?;
     
     Ok(Stmt::Scope(ScopeStmt { body, loc }))
+}
+
+/// 解析内联IR语句
+/// 
+/// 语法: __ir { raw_llvm_ir_lines... }
+/// 
+/// 示例:
+///   __ir {
+///       %result = add i32 %a, %b
+///       store i32 %result, i32* %ptr
+///   }
+pub fn parse_inline_ir_statement(parser: &mut Parser) -> cayResult<Stmt> {
+    let loc = parser.current_loc();
+    parser.advance(); // consume '__ir'
+
+    // 期望 {
+    parser.consume(&crate::lexer::Token::LBrace, "期望 '{'\n提示: __ir 后应跟 '{' 开始 IR 块")?;
+
+    // 使用源代码直接提取IR文本（保留原始格式和换行）
+    let raw_lines = if let Some(source) = parser.source() {
+        // 从源代码直接提取
+        let lines = extract_inline_ir_from_source(source, &loc)?;
+        // 跳过token直到匹配的RBrace
+        skip_inline_ir_tokens(parser);
+        lines
+    } else {
+        // 回退到token流解析
+        parse_inline_ir_from_tokens(parser)?
+    };
+
+    Ok(Stmt::InlineIr(InlineIrStmt { raw_lines, loc }))
+}
+
+/// 跳过内联IR块中的所有token，直到匹配的RBrace
+fn skip_inline_ir_tokens(parser: &mut Parser) {
+    let mut brace_depth = 1;
+
+    while !parser.is_at_end() && brace_depth > 0 {
+        match parser.current_token() {
+            crate::lexer::Token::LBrace => {
+                brace_depth += 1;
+                parser.advance();
+            }
+            crate::lexer::Token::RBrace => {
+                brace_depth -= 1;
+                parser.advance();
+            }
+            _ => {
+                parser.advance();
+            }
+        }
+    }
+}
+
+/// 从源代码直接提取内联IR文本
+///
+/// 通过定位__ir关键字和匹配的{}来提取原始IR文本
+fn extract_inline_ir_from_source(source: &str, start_loc: &crate::error::SourceLocation) -> cayResult<Vec<String>> {
+    // 找到起始位置（__ir后的{）
+    let mut line_num = 1;
+    let mut pos = 0;
+
+    // 定位到正确的行
+    for (idx, ch) in source.char_indices() {
+        if line_num >= start_loc.line {
+            pos = idx;
+            break;
+        }
+        if ch == '\n' {
+            line_num += 1;
+        }
+    }
+
+    // 从当前位置查找 '__ir'
+    if let Some(ir_pos) = source[pos..].find("__ir") {
+        pos += ir_pos;
+
+        // 查找 '{'
+        if let Some(lbrace_pos) = source[pos..].find('{') {
+            pos += lbrace_pos + 1; // 跳过 '{'
+
+            // 提取内容直到匹配的 '}'
+            let mut brace_depth = 1;
+            let content_start = pos;
+            let mut content_end = pos;
+
+            for (idx, ch) in source[pos..].char_indices() {
+                match ch {
+                    '{' => brace_depth += 1,
+                    '}' => {
+                        brace_depth -= 1;
+                        if brace_depth == 0 {
+                            content_end = pos + idx;
+                            break;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // 提取内容并按行分割
+            let content = &source[content_start..content_end];
+            let lines: Vec<String> = content
+                .lines()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
+
+            return Ok(lines);
+        }
+    }
+
+    // 如果直接提取失败，返回空
+    Ok(Vec::new())
+}
+
+/// 从token流解析内联IR（回退方案）
+fn parse_inline_ir_from_tokens(parser: &mut Parser) -> cayResult<Vec<String>> {
+    let mut raw_lines: Vec<String> = Vec::new();
+    let mut current_line: Vec<String> = Vec::new();
+    let mut brace_depth = 1;
+
+    while !parser.is_at_end() && brace_depth > 0 {
+        match parser.current_token() {
+            crate::lexer::Token::LBrace => {
+                brace_depth += 1;
+                if brace_depth > 1 {
+                    current_line.push("{".to_string());
+                }
+                parser.advance();
+            }
+            crate::lexer::Token::RBrace => {
+                brace_depth -= 1;
+                if brace_depth > 0 {
+                    current_line.push("}".to_string());
+                }
+                parser.advance();
+            }
+            crate::lexer::Token::Percent => {
+                parser.advance();
+                let reg_name = match parser.current_token() {
+                    crate::lexer::Token::Identifier(s) => {
+                        let name = s.clone();
+                        parser.advance();
+                        name
+                    }
+                    crate::lexer::Token::IntegerLiteral(opt) => {
+                        let val = match opt {
+                            Some((v, _)) => v.to_string(),
+                            None => "0".to_string(),
+                        };
+                        parser.advance();
+                        val
+                    }
+                    _ => {
+                        current_line.push("%".to_string());
+                        continue;
+                    }
+                };
+                current_line.push(format!("%{}", reg_name));
+            }
+            crate::lexer::Token::Identifier(s) => {
+                current_line.push(s.clone());
+                parser.advance();
+            }
+            crate::lexer::Token::IntegerLiteral(opt) => {
+                let val = match opt {
+                    Some((v, _)) => v.to_string(),
+                    None => "0".to_string(),
+                };
+                current_line.push(val);
+                parser.advance();
+            }
+            crate::lexer::Token::Comma => {
+                current_line.push(",".to_string());
+                parser.advance();
+            }
+            crate::lexer::Token::Star => {
+                current_line.push("*".to_string());
+                parser.advance();
+            }
+            _ => {
+                parser.advance();
+            }
+        }
+    }
+
+    // 处理最后一行
+    if !current_line.is_empty() {
+        let line = current_line.join(" ");
+        if !line.trim().is_empty() {
+            raw_lines.push(line);
+        }
+    }
+
+    Ok(raw_lines)
 }

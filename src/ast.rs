@@ -154,6 +154,14 @@ pub enum Stmt {
     Scope(ScopeStmt),  // 0.5.0.0: scope 栈分配块
     Break(Option<String>),  // 可选的标签
     Continue(Option<String>),  // 可选的标签
+    InlineIr(InlineIrStmt),  // 内联IR语句块
+}
+
+/// 内联IR语句 - __ir { ... }
+#[derive(Debug, Clone)]
+pub struct InlineIrStmt {
+    pub raw_lines: Vec<String>,  // IR文本行
+    pub loc: SourceLocation,
 }
 
 /// 0.5.0.0: scope 语句 - 栈作用域分配块

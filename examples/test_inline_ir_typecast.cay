@@ -1,0 +1,107 @@
+// 内联IR类型转换测试
+// 测试各种类型转换指令
+
+public class TestInlineIrTypecast {
+    
+    // 测试整数扩展 (i32 -> i64)
+    public static long testSext(int a) {
+        long result;
+        __ir {
+            %r = sext i32 %a to i64
+            store i64 %r, i64* %result
+        }
+        return result;
+    }
+    
+    // 测试零扩展 (i32 -> i64)
+    public static long testZext(int a) {
+        long result;
+        __ir {
+            %r = zext i32 %a to i64
+            store i64 %r, i64* %result
+        }
+        return result;
+    }
+    
+    // 测试截断 (i64 -> i32)
+    public static int testTrunc(long a) {
+        int result;
+        __ir {
+            %r = trunc i64 %a to i32
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试整数转浮点
+    public static float testSitofp(int a) {
+        float result;
+        __ir {
+            %r = sitofp i32 %a to float
+            store float %r, float* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点转整数
+    public static int testFptosi(float a) {
+        int result;
+        __ir {
+            %r = fptosi float %a to i32
+            store i32 %r, i32* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点扩展
+    public static double testFpext(float a) {
+        double result;
+        __ir {
+            %r = fpext float %a to double
+            store double %r, double* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点截断
+    public static float testFptrunc(double a) {
+        float result;
+        __ir {
+            %r = fptrunc double %a to float
+            store float %r, float* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        // 测试符号扩展
+        long sextVal = testSext(-100);
+        println("Sext(-100) = " + sextVal + " (expected -100)");
+        
+        // 测试零扩展
+        long zextVal = testZext(100);
+        println("Zext(100) = " + zextVal + " (expected 100)");
+        
+        // 测试截断
+        int truncVal = testTrunc(5000000000L);
+        println("Trunc(5000000000) = " + truncVal);
+        
+        // 测试整数转浮点
+        float sitofpVal = testSitofp(42);
+        println("Sitofp(42) = " + sitofpVal + " (expected 42.0)");
+        
+        // 测试浮点转整数
+        int fptosiVal = testFptosi(3.7f);
+        println("Fptosi(3.7) = " + fptosiVal + " (expected 3)");
+        
+        // 测试浮点扩展
+        double fpextVal = testFpext(3.14f);
+        println("Fpext(3.14) = " + fpextVal);
+        
+        // 测试浮点截断
+        float fptruncVal = testFptrunc(3.14159265359);
+        println("Fptrunc(3.14159...) = " + fptruncVal);
+        
+        println("\nTypecast tests completed!");
+    }
+}

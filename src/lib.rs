@@ -79,9 +79,9 @@ impl Compiler {
             println!();
         }
 
-        // 2. 语法分析
+        // 2. 语法分析（传入源代码以支持内联IR解析）
         eprintln!("DEBUG: About to call parser::parse");
-        let ast = parser::parse(tokens)?;
+        let ast = parser::parse_with_source(tokens, source.to_string())?;
         eprintln!("DEBUG: parser::parse succeeded, top_level_functions: {}", ast.top_level_functions.len());
 
         // 3. 语义分析
@@ -154,8 +154,8 @@ impl Compiler {
             println!();
         }
 
-        // 2. 语法分析
-        let ast = parser::parse(tokens)?;
+        // 2. 语法分析（传入源代码以支持内联IR解析）
+        let ast = parser::parse_with_source(tokens, source.to_string())?;
 
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::with_features(self.options.features.clone());

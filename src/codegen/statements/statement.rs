@@ -3,6 +3,7 @@
 //! 处理语句类型的分发。
 
 use crate::codegen::context::IRGenerator;
+use crate::codegen::bridge::{InlineIrBridge, InlineIrResult};
 use crate::ast::*;
 use crate::error::cayResult;
 
@@ -57,7 +58,45 @@ impl IRGenerator {
             Stmt::Continue(label) => {
                 self.generate_continue_statement(label)?;
             }
+            Stmt::InlineIr(inline_ir) => {
+                // 0.5.0.0: 使用CodeGen-IR Builder协作桥处理内联IR
+                self.generate_inline_ir(inline_ir)?;
+            }
         }
+        Ok(())
+    }
+
+    /// 生成内联IR语句
+    ///
+    /// 通过协作桥调用IR Builder处理内联IR，然后将结果合并到CodeGen输出。
+    ///
+    /// # 流程
+    /// 1. 创建协作桥
+    /// 2. 收集当前作用域变量
+    /// 3. 调用IR Builder解析和验证内联IR
+    /// 4. 将生成的LLVM IR文本输出到CodeGen
+    ///
+    /// # 复杂度
+    /// - 时间: O(n*m)，n为内联IR行数，m为作用域变量数
+    /// - 空间: O(n+m)
+    fn generate_inline_ir(&mut self, inline_ir: &InlineIrStmt) -> cayResult<()> {
+        // 创建协作桥
+        let bridge = InlineIrBridge::new();
+
+        // 通过桥处理内联IR
+        let result = bridge.process_inline_ir(self, inline_ir)?;
+
+        // 将生成的LLVM IR文本输出到CodeGen
+        // 添加注释标记内联IR块开始
+        self.emit_line("  ; Inline IR block start");
+
+        for line in &result.llvm_ir_lines {
+            self.emit_line(&format!("  {}", line));
+        }
+
+        // 添加注释标记内联IR块结束
+        self.emit_raw("  ; Inline IR block end");
+
         Ok(())
     }
 }

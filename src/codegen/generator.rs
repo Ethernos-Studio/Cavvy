@@ -682,6 +682,9 @@ impl IRGenerator {
         self.var_types.clear();
         self.scope_manager.reset();
         self.loop_stack.clear();
+        
+        // 设置当前函数参数顺序（用于内联IR）
+        self.current_param_order = method.params.iter().map(|p| p.name.clone()).collect();
 
         let ret_type = self.current_return_type.clone();
         let is_static = method.modifiers.contains(&Modifier::Static);

@@ -1,0 +1,78 @@
+// 内联IR比较运算测试
+// 测试整数和浮点数比较
+
+public class TestInlineIrComparison {
+    
+    // 测试整数相等
+    public static boolean testIntEq(int a, int b) {
+        boolean result;
+        __ir {
+            %cmp = icmp eq i32 %a, %b
+            %r = zext i1 %cmp to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    // 测试整数小于
+    public static boolean testIntLt(int a, int b) {
+        boolean result;
+        __ir {
+            %cmp = icmp slt i32 %a, %b
+            %r = zext i1 %cmp to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    // 测试整数大于
+    public static boolean testIntGt(int a, int b) {
+        boolean result;
+        __ir {
+            %cmp = icmp sgt i32 %a, %b
+            %r = zext i1 %cmp to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点相等
+    public static boolean testFloatEq(float a, float b) {
+        boolean result;
+        __ir {
+            %cmp = fcmp oeq float %a, %b
+            %r = zext i1 %cmp to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    // 测试浮点小于
+    public static boolean testFloatLt(float a, float b) {
+        boolean result;
+        __ir {
+            %cmp = fcmp olt float %a, %b
+            %r = zext i1 %cmp to i8
+            store i8 %r, i8* %result
+        }
+        return result;
+    }
+    
+    public static void main() {
+        println("Integer comparisons:");
+        println("5 == 5: " + testIntEq(5, 5));
+        println("5 == 3: " + testIntEq(5, 3));
+        println("3 < 5: " + testIntLt(3, 5));
+        println("5 < 3: " + testIntLt(5, 3));
+        println("5 > 3: " + testIntGt(5, 3));
+        println("3 > 5: " + testIntGt(3, 5));
+        
+        println("\nFloat comparisons:");
+        println("3.5 == 3.5: " + testFloatEq(3.5f, 3.5f));
+        println("3.5 == 2.5: " + testFloatEq(3.5f, 2.5f));
+        println("2.5 < 3.5: " + testFloatLt(2.5f, 3.5f));
+        println("3.5 < 2.5: " + testFloatLt(3.5f, 2.5f));
+        
+        println("\nComparison tests completed!");
+    }
+}

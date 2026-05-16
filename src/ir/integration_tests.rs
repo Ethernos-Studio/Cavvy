@@ -515,6 +515,159 @@ public class A {
     }
 
     // ============================================================
+    // 内联IR综合功能测试
+    // ============================================================
+
+    #[test]
+    fn test_inline_ir_complex_arithmetic() {
+        let parser = InlineIrParser::new();
+        let ir = r#"
+            %t1 = mul i32 %a, %b
+            %t2 = add i32 %t1, %c
+            %result = sdiv i32 %t2, %d
+            ret i32 %result
+        "#;
+        let result = parser.parse(ir, &[], &[]);
+        assert!(result.is_ok());
+        
+        let block = result.unwrap();
+        assert_eq!(block.raw_lines.len(), 4);
+    }
+
+    #[test]
+    fn test_inline_ir_memory_operations() {
+        let parser = InlineIrParser::new();
+        let ir = r#"
+            %p = alloca i32
+            store i32 42, i32* %p
+            %v = load i32, i32* %p
+            ret i32 %v
+        "#;
+        let result = parser.parse(ir, &[], &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_inline_ir_type_casting() {
+        let parser = InlineIrParser::new();
+        let ir = r#"
+            %ext = sext i16 %a to i32
+            %flt = sitofp i32 %ext to double
+            %trc = fptrunc double %flt to float
+            ret float %trc
+        "#;
+        let result = parser.parse(ir, &[], &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_inline_ir_control_flow() {
+        let parser = InlineIrParser::new();
+        let ir = r#"
+            entry:
+            %cmp = icmp eq i32 %a, %b
+            br i1 %cmp, label %eq, label %ne
+            eq:
+            ret i32 1
+            ne:
+            ret i32 0
+        "#;
+        let result = parser.parse(ir, &[], &[]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_inline_ir_with_bindings() {
+        let parser = InlineIrParser::new();
+        let inputs = vec![
+            ("a".to_string(), IrValue::IntConst(10, IrType::I32)),
+            ("b".to_string(), IrValue::IntConst(20, IrType::I32)),
+        ];
+        let outputs = vec![
+            ("%result".to_string(), IrType::I32),
+        ];
+        let ir = "%result = add i32 %a, %b";
+        let result = parser.parse(ir, &inputs, &outputs);
+        assert!(result.is_ok());
+        
+        let block = result.unwrap();
+        assert_eq!(block.inputs.len(), 2);
+        assert_eq!(block.outputs.len(), 1);
+    }
+
+    #[test]
+    fn test_inline_ir_to_ir_instruction() {
+        let parser = InlineIrParser::new();
+        let ir = r#"
+            %t = add i32 %a, %b
+            %result = mul i32 %t, %c
+        "#;
+        let block = parser.parse(ir, &[], &[]).unwrap();
+        let inst = parser.to_instruction(&block);
+        
+        match inst {
+            crate::ir::value::IrInstruction::InlineIr { lines, .. } => {
+                assert_eq!(lines.len(), 2);
+                assert!(lines[0].contains("add"));
+                assert!(lines[1].contains("mul"));
+            }
+            _ => panic!("Expected InlineIr instruction"),
+        }
+    }
+
+    #[test]
+    fn test_inline_ir_all_allowed_opcodes() {
+        let parser = InlineIrParser::new();
+        let opcodes = vec![
+            "add", "sub", "mul", "sdiv", "srem",
+            "fadd", "fsub", "fmul", "fdiv", "frem",
+            "and", "or", "xor", "shl", "ashr", "lshr",
+            "icmp", "fcmp",
+            "sext", "zext", "trunc", "sitofp", "fptosi", "fpext", "fptrunc",
+            "bitcast", "ptrtoint", "inttoptr",
+            "getelementptr", "alloca", "load", "store",
+            "call", "ret", "br", "select", "phi", "switch", "unreachable",
+        ];
+        
+        for opcode in opcodes {
+            let ir = if opcode.starts_with('i') || opcode.starts_with('f') {
+                format!("%r = {} eq i32 %a, %b", opcode)
+            } else if opcode == "br" {
+                "br label %block".to_string()
+            } else if opcode == "ret" {
+                "ret i32 %r".to_string()
+            } else if opcode == "store" {
+                "store i32 %v, i32* %p".to_string()
+            } else if opcode == "call" {
+                "%r = call i32 @foo()".to_string()
+            } else if opcode == "unreachable" {
+                opcode.to_string()
+            } else {
+                format!("%r = {} i32 %a, %b", opcode)
+            };
+            
+            let result = parser.parse(&ir, &[], &[]);
+            assert!(result.is_ok(), "Opcode '{}' should be allowed", opcode);
+        }
+    }
+
+    #[test]
+    fn test_inline_ir_security_comprehensive() {
+        let parser = InlineIrParser::new();
+        let dangerous_calls = vec![
+            "system", "exec", "popen", "fork", "vfork",
+            "dlopen", "dlsym", "dlclose",
+            "mmap", "munmap", "mprotect",
+        ];
+        
+        for call in dangerous_calls {
+            let ir = format!("call i32 @{}()", call);
+            let result = parser.parse(&ir, &[], &[]);
+            assert!(result.is_err(), "'{}' should be rejected", call);
+        }
+    }
+
+    // ============================================================
     // IR 类型系统测试
     // ============================================================
 
