@@ -8,6 +8,7 @@ pub mod lexer;
 pub mod parser;
 pub mod semantic;
 pub mod codegen;
+pub mod ir;
 pub mod rcpl;
 pub mod bytecode;
 
@@ -119,9 +120,20 @@ impl Compiler {
     /// # Returns
     /// 编译成功返回 Ok(())
     pub fn compile_with_source_map(&self, source: &str, source_map: std::collections::HashMap<usize, (String, usize)>, output_path: &str) -> cayResult<()> {
-        // 从source_map获取主文件路径
-        let main_file = source_map.values().next().map(|(file, _)| file.clone());
+        self.compile_with_source_map_and_main_file(source, source_map, output_path, None)
+    }
 
+    /// 使用源映射编译（带主文件路径）
+    ///
+    /// # Arguments
+    /// * `source` - 预处理后的源代码
+    /// * `source_map` - 源映射表
+    /// * `output_path` - 输出文件路径
+    /// * `main_file` - 主文件路径（用于错误报告）
+    ///
+    /// # Returns
+    /// 编译成功返回 Ok(())
+    pub fn compile_with_source_map_and_main_file(&self, source: &str, source_map: std::collections::HashMap<usize, (String, usize)>, output_path: &str, main_file: Option<String>) -> cayResult<()> {
         // 保留一份源映射用于语义分析错误定位
         let source_map_for_analyzer = source_map.clone();
 
@@ -223,8 +235,9 @@ impl Compiler {
         let result = pp.process_with_source_map(&source, input_path)?;
         let source_map = Self::convert_source_map(&result.source_map);
 
-        // 编译预处理后的代码（带源映射）
-        self.compile_with_source_map(&result.code, source_map, output_path)
+        // 编译预处理后的代码（带源映射和主文件路径）
+        let main_file = Some(input_path.to_string());
+        self.compile_with_source_map_and_main_file(&result.code, source_map, output_path, main_file)
     }
 
     /// 将预处理器源映射转换为HashMap格式

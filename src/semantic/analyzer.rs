@@ -198,12 +198,32 @@ impl SemanticAnalyzer {
     /// 根据行号解析对应的源文件路径
     ///
     /// 逻辑：
-    /// 1. 优先查找 source_map 中该行号对应的文件
-    /// 2. 如果未找到，回退到 current_file
+    /// 1. 遍历 source_map，查找原始行号匹配的文件
+    ///    source_map 结构: 预处理后的行号 -> (原始文件, 原始行号)
+    /// 2. 优先匹配 current_file（主文件），如果找到则返回
+    /// 3. 否则返回第一个匹配的文件
+    /// 4. 如果未找到，回退到 current_file
     fn resolve_file_for_line(&self, line: usize) -> Option<String> {
         if let Some(ref map) = self.source_map {
-            if let Some((file, _original_line)) = map.get(&line) {
-                return Some(file.clone());
+            let mut first_match: Option<String> = None;
+            // 遍历 source_map，查找原始行号匹配的文件
+            for (_processed_line, (file, original_line)) in map.iter() {
+                if *original_line == line {
+                    // 优先匹配 current_file（主文件）
+                    if let Some(ref current) = self.current_file {
+                        if file == current {
+                            return Some(file.clone());
+                        }
+                    }
+                    // 保存第一个匹配，继续查找 current_file
+                    if first_match.is_none() {
+                        first_match = Some(file.clone());
+                    }
+                }
+            }
+            // 如果没有匹配到 current_file，返回第一个匹配
+            if first_match.is_some() {
+                return first_match;
             }
         }
         self.current_file.clone()

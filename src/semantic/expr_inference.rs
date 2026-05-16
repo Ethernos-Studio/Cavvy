@@ -82,6 +82,22 @@ impl SemanticAnalyzer {
                             // 非静态方法中返回字段类型
                             return Ok(field_info.field_type.clone());
                         }
+                        // 检查父类的字段（继承）
+                        if let Some(parent_name) = &class_info.parent {
+                            if let Some(parent_info) = self.type_registry.get_class(parent_name) {
+                                if let Some(field_info) = parent_info.fields.get(name) {
+                                    if field_info.is_static {
+                                        return Ok(field_info.field_type.clone());
+                                    } else if self.current_method_is_static {
+                                        return Err(crate::error::semantic_error(
+                                            loc.line, loc.column,
+                                            format!("non-static variable {} cannot be referenced from a static context", name)
+                                        ));
+                                    }
+                                    return Ok(field_info.field_type.clone());
+                                }
+                            }
+                        }
                     }
                 }
                 
