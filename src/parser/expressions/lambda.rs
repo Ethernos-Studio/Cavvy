@@ -132,6 +132,6 @@ fn parse_lambda_block(parser: &mut Parser) -> cayResult<Block> {
 
     Ok(Block {
         statements,
-        loc: crate::error::SourceLocation { line: 0, column: 0 },
+        loc: crate::error::SourceLocation { file: None, line: 0, column: 0 },
     })
 }

@@ -9,18 +9,28 @@ use crate::error::cayResult;
 
 impl IRGenerator {
     /// 生成单个语句代码
+    /// 复杂度: O(1) 每语句，设置源位置后分发到具体生成器
     pub fn generate_statement(&mut self, stmt: &Stmt) -> cayResult<()> {
+        // 设置源位置（如果语句有位置信息）
+        let source_file = self.source_file.clone();
         match stmt {
             Stmt::Expr(expr) => {
+                self.set_source_from_loc(&expr.location(), &source_file);
                 self.generate_expression(expr)?;
             }
             Stmt::VarDecl(var) => {
+                self.set_source_from_loc(&var.loc, &source_file);
                 self.generate_var_decl(var)?;
             }
             Stmt::Return(expr) => {
+                // Return语句没有独立loc，使用表达式位置或默认位置
+                if let Some(ref e) = *expr {
+                    self.set_source_from_loc(&e.location(), &source_file);
+                }
                 self.generate_return_statement(expr)?;
             }
             Stmt::Block(block) => {
+                self.set_source_from_loc(&block.loc, &source_file);
                 // 检查是否是多变量声明生成的块（只包含 VarDecl）
                 let is_multi_var_decl = block.statements.iter().all(|s| matches!(s, Stmt::VarDecl(_)));
                 if is_multi_var_decl {
@@ -35,21 +45,27 @@ impl IRGenerator {
                 }
             }
             Stmt::If(if_stmt) => {
+                self.set_source_from_loc(&if_stmt.loc, &source_file);
                 self.generate_if_statement(if_stmt)?;
             }
             Stmt::While(while_stmt) => {
+                self.set_source_from_loc(&while_stmt.loc, &source_file);
                 self.generate_while_statement(while_stmt)?;
             }
             Stmt::For(for_stmt) => {
+                self.set_source_from_loc(&for_stmt.loc, &source_file);
                 self.generate_for_statement(for_stmt)?;
             }
             Stmt::DoWhile(do_while_stmt) => {
+                self.set_source_from_loc(&do_while_stmt.loc, &source_file);
                 self.generate_do_while_statement(do_while_stmt)?;
             }
             Stmt::Switch(switch_stmt) => {
+                self.set_source_from_loc(&switch_stmt.loc, &source_file);
                 self.generate_switch_statement(switch_stmt)?;
             }
             Stmt::Scope(scope_stmt) => {
+                self.set_source_from_loc(&scope_stmt.loc, &source_file);
                 self.generate_scope(scope_stmt)?;
             }
             Stmt::Break(label) => {
@@ -59,6 +75,7 @@ impl IRGenerator {
                 self.generate_continue_statement(label)?;
             }
             Stmt::InlineIr(inline_ir) => {
+                self.set_source_from_loc(&inline_ir.loc, &source_file);
                 // 0.5.0.0: 使用CodeGen-IR Builder协作桥处理内联IR
                 self.generate_inline_ir(inline_ir)?;
             }

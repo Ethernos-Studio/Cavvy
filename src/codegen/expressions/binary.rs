@@ -11,6 +11,39 @@ fn is_integer_type(ty: &str) -> bool {
     ty.starts_with("i") && !ty.ends_with("*")
 }
 
+/// 获取整数类型的位宽
+fn get_int_bit_width(ty: &str) -> Option<u32> {
+    if !ty.starts_with("i") || ty.ends_with("*") {
+        return None;
+    }
+    ty[1..].parse().ok()
+}
+
+/// 生成整数类型转换指令
+/// 从from_type转换到to_type，返回转换后的值
+fn generate_int_cast(
+    generator: &mut IRGenerator,
+    from_type: &str,
+    val: &str,
+    to_bits: u32,
+) -> String {
+    let from_bits = get_int_bit_width(from_type).unwrap_or(32);
+    
+    if from_bits == to_bits {
+        val.to_string()
+    } else if from_bits < to_bits {
+        // 扩展：使用sext
+        let temp = generator.new_temp();
+        generator.emit_line(&format!("  {} = sext {} {} to i{}", temp, from_type, val, to_bits));
+        temp
+    } else {
+        // 截断：使用trunc
+        let temp = generator.new_temp();
+        generator.emit_line(&format!("  {} = trunc {} {} to i{}", temp, from_type, val, to_bits));
+        temp
+    }
+}
+
 impl IRGenerator {
     /// 生成二元表达式代码
     ///
@@ -73,34 +106,38 @@ impl IRGenerator {
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, char_as_string, right_val));
             return Ok(format!("i8* {}", temp));
+        } else if left_type == "i8*" && right_type == "i1" {
+            // 字符串 + 布尔：先将布尔转换为字符串，然后拼接
+            let bool_as_string = self.new_temp();
+            self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})",
+                bool_as_string, right_val));
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, left_val, bool_as_string));
+            return Ok(format!("i8* {}", temp));
+        } else if left_type == "i1" && right_type == "i8*" {
+            // 布尔 + 字符串：先将布尔转换为字符串，然后拼接
+            let bool_as_string = self.new_temp();
+            self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})",
+                bool_as_string, left_val));
+            self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
+                temp, bool_as_string, right_val));
+            return Ok(format!("i8* {}", temp));
         } else if left_type == "i8*" && is_integer_type(right_type) {
-            // 字符串 + 整数：先将整数转换为字符串，然后拼接
+            // 字符串 + 整数：先将整数转换为i32，然后转换为字符串，然后拼接
             let int_as_string = self.new_temp();
-            // 如果是 i32，先扩展到 i64
-            let int_val = if right_type == "i32" {
-                let extended = self.new_temp();
-                self.emit_line(&format!("  {} = sext i32 {} to i64", extended, right_val));
-                extended
-            } else {
-                right_val.to_string()
-            };
-            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
+            // 将任意整数类型转换为i32（使用正确的转换指令：sext或trunc）
+            let int_val = generate_int_cast(self, right_type, right_val, 32);
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i32 {})",
                 int_as_string, int_val));
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, left_val, int_as_string));
             return Ok(format!("i8* {}", temp));
         } else if is_integer_type(left_type) && right_type == "i8*" {
-            // 整数 + 字符串：先将整数转换为字符串，然后拼接
+            // 整数 + 字符串：先将整数转换为i32，然后转换为字符串，然后拼接
             let int_as_string = self.new_temp();
-            // 如果是 i32，先扩展到 i64
-            let int_val = if left_type == "i32" {
-                let extended = self.new_temp();
-                self.emit_line(&format!("  {} = sext i32 {} to i64", extended, left_val));
-                extended
-            } else {
-                left_val.to_string()
-            };
-            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
+            // 将任意整数类型转换为i32（使用正确的转换指令：sext或trunc）
+            let int_val = generate_int_cast(self, left_type, left_val, 32);
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i32 {})",
                 int_as_string, int_val));
             self.emit_line(&format!("  {} = call i8* @__cay_string_concat(i8* {}, i8* {})",
                 temp, int_as_string, right_val));

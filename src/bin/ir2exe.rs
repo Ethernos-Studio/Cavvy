@@ -5,6 +5,221 @@ use std::fs;
 use cavvy::error::{print_miette_error, print_tool_error, print_warning};
 
 /// 规范化路径，去除 . 和 ..
+
+/// 源位置信息
+#[derive(Debug, Clone)]
+struct SourcePosition {
+    file: String,
+    line: usize,
+    column: usize,
+}
+
+/// IR源映射表 - 从IR行号到源位置的映射
+#[derive(Debug, Clone, Default)]
+struct IRSourceMap {
+    mappings: std::collections::HashMap<usize, SourcePosition>,
+}
+
+impl IRSourceMap {
+    fn new() -> Self {
+        Self {
+            mappings: std::collections::HashMap::new(),
+        }
+    }
+
+    fn add_mapping(&mut self, ir_line: usize, file: String, line: usize, column: usize) {
+        self.mappings.insert(ir_line, SourcePosition { file, line, column });
+    }
+
+    fn get_source_position(&self, ir_line: usize) -> Option<&SourcePosition> {
+        // 首先尝试精确匹配
+        if let Some(pos) = self.mappings.get(&ir_line) {
+            return Some(pos);
+        }
+        
+        // 如果没有精确匹配，查找最近的映射（小于或等于给定行号的最大映射）
+        // 这用于处理clang报告的错误行号是代码行，而源映射在注释行的情况
+        let mut closest_line = 0usize;
+        let mut found = false;
+        
+        for (&mapped_line, _) in &self.mappings {
+            if mapped_line <= ir_line && mapped_line > closest_line {
+                closest_line = mapped_line;
+                found = true;
+            }
+        }
+        
+        if found {
+            self.mappings.get(&closest_line)
+        } else {
+            None
+        }
+    }
+}
+
+/// 从IR文件中解析源映射注释
+/// 格式: ; !source file.cay:10:5
+fn parse_source_map_from_ir(ir_content: &str) -> IRSourceMap {
+    let mut source_map = IRSourceMap::new();
+    let mut current_line = 0usize;
+
+    for line in ir_content.lines() {
+        current_line += 1;
+        
+        // 检查是否是源映射注释
+        if let Some(comment_start) = line.find("; !source ") {
+            let comment = &line[comment_start + 10..]; // 跳过 "; !source "
+            
+            // 解析格式: file:line:column
+            // 处理Windows路径 (E:\path\file.cay:10:5) - 从后往前找冒号
+            if let Some(last_colon) = comment.rfind(':') {
+                if let Some(second_last_colon) = comment[..last_colon].rfind(':') {
+                    let file = comment[..second_last_colon].to_string();
+                    let line_str = &comment[second_last_colon + 1..last_colon];
+                    let col_str = &comment[last_colon + 1..];
+                    
+                    if let (Ok(line_num), Ok(col_num)) = (line_str.parse::<usize>(), col_str.parse::<usize>()) {
+                        source_map.add_mapping(current_line, file, line_num, col_num);
+                    }
+                }
+            }
+        }
+    }
+
+    source_map
+}
+
+/// 解析clang错误信息中的行号
+fn parse_clang_error_line(error_msg: &str) -> Option<usize> {
+    // 匹配格式: filename.ll:123:45: error: ...
+    // 或: <stdin>:123:45: error: ...
+    for line in error_msg.lines() {
+        // 查找 .ll: 后的数字
+        if let Some(pos) = line.find(".ll:") {
+            let rest = &line[pos + 4..];
+            if let Some(colon_pos) = rest.find(':') {
+                let line_num_str = &rest[..colon_pos];
+                if let Ok(line_num) = line_num_str.parse::<usize>() {
+                    return Some(line_num);
+                }
+            }
+        }
+        
+        // 匹配 <stdin>: 格式
+        if let Some(pos) = line.find("<stdin>:") {
+            let rest = &line[pos + 8..];
+            if let Some(colon_pos) = rest.find(':') {
+                let line_num_str = &rest[..colon_pos];
+                if let Ok(line_num) = line_num_str.parse::<usize>() {
+                    return Some(line_num);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 读取源文件的指定行及其上下文
+fn read_source_context(file_path: &str, line_num: usize, context_lines: usize) -> Option<String> {
+    let content = fs::read_to_string(file_path).ok()?;
+    let lines: Vec<&str> = content.lines().collect();
+    
+    if line_num == 0 || line_num > lines.len() {
+        return None;
+    }
+    
+    let start = line_num.saturating_sub(context_lines + 1);
+    let end = (line_num + context_lines).min(lines.len());
+    
+    let mut result = String::new();
+    for i in start..end {
+        let line_number = i + 1;
+        let prefix = if line_number == line_num {
+            "  > "
+        } else {
+            "    "
+        };
+        result.push_str(&format!("{}{:4} | {}\n", prefix, line_number, lines[i]));
+    }
+    
+    Some(result)
+}
+
+/// 将clang错误信息中的IR行号替换为源位置，并显示源代码上下文
+fn remap_clang_error(error_msg: &str, source_map: &IRSourceMap, _ir_file_name: &str) -> String {
+    let mut result = String::new();
+    let mut last_source_file: Option<String> = None;
+    let mut last_source_line: Option<usize> = None;
+    
+    for line in error_msg.lines() {
+        // 尝试解析错误行号
+        if let Some(ir_line) = parse_clang_error_line(line) {
+            if let Some(source_pos) = source_map.get_source_position(ir_line) {
+                // 避免重复显示相同的源位置
+                let is_duplicate = last_source_file.as_ref() == Some(&source_pos.file) 
+                    && last_source_line == Some(source_pos.line);
+                
+                if !is_duplicate {
+                    // 添加源文件位置头
+                    result.push_str(&format!("\n  at {}:{}:{}\n", source_pos.file, source_pos.line, source_pos.column));
+                    
+                    // 读取并显示源代码上下文
+                    if let Some(context) = read_source_context(&source_pos.file, source_pos.line, 2) {
+                        result.push_str(&context);
+                    }
+                    
+                    last_source_file = Some(source_pos.file.clone());
+                    last_source_line = Some(source_pos.line);
+                }
+                
+                // 修改错误行，指向源文件
+                let modified_line = if line.contains("error:") {
+                    // 提取错误消息部分
+                    if let Some(error_pos) = line.find("error:") {
+                        let error_msg_part = &line[error_pos + 6..];
+                        format!("\n  error: {}", error_msg_part)
+                    } else {
+                        format!("\n  {}", line)
+                    }
+                } else if line.contains("warning:") {
+                    if let Some(warning_pos) = line.find("warning:") {
+                        let warning_msg_part = &line[warning_pos + 8..];
+                        format!("\n  warning: {}", warning_msg_part)
+                    } else {
+                        format!("\n  {}", line)
+                    }
+                } else {
+                    format!("\n  {}", line)
+                };
+                
+                result.push_str(&modified_line);
+                continue;
+            }
+        }
+        
+        // 对于代码指示行（如 "    |     ^"），跳过，因为我们已经显示了源代码上下文
+        if line.trim().starts_with('|') || line.trim().starts_with('^') {
+            continue;
+        }
+        
+        // 其他行（如 "1 error generated.")
+        if !line.trim().is_empty() {
+            result.push('\n');
+            result.push_str(line);
+        }
+    }
+    
+    result.trim_end().to_string()
+}
+
+/// 添加Clang错误映射的说明信息
+fn add_clang_error_notice(remapped_error: &str) -> String {
+    format!(
+        "{}\n\n  注意：Clang执行失败时的映射代码输出不属于Cavvy报错系统的一部分也不是Cavvy错误，这只是方便排查问题的。\n  在任何时候遇到Clang执行失败的报错信息都应该立即提issue修复此问题。\n  issue地址：https://github.com/cavvy-lang/cavvy",
+        remapped_error
+    )
+}
+
 fn normalize_path(path: &Path) -> PathBuf {
     let mut components = Vec::new();
     
@@ -664,7 +879,27 @@ fn main() {
     }
     println!("");
 
-    let clang_exe = match find_clang() {
+    
+    // 读取IR文件内容以解析源映射
+    let ir_content = match fs::read_to_string(&input_file) {
+        Ok(content) => content,
+        Err(e) => {
+            print_miette_error(
+                "cavvy::io_error",
+                &format!("无法读取IR文件: {}", e),
+                Some("请检查IR文件路径是否正确")
+            );
+            process::exit(1);
+        }
+    };
+
+    // 解析源映射
+    let source_map = parse_source_map_from_ir(&ir_content);
+    if !source_map.mappings.is_empty() {
+        println!("  [I] 已加载源映射: {} 个映射点", source_map.mappings.len());
+    }
+
+let clang_exe = match find_clang() {
         Ok(path) => path,
         Err(e) => {
             print_tool_error("clang", &e, Some("请确保 LLVM/Clang 已正确安装"));
@@ -850,17 +1085,32 @@ fn main() {
 
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
+        
+        // 使用源映射重新映射错误信息
+        let remapped_error = if !source_map.mappings.is_empty() {
+            let mapped = remap_clang_error(&error_msg, &source_map, &input_file);
+            add_clang_error_notice(&mapped)
+        } else {
+            error_msg.to_string()
+        };
+        
         print_tool_error(
             "clang",
             &format!("编译失败 (exit code: {})", output.status.code().unwrap_or(-1)),
-            Some(&error_msg)
+            Some(&remapped_error)
         );
         process::exit(1);
     }
 
     if !output.stderr.is_empty() {
         let warn_msg = String::from_utf8_lossy(&output.stderr);
-        print_warning(&warn_msg);
+        // 使用源映射重新映射警告信息
+        let remapped_warning = if !source_map.mappings.is_empty() {
+            remap_clang_error(&warn_msg, &source_map, &input_file)
+        } else {
+            warn_msg.to_string()
+        };
+        print_warning(&remapped_warning);
     }
 
     let exe_size = std::fs::metadata(&output_file)

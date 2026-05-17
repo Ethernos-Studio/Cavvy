@@ -8,8 +8,7 @@ public class TestInlineIrComparison {
         boolean result;
         __ir {
             %cmp = icmp eq i32 %a, %b
-            %r = zext i1 %cmp to i8
-            store i8 %r, i8* %result
+            store i1 %cmp, i1* %result
         }
         return result;
     }
@@ -19,8 +18,7 @@ public class TestInlineIrComparison {
         boolean result;
         __ir {
             %cmp = icmp slt i32 %a, %b
-            %r = zext i1 %cmp to i8
-            store i8 %r, i8* %result
+            store i1 %cmp, i1* %result
         }
         return result;
     }
@@ -30,8 +28,7 @@ public class TestInlineIrComparison {
         boolean result;
         __ir {
             %cmp = icmp sgt i32 %a, %b
-            %r = zext i1 %cmp to i8
-            store i8 %r, i8* %result
+            store i1 %cmp, i1* %result
         }
         return result;
     }
@@ -41,8 +38,7 @@ public class TestInlineIrComparison {
         boolean result;
         __ir {
             %cmp = fcmp oeq float %a, %b
-            %r = zext i1 %cmp to i8
-            store i8 %r, i8* %result
+            store i1 %cmp, i1* %result
         }
         return result;
     }
@@ -52,8 +48,7 @@ public class TestInlineIrComparison {
         boolean result;
         __ir {
             %cmp = fcmp olt float %a, %b
-            %r = zext i1 %cmp to i8
-            store i8 %r, i8* %result
+            store i1 %cmp, i1* %result
         }
         return result;
     }

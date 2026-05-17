@@ -94,11 +94,15 @@ impl InlineIrParser {
         available_inputs: &[(String, IrValue)],
         expected_outputs: &[(String, IrType)],
     ) -> Result<InlineIrBlock, String> {
+        eprintln!("DEBUG InlineIrParser::parse: ir_text = '{}'", ir_text);
+        
         let lines: Vec<String> = ir_text
             .lines()
             .map(|l| l.trim().to_string())
             .filter(|l| !l.is_empty() && !l.starts_with(';'))
             .collect();
+
+        eprintln!("DEBUG InlineIrParser::parse: lines = {:?}", lines);
 
         if lines.is_empty() {
             return Err("Inline IR block is empty".to_string());

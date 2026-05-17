@@ -25,8 +25,8 @@ fn test_auto_inference() {
             "auto inference test should start, got: {}", output);
     assert!(output.contains("42"),
             "auto a = 42 should output 42, got: {}", output);
-    assert!(output.contains("1"),  // true is printed as 1
-            "auto flag = true should output 1, got: {}", output);
+    assert!(output.contains("true"),  // true is printed as true
+            "auto flag = true should output true, got: {}", output);
     assert!(output.contains("88"),  // 'X' is ASCII 88
             "auto c = 'X' should output 88, got: {}", output);
     assert!(output.contains("50"),

@@ -580,24 +580,16 @@ pub fn parse_inline_ir_statement(parser: &mut Parser) -> cayResult<Stmt> {
     // 期望 {
     parser.consume(&crate::lexer::Token::LBrace, "期望 '{'\n提示: __ir 后应跟 '{' 开始 IR 块")?;
 
-    // 使用源代码直接提取IR文本（保留原始格式和换行）
-    let raw_lines = if let Some(source) = parser.source() {
-        // 从源代码直接提取
-        let lines = extract_inline_ir_from_source(source, &loc)?;
-        // 跳过token直到匹配的RBrace
-        skip_inline_ir_tokens(parser);
-        lines
-    } else {
-        // 回退到token流解析
-        parse_inline_ir_from_tokens(parser)?
-    };
+    // 从token流解析内联IR（更可靠的方法）
+    let raw_lines = parse_inline_ir_from_tokens(parser)?;
 
     Ok(Stmt::InlineIr(InlineIrStmt { raw_lines, loc }))
 }
 
 /// 跳过内联IR块中的所有token，直到匹配的RBrace
+/// 注意：调用此函数时，当前token应该是块内的第一个token（LBrace已经被consume消耗）
 fn skip_inline_ir_tokens(parser: &mut Parser) {
-    let mut brace_depth = 1;
+    let mut brace_depth = 1; // 已经消耗了一个LBrace
 
     while !parser.is_at_end() && brace_depth > 0 {
         match parser.current_token() {
@@ -608,6 +600,7 @@ fn skip_inline_ir_tokens(parser: &mut Parser) {
             crate::lexer::Token::RBrace => {
                 brace_depth -= 1;
                 parser.advance();
+                // 当brace_depth变为0时，循环会自动结束
             }
             _ => {
                 parser.advance();
@@ -674,8 +667,12 @@ fn extract_inline_ir_from_source(source: &str, start_loc: &crate::error::SourceL
         }
     }
 
-    // 如果直接提取失败，返回空
-    Ok(Vec::new())
+    // 如果直接提取失败，返回错误
+    Err(crate::error::parser_error(
+        start_loc.line,
+        start_loc.column,
+        "无法从源代码提取内联IR块"
+    ))
 }
 
 /// 从token流解析内联IR（回退方案）
@@ -683,8 +680,21 @@ fn parse_inline_ir_from_tokens(parser: &mut Parser) -> cayResult<Vec<String>> {
     let mut raw_lines: Vec<String> = Vec::new();
     let mut current_line: Vec<String> = Vec::new();
     let mut brace_depth = 1;
+    let mut current_line_num = parser.current_loc().line;
 
     while !parser.is_at_end() && brace_depth > 0 {
+        let token_line = parser.current_loc().line;
+        
+        // 如果行号变化，保存当前行并开始新行
+        if token_line != current_line_num && !current_line.is_empty() {
+            let line = current_line.join(" ");
+            if !line.trim().is_empty() {
+                raw_lines.push(line);
+            }
+            current_line.clear();
+            current_line_num = token_line;
+        }
+        
         match parser.current_token() {
             crate::lexer::Token::LBrace => {
                 brace_depth += 1;
@@ -716,6 +726,175 @@ fn parse_inline_ir_from_tokens(parser: &mut Parser) -> cayResult<Vec<String>> {
                         parser.advance();
                         val
                     }
+                    // 处理关键字作为寄存器名（IR块中允许使用关键字作为标识符）
+                    crate::lexer::Token::Final => {
+                        parser.advance();
+                        "final".to_string()
+                    }
+                    crate::lexer::Token::Class => {
+                        parser.advance();
+                        "class".to_string()
+                    }
+                    crate::lexer::Token::Void => {
+                        parser.advance();
+                        "void".to_string()
+                    }
+                    crate::lexer::Token::Int => {
+                        parser.advance();
+                        "int".to_string()
+                    }
+                    crate::lexer::Token::Long => {
+                        parser.advance();
+                        "long".to_string()
+                    }
+                    crate::lexer::Token::Float => {
+                        parser.advance();
+                        "float".to_string()
+                    }
+                    crate::lexer::Token::Double => {
+                        parser.advance();
+                        "double".to_string()
+                    }
+                    crate::lexer::Token::Bool => {
+                        parser.advance();
+                        "bool".to_string()
+                    }
+                    crate::lexer::Token::String => {
+                        parser.advance();
+                        "string".to_string()
+                    }
+                    crate::lexer::Token::Char => {
+                        parser.advance();
+                        "char".to_string()
+                    }
+                    crate::lexer::Token::True => {
+                        parser.advance();
+                        "true".to_string()
+                    }
+                    crate::lexer::Token::False => {
+                        parser.advance();
+                        "false".to_string()
+                    }
+                    crate::lexer::Token::Null => {
+                        parser.advance();
+                        "null".to_string()
+                    }
+                    crate::lexer::Token::If => {
+                        parser.advance();
+                        "if".to_string()
+                    }
+                    crate::lexer::Token::Else => {
+                        parser.advance();
+                        "else".to_string()
+                    }
+                    crate::lexer::Token::While => {
+                        parser.advance();
+                        "while".to_string()
+                    }
+                    crate::lexer::Token::For => {
+                        parser.advance();
+                        "for".to_string()
+                    }
+                    crate::lexer::Token::Return => {
+                        parser.advance();
+                        "return".to_string()
+                    }
+                    crate::lexer::Token::Break => {
+                        parser.advance();
+                        "break".to_string()
+                    }
+                    crate::lexer::Token::Continue => {
+                        parser.advance();
+                        "continue".to_string()
+                    }
+                    crate::lexer::Token::New => {
+                        parser.advance();
+                        "new".to_string()
+                    }
+                    crate::lexer::Token::This => {
+                        parser.advance();
+                        "this".to_string()
+                    }
+                    crate::lexer::Token::Super => {
+                        parser.advance();
+                        "super".to_string()
+                    }
+                    crate::lexer::Token::Public => {
+                        parser.advance();
+                        "public".to_string()
+                    }
+                    crate::lexer::Token::Private => {
+                        parser.advance();
+                        "private".to_string()
+                    }
+                    crate::lexer::Token::Protected => {
+                        parser.advance();
+                        "protected".to_string()
+                    }
+                    crate::lexer::Token::Static => {
+                        parser.advance();
+                        "static".to_string()
+                    }
+                    crate::lexer::Token::Abstract => {
+                        parser.advance();
+                        "abstract".to_string()
+                    }
+                    crate::lexer::Token::Native => {
+                        parser.advance();
+                        "native".to_string()
+                    }
+                    crate::lexer::Token::Extends => {
+                        parser.advance();
+                        "extends".to_string()
+                    }
+                    crate::lexer::Token::Implements => {
+                        parser.advance();
+                        "implements".to_string()
+                    }
+                    crate::lexer::Token::Interface => {
+                        parser.advance();
+                        "interface".to_string()
+                    }
+                    crate::lexer::Token::InstanceOf => {
+                        parser.advance();
+                        "instanceof".to_string()
+                    }
+                    crate::lexer::Token::Var => {
+                        parser.advance();
+                        "var".to_string()
+                    }
+                    crate::lexer::Token::Let => {
+                        parser.advance();
+                        "let".to_string()
+                    }
+                    crate::lexer::Token::Auto => {
+                        parser.advance();
+                        "auto".to_string()
+                    }
+                    crate::lexer::Token::Extern => {
+                        parser.advance();
+                        "extern".to_string()
+                    }
+                    crate::lexer::Token::Scope => {
+                        parser.advance();
+                        "scope".to_string()
+                    }
+                    crate::lexer::Token::Do => {
+                        parser.advance();
+                        "do".to_string()
+                    }
+                    crate::lexer::Token::Switch => {
+                        parser.advance();
+                        "switch".to_string()
+                    }
+                    crate::lexer::Token::Case => {
+                        parser.advance();
+                        "case".to_string()
+                    }
+                    crate::lexer::Token::Default => {
+                        parser.advance();
+                        "default".to_string()
+                    }
                     _ => {
                         current_line.push("%".to_string());
                         continue;
@@ -741,6 +920,52 @@ fn parse_inline_ir_from_tokens(parser: &mut Parser) -> cayResult<Vec<String>> {
             }
             crate::lexer::Token::Star => {
                 current_line.push("*".to_string());
+                parser.advance();
+            }
+            crate::lexer::Token::Assign => {
+                current_line.push("=".to_string());
+                parser.advance();
+            }
+            crate::lexer::Token::Float => {
+                current_line.push("float".to_string());
+                parser.advance();
+            }
+            crate::lexer::Token::Double => {
+                current_line.push("double".to_string());
+                parser.advance();
+            }
+            crate::lexer::Token::Semicolon => {
+                // 跳过注释：分号表示注释开始，跳过直到行末
+                let semicolon_line = parser.current_loc().line;
+                parser.advance();
+                // 跳过注释内容（所有token直到行号变化或RBrace）
+                while !parser.is_at_end() {
+                    let next_token_line = parser.current_loc().line;
+                    match parser.current_token() {
+                        crate::lexer::Token::RBrace => break,
+                        _ => {
+                            // 如果行号变化，说明注释结束
+                            if next_token_line != semicolon_line {
+                                break;
+                            }
+                            parser.advance();
+                        }
+                    }
+                }
+                // 如果当前行不为空，保存当前行
+                if !current_line.is_empty() {
+                    let line = current_line.join(" ");
+                    if !line.trim().is_empty() {
+                        raw_lines.push(line);
+                    }
+                    current_line.clear();
+                }
+                // 更新current_line_num为注释后的token行号
+                // 这样后续的IR指令会在同一行被处理
+                current_line_num = parser.current_loc().line;
+            }
+            crate::lexer::Token::Newline => {
+                // Newline token被lexer跳过，这里不需要处理
                 parser.advance();
             }
             _ => {

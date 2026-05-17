@@ -95,9 +95,9 @@ mod tests {
         let scope_stmt = ScopeStmt {
             body: Block {
                 statements: vec![],
-                loc: SourceLocation { line: 1, column: 1 },
+                loc: SourceLocation { file: None, line: 1, column: 1 },
             },
-            loc: SourceLocation { line: 1, column: 1 },
+            loc: SourceLocation { file: None, line: 1, column: 1 },
         };
         
         // 验证 ScopeStmt 结构正确
@@ -110,17 +110,17 @@ mod tests {
         let inner_scope = Stmt::Scope(ScopeStmt {
             body: Block {
                 statements: vec![],
-                loc: SourceLocation { line: 2, column: 5 },
+                loc: SourceLocation { file: None, line: 2, column: 5 },
             },
-            loc: SourceLocation { line: 2, column: 5 },
+            loc: SourceLocation { file: None, line: 2, column: 5 },
         });
         
         let outer_scope = ScopeStmt {
             body: Block {
                 statements: vec![inner_scope],
-                loc: SourceLocation { line: 1, column: 1 },
+                loc: SourceLocation { file: None, line: 1, column: 1 },
             },
-            loc: SourceLocation { line: 1, column: 1 },
+            loc: SourceLocation { file: None, line: 1, column: 1 },
         };
         
         // 验证嵌套结构

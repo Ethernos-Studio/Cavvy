@@ -94,7 +94,8 @@ impl Compiler {
         ir_gen.set_platform_config(&self.options);
         // 传递类型注册表以支持正确的方法名生成
         ir_gen.set_type_registry(analyzer.get_type_registry().clone());
-        let mut ir = ir_gen.generate(&ast)?;
+        // 注意：compile方法没有源文件路径，使用空字符串
+        let mut ir = ir_gen.generate(&ast, "")?;
 
         // 5. 如果启用了混淆，应用IR混淆
         if self.options.obfuscate {
@@ -159,9 +160,9 @@ impl Compiler {
 
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::with_features(self.options.features.clone());
-        analyzer.set_current_file(main_file);
+        analyzer.set_current_file(main_file.clone());
         // 传递源映射表以支持多文件include场景下的正确错误定位
-        analyzer.set_source_map(source_map_for_analyzer);
+        analyzer.set_source_map(source_map_for_analyzer.clone());
         analyzer.analyze(&ast)?;
 
         // 4. 代码生成 - 生成LLVM IR（字符串常量已在生成器内处理）
@@ -170,7 +171,11 @@ impl Compiler {
         ir_gen.set_platform_config(&self.options);
         // 传递类型注册表以支持正确的方法名生成
         ir_gen.set_type_registry(analyzer.get_type_registry().clone());
-        let mut ir = ir_gen.generate(&ast)?;
+        // 设置预处理器源映射（用于多文件include场景）
+        ir_gen.set_preprocessor_source_map(source_map_for_analyzer.clone());
+        // 设置源文件路径以启用源映射
+        let source_file = main_file.as_deref().unwrap_or("");
+        let mut ir = ir_gen.generate(&ast, source_file)?;
 
         // 5. 如果启用了混淆，应用IR混淆
         if self.options.obfuscate {

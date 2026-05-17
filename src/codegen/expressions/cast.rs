@@ -45,17 +45,25 @@ impl IRGenerator {
         // 排除 i1（布尔）和 i8（字符），它们已单独处理
         if from_type.starts_with("i") && !from_type.ends_with("*") && to_type == "i8*"
             && from_type != "i1" && from_type != "i8" {
-            // 先将整数扩展到 i64（如果还不是的话），然后调用运行时函数
+            // 先将整数转换到 i32（如果还不是的话），然后调用运行时函数
             let result = self.new_temp();
-            let i64_val = if from_type == "i64" {
+            let i32_val = if from_type == "i32" {
                 val.to_string()
             } else {
                 let temp = self.new_temp();
-                self.emit_line(&format!("  {} = sext {} {} to i64", temp, from_type, val));
+                // 根据位宽选择正确的转换指令：扩展(sext)或截断(trunc)
+                let from_bits: u32 = from_type.trim_start_matches('i').parse().unwrap_or(32);
+                if from_bits < 32 {
+                    // 小类型到大类型：符号扩展
+                    self.emit_line(&format!("  {} = sext {} {} to i32", temp, from_type, val));
+                } else {
+                    // 大类型到小类型：截断
+                    self.emit_line(&format!("  {} = trunc {} {} to i32", temp, from_type, val));
+                }
                 temp
             };
-            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i64 {})",
-                result, i64_val));
+            self.emit_line(&format!("  {} = call i8* @__cay_int_to_string(i32 {})",
+                result, i32_val));
             return Ok(format!("{} {}", to_type, result));
         }
         

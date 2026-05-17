@@ -111,6 +111,18 @@ impl IRGenerator {
                         fmt_ptr, fmt_len, fmt_len, fmt_name));
                     self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i8* {})",
                         fmt_ptr, val));
+                } else if type_str == "i1" {
+                    // 布尔类型：调用 __cay_bool_to_string 转换为字符串后打印
+                    let str_temp = self.new_temp();
+                    self.emit_line(&format!("  {} = call i8* @__cay_bool_to_string(i1 {})", str_temp, val));
+                    let fmt_str = if newline { "%s\n" } else { "%s" };
+                    let fmt_name = self.get_or_create_string_constant(fmt_str);
+                    let fmt_len = fmt_str.len() + 1;
+                    let fmt_ptr = self.new_temp();
+                    self.emit_line(&format!("  {} = getelementptr [{} x i8], [{} x i8]* {}, i64 0, i64 0",
+                        fmt_ptr, fmt_len, fmt_len, fmt_name));
+                    self.emit_line(&format!("  call i32 (i8*, ...) @printf(i8* {}, i8* {})",
+                        fmt_ptr, str_temp));
                 } else if type_str.starts_with("i") && !type_str.ends_with("*") {
                     let i64_fmt = self.get_i64_format_specifier();
                     let fmt_str = if newline { format!("{}\n", i64_fmt) } else { i64_fmt.to_string() };

@@ -20,12 +20,16 @@ pub mod runtime;
 mod generator;
 mod platform;
 pub mod obfuscator;
+pub mod source_map;
 
 // 0.5.0.0: CodeGen-IR Builder 协作桥
 pub mod bridge;
 
 // 公开 IRGenerator 作为代码生成器的入口
 pub use context::IRGenerator;
+
+// 公开源映射相关类型
+pub use source_map::{IRSourceMap, SourcePosition, SourceMapEmitter, remap_clang_error, parse_clang_error_line};
 
 // 公开桥接相关类型
 pub use bridge::{InlineIrBridge, InlineIrResult, InlineIrBridgeSupport};

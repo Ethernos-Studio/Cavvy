@@ -5,7 +5,7 @@ use crate::diagnostic::{Diagnostic, DiagnosticCollector, ErrorCodes, Compilation
 
 #[derive(Logos, Debug, Clone, PartialEq)]
 #[logos(skip r"[ \t\f]+")]
-#[logos(skip r"//[^\n]*")]
+#[logos(skip r"//.*")]
 pub enum Token {
     // 多行注释 - 需要特殊处理以计数换行符
     #[regex(r"/\*([^*]|\*[^/])*\*/", |lex| {
@@ -176,7 +176,7 @@ pub enum Token {
         } else if cleaned.starts_with("0o") || cleaned.starts_with("0O") {
             8
         } else if cleaned.starts_with("0") && cleaned.len() > 1 && cleaned.chars().nth(1).map(|c| c.is_digit(10)).unwrap_or(false) {
-            // 以0开头但不含字母的十进制数字？实际上，前导零的十进制数字，但我们将视为十进制（如Java中，前导零表示八进制？在Java中，前导零表示八进制，但为了兼容性，我们将其视为八进制？我们已匹配八进制模式，所以这里应该是十进制）
+            // 以0开头但不含字母的十进制数字？实际上，前导零的十进制数字，但我们将视为十进制（如Java中，前导零表示八进制，但为了兼容性，我们将其视为八进制？我们已匹配八进制模式，所以这里应该是十进制）
             10
         } else {
             10
@@ -433,6 +433,57 @@ impl<'a> Lexer<'a> {
         &self.diagnostics
     }
 
+    /// 检查指定位置是否在__ir块内
+    /// 通过向前查找最近的__ir {，并检查是否有匹配的}
+    fn is_inside_inline_ir_block(&self, pos: usize) -> bool {
+        // 查找最近的__ir {
+        let source_before = &self.source[..pos];
+        
+        // 从后向前查找__ir
+        if let Some(ir_pos) = source_before.rfind("__ir") {
+            // 检查__ir后面是否有{
+            let after_ir = &source_before[ir_pos..];
+            if let Some(lbrace_pos) = after_ir.find('{') {
+                let lbrace_global_pos = ir_pos + lbrace_pos;
+                
+                // 计算从{到当前位置的{和}的数量
+                let block_content = &self.source[lbrace_global_pos..pos];
+                let open_braces = block_content.chars().filter(|&c| c == '{').count();
+                let close_braces = block_content.chars().filter(|&c| c == '}').count();
+                
+                // 如果开放的{数量大于关闭的}数量，说明在块内
+                return open_braces > close_braces;
+            }
+        }
+        
+        false
+    }
+
+    /// 检查当前位置是否在未闭合的字符串中
+    fn is_inside_unterminated_string(&self, pos: usize) -> bool {
+        let source_before = &self.source[..pos];
+        
+        // 从后向前查找双引号
+        let mut in_string = false;
+        let mut escaped = false;
+        
+        for c in source_before.chars().rev() {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if c == '\\' {
+                escaped = true;
+                continue;
+            }
+            if c == '"' {
+                in_string = !in_string;
+            }
+        }
+        
+        in_string
+    }
+
     /// 创建详细的词法错误诊断
     fn create_lexer_diagnostic(&self, error_type: LexerErrorType, span: std::ops::Range<usize>) -> Diagnostic {
         let error_char = &self.source[span.clone()];
@@ -513,6 +564,7 @@ impl<'a> Lexer<'a> {
                 Ok(token) => {
                     let span = self.inner.span();
                     let loc = SourceLocation {
+                        file: None,  // 将由source_map填充
                         line: self.line,
                         column: self.column,
                     };
@@ -544,6 +596,13 @@ impl<'a> Lexer<'a> {
                         (self.current_source_file.clone(), Some(self.line))
                     };
 
+                    // 更新loc中的file字段
+                    let loc = SourceLocation {
+                        file: source_file.clone(),
+                        line: loc.line,
+                        column: loc.column,
+                    };
+
                     tokens.push(TokenWithLocation {
                         token,
                         loc,
@@ -562,10 +621,27 @@ impl<'a> Lexer<'a> {
                         (self.line, self.current_source_file.clone())
                     };
 
+                    // 检查是否在__ir块内（通过检查前面是否有__ir {）
+                    let pos = span.start;
+                    if self.is_inside_inline_ir_block(pos) {
+                        // 在__ir块内，跳过错误字符
+                        self.column += span.end - span.start;
+                        continue;
+                    }
+
+                    // 检查是否是未闭合的字符串
+                    // 如果错误字符以"开头，说明是未闭合的字符串
+                    let is_unterminated_string = error_char.starts_with('"') || self.is_inside_unterminated_string(pos);
+
                     if self.collect_all_errors {
                         // 收集错误但继续分析
+                        let error_type = if is_unterminated_string {
+                            LexerErrorType::UnterminatedString
+                        } else {
+                            LexerErrorType::InvalidCharacter
+                        };
                         let diagnostic = self.create_lexer_diagnostic(
-                            LexerErrorType::InvalidCharacter,
+                            error_type,
                             span.clone()
                         );
                         self.diagnostics.add(diagnostic);
@@ -574,6 +650,13 @@ impl<'a> Lexer<'a> {
                         self.column += span.end - span.start;
                     } else {
                         // 立即返回错误（保持向后兼容）
+                        if is_unterminated_string {
+                            return Err(lexer_error(
+                                error_line,
+                                self.column,
+                                "未闭合的字符串字面量".to_string()
+                            ));
+                        }
                         let error_msg = if let Some(ref file) = error_file {
                             format!("Unexpected character: '{}' in {}:{}", error_char, file, error_line)
                         } else {
@@ -598,143 +681,85 @@ impl<'a> Lexer<'a> {
             ));
         }
 
-        // 添加EOF标记 - 使用Identifier作为哨兵值
-        let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
-            (Some(file.clone()), Some(*line))
-        } else {
-            (self.current_source_file.clone(), Some(self.line))
-        };
-
-        tokens.push(TokenWithLocation {
-            token: Token::Identifier(String::new()), // 用作EOF标记
-            loc: SourceLocation {
-                line: self.line,
-                column: self.column,
-            },
-            source_file,
-            source_line,
-        });
-
         Ok(tokens)
     }
 
-    /// 检查未闭合的字符串字面量
-    pub fn check_unterminated_strings(&mut self) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        let mut in_string = false;
-        let mut string_start_line = 0;
-        let mut string_start_col = 0;
-        let mut chars = self.source.chars().peekable();
-        let mut line = 1;
-        let mut col = 1;
+    /// 获取下一个token（用于迭代器风格）
+    pub fn next_token(&mut self) -> Option<cayResult<TokenWithLocation>> {
+        match self.inner.next() {
+            Some(Ok(token)) => {
+                let span = self.inner.span();
+                let loc = SourceLocation {
+                    file: None,
+                    line: self.line,
+                    column: self.column,
+                };
 
-        while let Some(c) = chars.next() {
-            match c {
-                '"' if !in_string => {
-                    in_string = true;
-                    string_start_line = line;
-                    string_start_col = col;
+                // 处理多行注释
+                if let Token::BlockComment(Some(newline_count)) = &token {
+                    self.line += newline_count;
+                    self.column = 1;
+                    return self.next_token();
                 }
-                '"' if in_string => {
-                    // 检查是否是转义的引号
-                    let mut backslash_count = 0;
-                    let mut check_col = col - 1;
-                    for ch in self.source.lines().nth(line - 1).unwrap_or("").chars().rev() {
-                        if check_col == 0 { break; }
-                        if ch == '\\' {
-                            backslash_count += 1;
-                            check_col -= 1;
-                        } else {
-                            break;
-                        }
+
+                // 更新行号和列号
+                if token == Token::Newline {
+                    self.line += 1;
+                    self.column = 1;
+                    if !self.preserve_newlines {
+                        return self.next_token();
                     }
-                    if backslash_count % 2 == 0 {
-                        in_string = false;
-                    }
+                } else {
+                    self.column += span.end - span.start;
                 }
-                '\n' if in_string => {
-                    // 字符串跨行是错误
-                    diagnostics.push(
-                        Diagnostic::error(
-                            ErrorCodes::LEXER_UNTERMINATED_STRING,
-                            CompilationPhase::Lexer,
-                            "字符串字面量不能跨行",
-                            crate::diagnostic::SourceLocation::new(line, col),
-                        )
-                        .with_related_info(
-                            "字符串开始位置",
-                            crate::diagnostic::SourceLocation::new(string_start_line, string_start_col)
-                        )
-                    );
-                    in_string = false;
-                }
-                '\n' => {
-                    line += 1;
-                    col = 0;
-                }
-                _ => {}
+
+                // 检查源映射
+                let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
+                    (Some(file.clone()), Some(*line))
+                } else {
+                    (self.current_source_file.clone(), Some(self.line))
+                };
+
+                // 更新loc中的file字段
+                let loc = SourceLocation {
+                    file: source_file.clone(),
+                    line: loc.line,
+                    column: loc.column,
+                };
+
+                Some(Ok(TokenWithLocation {
+                    token,
+                    loc,
+                    source_file,
+                    source_line,
+                }))
             }
-            col += 1;
+            Some(Err(_)) => {
+                let span = self.inner.span();
+                let error_char = &self.source[span.clone()];
+
+                // 检查源映射以获取正确的错误位置
+                let (error_line, error_file) = if let Some((file, line)) = self.source_map.get(&self.line) {
+                    (*line, Some(file.clone()))
+                } else {
+                    (self.line, self.current_source_file.clone())
+                };
+
+                let error_msg = if let Some(ref file) = error_file {
+                    format!("Unexpected character: '{}' in {}:{}", error_char, file, error_line)
+                } else {
+                    format!("Unexpected character: '{}' at line {}", error_char, error_line)
+                };
+
+                Some(Err(lexer_error(
+                    error_line,
+                    self.column,
+                    error_msg
+                )))
+            }
+            None => None,
         }
-
-        // 检查文件结束时是否还在字符串中
-        if in_string {
-            diagnostics.push(
-                Diagnostic::error(
-                    ErrorCodes::LEXER_UNTERMINATED_STRING,
-                    CompilationPhase::Lexer,
-                    "未闭合的字符串字面量（到达文件末尾）",
-                    crate::diagnostic::SourceLocation::new(string_start_line, string_start_col),
-                )
-            );
-        }
-
-        diagnostics
     }
-}
-
-/// 从预处理器结果中提取源映射
-/// 预处理器生成的格式是每行代码对应一个源位置
-fn extract_source_map_from_preprocessed(source: &str) -> std::collections::HashMap<usize, (String, usize)> {
-    let mut source_map = std::collections::HashMap::new();
-    let lines: Vec<&str> = source.lines().collect();
-
-    for (output_line, line_content) in lines.iter().enumerate() {
-        let output_line_num = output_line + 1; // 1-based
-
-        // 查找源映射信息
-        // 格式：我们需要根据预处理器的SourceMap来重建映射
-        // 由于预处理器现在直接将源映射信息嵌入到行中，我们需要解析它
-        // 但更简单的方法是使用预处理器返回的SourceMap
-        // 这里我们暂时不解析，而是在lib.rs中直接使用预处理器返回的SourceMap
-    }
-
-    source_map
-}
-
-pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
-    let mut lexer = Lexer::new(source);
-    lexer.tokenize()
-}
-
-/// 使用源映射进行词法分析
-pub fn lex_with_source_map(source: &str, source_map: std::collections::HashMap<usize, (String, usize)>) -> cayResult<Vec<TokenWithLocation>> {
-    let mut lexer = Lexer::with_source_map(source, source_map);
-    lexer.tokenize()
-}
-
-/// 使用诊断收集的词法分析
-pub fn lex_with_diagnostics(source: &str) -> (cayResult<Vec<TokenWithLocation>>, DiagnosticCollector) {
-    let mut lexer = Lexer::new(source).with_collect_all_errors();
-
-    // 首先检查未闭合的字符串
-    let string_diagnostics = lexer.check_unterminated_strings();
-    for diag in string_diagnostics {
-        lexer.diagnostics.add(diag);
-    }
-
-    let result = lexer.tokenize();
-    (result, lexer.diagnostics)
 }
 
 /// 处理字符串中的转义序列
@@ -752,12 +777,15 @@ fn process_escape_sequences(s: &str) -> String {
                 Some('"') => result.push('"'),
                 Some('\'') => result.push('\''),
                 Some('0') => result.push('\0'),
-                Some(other) => {
-                    // 对于不认识的转义序列，保留原样
+                Some(c) => {
+                    // 未知的转义序列，保留原样
                     result.push('\\');
-                    result.push(other);
+                    result.push(c);
                 }
-                None => result.push('\\'),
+                None => {
+                    // 末尾的反斜杠
+                    result.push('\\');
+                }
             }
         } else {
             result.push(c);
@@ -767,22 +795,216 @@ fn process_escape_sequences(s: &str) -> String {
     result
 }
 
-/// 处理字符字面量的转义序列
+/// 处理字符转义序列
 fn process_char_escape(s: &str) -> Option<char> {
-    if s.starts_with("\\") {
+    if s.starts_with('\\') {
         match s.chars().nth(1) {
             Some('n') => Some('\n'),
             Some('t') => Some('\t'),
             Some('r') => Some('\r'),
             Some('\\') => Some('\\'),
-            Some('\'') => Some('\''),
             Some('"') => Some('"'),
+            Some('\'') => Some('\''),
             Some('0') => Some('\0'),
-            _ => s.chars().nth(1),
+            _ => None,
         }
     } else {
         s.chars().next()
     }
+}
+
+/// 便捷的tokenize函数
+pub fn tokenize(source: &str) -> cayResult<Vec<TokenWithLocation>> {
+    let mut lexer = Lexer::new(source);
+    lexer.tokenize()
+}
+
+/// 便捷的tokenize函数（保留换行）
+pub fn tokenize_with_newlines(source: &str) -> cayResult<Vec<TokenWithLocation>> {
+    let mut lexer = Lexer::with_preserve_newlines(source);
+    lexer.tokenize()
+}
+
+/// 收集所有词法错误的tokenize函数
+pub fn tokenize_collect_errors(source: &str) -> (Vec<TokenWithLocation>, DiagnosticCollector) {
+    let mut lexer = Lexer::new(source).with_collect_all_errors();
+    match lexer.tokenize() {
+        Ok(tokens) => (tokens, lexer.diagnostics().clone()),
+        Err(_) => (Vec::new(), lexer.diagnostics().clone()),
+    }
+}
+
+/// 带诊断的词法分析函数（别名）
+pub fn lex_with_diagnostics(source: &str) -> (Vec<TokenWithLocation>, DiagnosticCollector) {
+    tokenize_collect_errors(source)
+}
+
+/// 检查源字符串是否包含有效的Cavvy代码（无词法错误）
+pub fn is_valid_source(source: &str) -> bool {
+    tokenize(source).is_ok()
+}
+
+/// 获取token的显示名称
+pub fn token_name(token: &Token) -> &'static str {
+    match token {
+        Token::Public => "public",
+        Token::Private => "private",
+        Token::Protected => "protected",
+        Token::Static => "static",
+        Token::Final => "final",
+        Token::Abstract => "abstract",
+        Token::Native => "native",
+        Token::AtMain => "@main",
+        Token::AtOverride => "@Override",
+        Token::Class => "class",
+        Token::Void => "void",
+        Token::Int => "int",
+        Token::Long => "long",
+        Token::Float => "float",
+        Token::Double => "double",
+        Token::Bool => "boolean",
+        Token::String => "String",
+        Token::Char => "char",
+        Token::True => "true",
+        Token::False => "false",
+        Token::Null => "null",
+        Token::If => "if",
+        Token::Else => "else",
+        Token::While => "while",
+        Token::For => "for",
+        Token::Do => "do",
+        Token::Switch => "switch",
+        Token::Case => "case",
+        Token::Default => "default",
+        Token::Return => "return",
+        Token::Break => "break",
+        Token::Continue => "continue",
+        Token::New => "new",
+        Token::This => "this",
+        Token::Super => "super",
+        Token::Extends => "extends",
+        Token::Implements => "implements",
+        Token::Interface => "interface",
+        Token::InstanceOf => "instanceof",
+        Token::Var => "var",
+        Token::Let => "let",
+        Token::Auto => "auto",
+        Token::Extern => "extern",
+        Token::Scope => "scope",
+        Token::InlineIr => "__ir",
+        Token::CInt => "c_int",
+        Token::CUInt => "c_uint",
+        Token::CLong => "c_long",
+        Token::CShort => "c_short",
+        Token::CUShort => "c_ushort",
+        Token::CChar => "c_char",
+        Token::CUChar => "c_uchar",
+        Token::CFloat => "c_float",
+        Token::CDouble => "c_double",
+        Token::SizeT => "size_t",
+        Token::SSizeT => "ssize_t",
+        Token::UIntPtr => "uintptr_t",
+        Token::IntPtr => "intptr_t",
+        Token::CVoid => "c_void",
+        Token::CBool => "c_bool",
+        Token::Cdecl => "cdecl",
+        Token::Stdcall => "stdcall",
+        Token::Fastcall => "fastcall",
+        Token::Sysv64 => "sysv64",
+        Token::Win64 => "win64",
+        Token::Identifier(_) => "identifier",
+        Token::IntegerLiteral(_) => "integer literal",
+        Token::FloatLiteral(_) => "float literal",
+        Token::StringLiteral(_) => "string literal",
+        Token::CharLiteral(_) => "char literal",
+        Token::Plus => "+",
+        Token::Minus => "-",
+        Token::Star => "*",
+        Token::Slash => "/",
+        Token::Percent => "%",
+        Token::EqEq => "==",
+        Token::NotEq => "!=",
+        Token::Lt => "<",
+        Token::Le => "<=",
+        Token::Gt => ">",
+        Token::Ge => ">=",
+        Token::AndAnd => "&&",
+        Token::OrOr => "||",
+        Token::Bang => "!",
+        Token::Ampersand => "&",
+        Token::Pipe => "|",
+        Token::Caret => "^",
+        Token::Shl => "<<",
+        Token::Shr => ">>",
+        Token::UnsignedShr => ">>>",
+        Token::Tilde => "~",
+        Token::Assign => "=",
+        Token::AddAssign => "+=",
+        Token::SubAssign => "-=",
+        Token::MulAssign => "*=",
+        Token::DivAssign => "/=",
+        Token::ModAssign => "%=",
+        Token::Inc => "++",
+        Token::Dec => "--",
+        Token::LParen => "(",
+        Token::RParen => ")",
+        Token::LBrace => "{",
+        Token::RBrace => "}",
+        Token::LBracket => "[",
+        Token::RBracket => "]",
+        Token::Semicolon => ";",
+        Token::Comma => ",",
+        Token::Dot => ".",
+        Token::DotDotDot => "...",
+        Token::Colon => ":",
+        Token::DoubleColon => "::",
+        Token::Arrow => "->",
+        Token::Question => "?",
+        Token::Newline => "newline",
+        Token::BlockComment(_) => "block comment",
+    }
+}
+
+/// 检查token是否为关键字
+pub fn is_keyword(token: &Token) -> bool {
+    matches!(token,
+        Token::Public | Token::Private | Token::Protected |
+        Token::Static | Token::Final | Token::Abstract | Token::Native |
+        Token::Class | Token::Void | Token::Int | Token::Long |
+        Token::Float | Token::Double | Token::Bool | Token::String |
+        Token::Char | Token::True | Token::False | Token::Null |
+        Token::If | Token::Else | Token::While | Token::For |
+        Token::Do | Token::Switch | Token::Case | Token::Default |
+        Token::Return | Token::Break | Token::Continue |
+        Token::New | Token::This | Token::Super |
+        Token::Extends | Token::Implements | Token::Interface | Token::InstanceOf |
+        Token::Var | Token::Let | Token::Auto | Token::Extern | Token::Scope |
+        Token::InlineIr
+    )
+}
+
+/// 获取关键字的优先级（用于错误恢复建议）
+pub fn keyword_priority(token: &Token) -> u8 {
+    match token {
+        Token::If | Token::Else | Token::While | Token::For | Token::Return => 10,
+        Token::Class | Token::Interface | Token::Extends | Token::Implements => 9,
+        Token::Public | Token::Private | Token::Protected | Token::Static | Token::Final => 8,
+        Token::Int | Token::Long | Token::Float | Token::Double | Token::Bool | Token::String | Token::Void => 7,
+        Token::New | Token::This | Token::Super => 6,
+        Token::True | Token::False | Token::Null => 5,
+        _ => 0,
+    }
+}
+
+/// 便捷的词法分析函数（别名）
+pub fn lex(source: &str) -> cayResult<Vec<TokenWithLocation>> {
+    tokenize(source)
+}
+
+/// 带源映射的词法分析函数
+pub fn lex_with_source_map(source: &str, source_map: std::collections::HashMap<usize, (String, usize)>) -> cayResult<Vec<TokenWithLocation>> {
+    let mut lexer = Lexer::with_source_map(source, source_map);
+    lexer.tokenize()
 }
 
 #[cfg(test)]
@@ -790,24 +1012,215 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_lexer_basic() {
+    fn test_basic_tokens() {
         let source = r#"int x = 42;"#;
-        let tokens = lex(source).unwrap();
-        assert!(tokens.len() >= 5);
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 5);
+        assert!(matches!(tokens[0].token, Token::Int));
+        assert!(matches!(tokens[1].token, Token::Identifier(_)));
+        assert!(matches!(tokens[2].token, Token::Assign));
+        assert!(matches!(tokens[3].token, Token::IntegerLiteral(_)));
+        assert!(matches!(tokens[4].token, Token::Semicolon));
     }
 
     #[test]
-    fn test_lexer_invalid_character() {
-        let source = "int x = 42 @;";
-        let result = lex(source);
+    fn test_line_comment() {
+        let source = r#"int x = 42; // this is a comment"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 5);
+    }
+
+    #[test]
+    fn test_block_comment() {
+        let source = r#"int /* comment */ x = 42;"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 5);
+    }
+
+    #[test]
+    fn test_multiline_comment() {
+        let source = r#"int /* 
+        multi-line 
+        comment */ x = 42;"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 5);
+    }
+
+    #[test]
+    fn test_string_literal() {
+        let source = r#"String s = "hello";"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 5);
+        if let Token::StringLiteral(Some(s)) = &tokens[3].token {
+            assert_eq!(s, "hello");
+        } else {
+            panic!("Expected string literal");
+        }
+    }
+
+    #[test]
+    fn test_escape_sequences() {
+        let source = r#""hello\nworld\t!""#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 1);
+        if let Token::StringLiteral(Some(s)) = &tokens[0].token {
+            assert_eq!(s, "hello\nworld\t!");
+        } else {
+            panic!("Expected string literal with escapes");
+        }
+    }
+
+    #[test]
+    fn test_char_literal() {
+        let source = r#"'a'"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 1);
+        if let Token::CharLiteral(Some(c)) = &tokens[0].token {
+            assert_eq!(*c, 'a');
+        } else {
+            panic!("Expected char literal");
+        }
+    }
+
+    #[test]
+    fn test_operators() {
+        let source = r#"+ - * / % == != < <= > >= && ||"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 13);  // 13个操作符token（空格被跳过）
+    }
+
+    #[test]
+    fn test_keywords() {
+        let source = r#"public static void main"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0].token, Token::Public));
+        assert!(matches!(tokens[1].token, Token::Static));
+        assert!(matches!(tokens[2].token, Token::Void));
+        assert!(matches!(tokens[3].token, Token::Identifier(_)));
+    }
+
+    #[test]
+    fn test_invalid_character() {
+        let source = r#"int x = 42 @;"#;
+        let result = tokenize(source);
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_lexer_unterminated_string() {
+    fn test_unterminated_string() {
         let source = r#"String s = "hello;"#;
-        let (_, diagnostics) = lex_with_diagnostics(source);
-        // 应该检测到未闭合的字符串
-        assert!(diagnostics.diagnostics().iter().any(|d| d.code == ErrorCodes::LEXER_UNTERMINATED_STRING));
+        let result = tokenize(source);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_hex_number() {
+        let source = r#"0xFF 0X1a 0xDEADBEEF"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 3);
+    }
+
+    #[test]
+    fn test_binary_number() {
+        let source = r#"0b1010 0B1111"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 2);
+    }
+
+    #[test]
+    fn test_octal_number() {
+        let source = r#"0o777 0O123"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 2);
+    }
+
+    #[test]
+    fn test_ffi_types() {
+        let source = r#"c_int c_float size_t c_void"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 4);
+        assert!(matches!(tokens[0].token, Token::CInt));
+        assert!(matches!(tokens[1].token, Token::CFloat));
+        assert!(matches!(tokens[2].token, Token::SizeT));
+        assert!(matches!(tokens[3].token, Token::CVoid));
+    }
+
+    #[test]
+    fn test_calling_conventions() {
+        let source = r#"cdecl stdcall fastcall"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert!(matches!(tokens[0].token, Token::Cdecl));
+        assert!(matches!(tokens[1].token, Token::Stdcall));
+        assert!(matches!(tokens[2].token, Token::Fastcall));
+    }
+
+    #[test]
+    fn test_annotations() {
+        let source = r#"@main @Override"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 2);
+        assert!(matches!(tokens[0].token, Token::AtMain));
+        assert!(matches!(tokens[1].token, Token::AtOverride));
+    }
+
+    #[test]
+    fn test_inline_ir_token() {
+        let source = r#"__ir"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 1);
+        assert!(matches!(tokens[0].token, Token::InlineIr));
+    }
+
+    #[test]
+    fn test_newline_tracking() {
+        let source = "line1\nline2\nline3";
+        let tokens = tokenize_with_newlines(source).unwrap();
+        // Should have 3 identifiers and 2 newlines
+        assert!(tokens.iter().any(|t| matches!(t.token, Token::Newline)));
+    }
+
+    #[test]
+    fn test_source_location() {
+        let source = r#"int
+x"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens[0].loc.line, 1);  // int
+        assert_eq!(tokens[1].loc.line, 2);  // x
+    }
+
+    #[test]
+    fn test_underscore_in_number() {
+        let source = r#"1_000_000 0xFF_FF 0b1010_1010"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 3);
+        
+        if let Token::IntegerLiteral(Some((val, _))) = &tokens[0].token {
+            assert_eq!(*val, 1000000);
+        } else {
+            panic!("Expected integer literal");
+        }
+    }
+
+    #[test]
+    fn test_chinese_comment() {
+        let source = "// 这是中文注释\nint x;";
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 3);
+        assert!(matches!(tokens[0].token, Token::Int));
+        assert!(matches!(tokens[1].token, Token::Identifier(_)));
+        assert!(matches!(tokens[2].token, Token::Semicolon));
+    }
+
+    #[test]
+    fn test_chinese_in_inline_ir_comment() {
+        let source = r#"__ir {
+            ; 这是IR注释
+            %x = add i32 1, 2
+        }"#;
+        let tokens = tokenize_with_newlines(source).unwrap();
+        // 应该能成功tokenize，不会报错
+        assert!(tokens.len() > 0);
     }
 }

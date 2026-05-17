@@ -181,16 +181,16 @@ fn test_source_span() {
 #[test]
 fn test_lexer_diagnostics_collection() {
     let source = "int x = 42 @;";  // @ 是非法字符
-    let (result, diagnostics) = lex_with_diagnostics(source);
+    let (_tokens, diagnostics) = lex_with_diagnostics(source);
     
     // 应该产生错误
-    assert!(result.is_err() || diagnostics.has_errors());
+    assert!(diagnostics.has_errors());
 }
 
 #[test]
 fn test_lexer_unterminated_string_detection() {
     let source = r#"String s = "hello;"#;  // 未闭合的字符串
-    let (result, diagnostics) = lex_with_diagnostics(source);
+    let (_tokens, diagnostics) = lex_with_diagnostics(source);
     
     // 应该检测到未闭合的字符串
     let has_unterminated = diagnostics.diagnostics().iter()

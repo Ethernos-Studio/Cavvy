@@ -112,7 +112,7 @@ mod tests {
         let alloc_expr = AllocExpr {
             size: Box::new(Expr::Literal(LiteralValue::Int64(64))),
             align: None,
-            loc: SourceLocation { line: 1, column: 1 },
+            loc: SourceLocation { file: None, line: 1, column: 1 },
         };
         
         // 验证结构
@@ -125,7 +125,7 @@ mod tests {
     fn test_dealloc_expr_structure() {
         let dealloc_expr = DeallocExpr {
             ptr: Box::new(Expr::Literal(LiteralValue::Int64(0x1234))),
-            loc: SourceLocation { line: 1, column: 1 },
+            loc: SourceLocation { file: None, line: 1, column: 1 },
         };
         
         // 验证结构

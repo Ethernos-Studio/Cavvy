@@ -3,6 +3,11 @@ use crate::error::SourceLocation;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+/// 提供位置信息的trait
+pub trait HasLocation {
+    fn location(&self) -> &SourceLocation;
+}
+
 #[derive(Debug, Clone)]
 pub struct Program {
     pub classes: Vec<ClassDecl>,
@@ -252,6 +257,35 @@ pub enum Expr {
     InstanceOf(InstanceOfExpr), // instanceof 运算符: obj instanceof Type
     Alloc(AllocExpr),          // 0.5.0.0: 内存分配表达式: __cay_alloc(size)
     Dealloc(DeallocExpr),      // 0.5.0.0: 内存释放表达式: __cay_free(ptr)
+}
+
+impl HasLocation for Expr {
+    fn location(&self) -> &SourceLocation {
+        match self {
+            Expr::Literal(_) => {
+                // LiteralValue没有位置信息，返回静态默认值
+                static DEFAULT_LOC: std::sync::OnceLock<SourceLocation> = std::sync::OnceLock::new();
+                DEFAULT_LOC.get_or_init(|| SourceLocation { file: None, line: 1, column: 1 })
+            }
+            Expr::Identifier(id) => &id.loc,
+            Expr::Binary(bin) => &bin.loc,
+            Expr::Unary(unary) => &unary.loc,
+            Expr::Call(call) => &call.loc,
+            Expr::MemberAccess(member) => &member.loc,
+            Expr::New(new) => &new.loc,
+            Expr::Assignment(assign) => &assign.loc,
+            Expr::Cast(cast) => &cast.loc,
+            Expr::ArrayCreation(arr) => &arr.loc,
+            Expr::ArrayAccess(arr) => &arr.loc,
+            Expr::ArrayInit(arr) => &arr.loc,
+            Expr::MethodRef(method) => &method.loc,
+            Expr::Lambda(lambda) => &lambda.loc,
+            Expr::Ternary(ternary) => &ternary.loc,
+            Expr::InstanceOf(instance) => &instance.loc,
+            Expr::Alloc(alloc) => &alloc.loc,
+            Expr::Dealloc(dealloc) => &dealloc.loc,
+        }
+    }
 }
 
 /// 0.5.0.0: 内存分配表达式

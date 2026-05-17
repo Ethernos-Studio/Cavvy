@@ -87,13 +87,49 @@ pub type cayResult<T> = Result<T, cayError>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SourceLocation {
+    pub file: Option<String>,  // 源文件路径（用于多文件include场景）
     pub line: usize,
     pub column: usize,
 }
 
+impl SourceLocation {
+    /// 创建新的源位置
+    pub fn new(file: Option<String>, line: usize, column: usize) -> Self {
+        Self { file, line, column }
+    }
+    
+    /// 从token创建源位置
+    pub fn from_token(token: &crate::lexer::TokenWithLocation) -> Self {
+        Self {
+            file: token.source_file.clone(),
+            line: token.source_line.unwrap_or(token.loc.line),
+            column: token.loc.column,
+        }
+    }
+    
+    /// 获取文件路径，如果为None则返回默认空字符串
+    pub fn file_str(&self) -> &str {
+        self.file.as_deref().unwrap_or("")
+    }
+}
+
+impl Default for SourceLocation {
+    fn default() -> Self {
+        Self {
+            file: None,
+            line: 1,
+            column: 1,
+        }
+    }
+}
+
 impl fmt::Display for SourceLocation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.line, self.column)
+        if let Some(ref file) = self.file {
+            write!(f, "{}:{}:{}", file, self.line, self.column)
+        } else {
+            write!(f, "{}:{}", self.line, self.column)
+        }
     }
 }
 

@@ -49,3 +49,6 @@ generate_doc_tests.py
 missing_tests_detailed.txt
 missing_tests.txt
 sync_docs.py
+
+*.bak
+*.bak.*

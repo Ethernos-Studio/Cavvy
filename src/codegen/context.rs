@@ -210,6 +210,14 @@ pub struct IRGenerator {
     pub emitted_externs: HashSet<String>,  // 已生成的extern声明（函数名 -> 签名）
     pub top_level_functions: Vec<crate::ast::TopLevelFunction>,  // 顶层函数列表
     pub current_param_order: Vec<String>,  // 当前函数参数顺序（用于内联IR）
+    // 源映射相关
+    pub current_ir_line: usize,  // 当前IR行号
+    pub source_file: String,     // 当前源文件
+    pub source_line: usize,      // 当前源行号
+    pub source_column: usize,    // 当前源列号
+    pub enable_source_map: bool, // 是否启用源映射
+    pub preprocessor_source_map: Option<std::collections::HashMap<usize, (String, usize)>>, // 预处理器源映射 (输出行 -> (文件, 源行))
+    pub reverse_source_map: Option<std::collections::HashMap<(String, usize), usize>>, // 反向映射 ((文件, 源行) -> 输出行)
 }
 
 impl IRGenerator {
@@ -249,12 +257,31 @@ impl IRGenerator {
             emitted_externs: HashSet::new(),
             top_level_functions: Vec::new(),
             current_param_order: Vec::new(),
+            // 源映射初始化
+            current_ir_line: 1,
+            source_file: String::new(),
+            source_line: 1,
+            source_column: 1,
+            enable_source_map: true, // 默认启用
+            preprocessor_source_map: None,
+            reverse_source_map: None,
         }
     }
 
     /// 设置类型注册表
     pub fn set_type_registry(&mut self, registry: TypeRegistry) {
         self.type_registry = Some(registry);
+    }
+
+    /// 设置预处理器源映射（用于多文件include场景）
+    pub fn set_preprocessor_source_map(&mut self, source_map: std::collections::HashMap<usize, (String, usize)>) {
+        // 创建反向映射：(文件, 源行) -> 输出行
+        let mut reverse_map = std::collections::HashMap::new();
+        for (output_line, (file, source_line)) in &source_map {
+            reverse_map.insert((file.clone(), *source_line), *output_line);
+        }
+        self.reverse_source_map = Some(reverse_map);
+        self.preprocessor_source_map = Some(source_map);
     }
 
     /// 设置 extern 声明并构建索引
@@ -316,19 +343,63 @@ impl IRGenerator {
         }
     }
 
+    /// 获取当前源位置
+    /// 复杂度: O(1) 直接返回当前设置的源位置
+    /// 注意：现在source_file已经通过set_source_from_loc从loc.file获取了正确的文件路径
+    fn get_current_source_position(&self) -> (String, usize, usize) {
+        (self.source_file.clone(), self.source_line, self.source_column)
+    }
+
     /// 发射一行代码到当前代码缓冲区
     pub fn emit_line(&mut self, line: &str) {
+        // 添加源映射注释（如果启用且不是LLVM注释行）
+        if self.enable_source_map && !line.trim().starts_with(';') && !line.trim().is_empty() {
+            let (source_file, source_line, source_column) = self.get_current_source_position();
+            if !source_file.is_empty() {
+                self.code.push_str(&format!("; !source {}:{}:{}\n", 
+                    source_file, source_line, source_column));
+                self.current_ir_line += 1;
+            }
+        }
+        
         if !line.is_empty() {
             self.code.push_str(&"  ".repeat(self.indent));
         }
         self.code.push_str(line);
         self.code.push('\n');
+        self.current_ir_line += 1;
     }
 
     /// 发射代码但不添加缩进（用于全局声明）
     pub fn emit_raw(&mut self, line: &str) {
+        // 添加源映射注释（如果启用且不是LLVM注释行）
+        if self.enable_source_map && !line.trim().starts_with(';') && !line.trim().is_empty() {
+            let (source_file, source_line, source_column) = self.get_current_source_position();
+            if !source_file.is_empty() {
+                self.output.push_str(&format!("; !source {}:{}:{}\n", 
+                    source_file, source_line, source_column));
+                self.current_ir_line += 1;
+            }
+        }
+        
         self.output.push_str(line);
         self.output.push('\n');
+        self.current_ir_line += 1;
+    }
+    
+    /// 设置当前源位置
+    pub fn set_source_position(&mut self, file: impl Into<String>, line: usize, column: usize) {
+        self.source_file = file.into();
+        self.source_line = line;
+        self.source_column = column;
+    }
+    
+    /// 从SourceLocation设置源位置
+    /// 优先使用loc中的file字段，如果为None则使用传入的file参数
+    pub fn set_source_from_loc(&mut self, loc: &crate::error::SourceLocation, file: &str) {
+        self.source_file = loc.file.clone().unwrap_or_else(|| file.to_string());
+        self.source_line = loc.line;
+        self.source_column = loc.column;
     }
 
 

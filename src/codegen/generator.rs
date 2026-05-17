@@ -79,7 +79,15 @@ impl PlatformAbstraction {
 }
 
 impl IRGenerator {
-    pub fn generate(&mut self, program: &Program) -> cayResult<String> {
+    /// 生成IR代码
+    /// 
+    /// # Arguments
+    /// * `program` - AST程序
+    /// * `source_file` - 源文件路径（用于源映射）
+    pub fn generate(&mut self, program: &Program, source_file: &str) -> cayResult<String> {
+        // 设置源文件路径
+        self.source_file = source_file.to_string();
+        
         self.emit_header();
 
         // 设置 extern 声明并构建索引
@@ -769,6 +777,8 @@ impl IRGenerator {
         }
 
         if let Some(body) = method.body.as_ref() {
+            // 设置源位置为方法体的位置
+            self.set_source_from_loc(&body.loc, &self.source_file.clone());
             self.generate_block(body)?;
         }
 
