@@ -37,23 +37,19 @@ impl IRGenerator {
         self.emit_line(&format!("\n{}:", then_label));
         let then_result = self.generate_expression(&ternary.true_branch)?;
         let (then_type, then_val) = self.parse_typed_value(&then_result);
-        let then_temp = self.new_temp();
-        self.emit_line(&format!("  {} = add {} {}, 0", then_temp, then_type, then_val));
         self.emit_line(&format!("  br label %{}", end_label));
 
         // else 分支
         self.emit_line(&format!("\n{}:", else_label));
         let else_result = self.generate_expression(&ternary.false_branch)?;
         let (else_type, else_val) = self.parse_typed_value(&else_result);
-        let else_temp = self.new_temp();
-        self.emit_line(&format!("  {} = add {} {}, 0", else_temp, else_type, else_val));
         self.emit_line(&format!("  br label %{}", end_label));
 
-        // 合并点
+        // 合并点 - 使用原始值而不是通过add指令
         self.emit_line(&format!("\n{}:", end_label));
         let result_temp = self.new_temp();
         self.emit_line(&format!("  {} = phi {} [ {}, %{} ], [ {}, %{} ]",
-            result_temp, then_type, then_temp, then_label, else_temp, else_label));
+            result_temp, then_type, then_val, then_label, else_val, else_label));
 
         Ok(format!("{} {}", then_type, result_temp))
     }

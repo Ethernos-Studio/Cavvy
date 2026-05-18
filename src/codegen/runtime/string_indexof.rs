@@ -55,7 +55,11 @@ impl IRGenerator {
         self.emit_raw("  br label %loop_check");
         self.emit_raw("}");
         self.emit_raw("");
-        self.emit_raw("declare i32 @strncmp(i8*, i8*, i64)");
+        // 声明 strncmp（使用签名检查避免重复声明）
+        if !self.is_extern_emitted("strncmp@i32@i8*@i8*@i64") {
+            self.emit_raw("declare i32 @strncmp(i8*, i8*, i64)");
+            self.mark_extern_emitted("strncmp@i32@i8*@i8*@i64".to_string());
+        }
         self.emit_raw("");
     }
 }

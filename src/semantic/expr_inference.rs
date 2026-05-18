@@ -285,7 +285,9 @@ impl SemanticAnalyzer {
 
     /// 推断函数调用类型
     fn infer_call_type(&mut self, call: &CallExpr) -> cayResult<Type> {
-        // 特殊处理内置函数
+        // 首先处理标识符调用（内置函数、extern函数、方法调用等）
+        // 这需要在函数指针检查之前，因为函数指针变量也是标识符
+        // 但我们需要先检查是否是已知的函数名
         if let Expr::Identifier(name) = call.callee.as_ref() {
             // 内置输入函数的类型推断
             match name.as_str() {
@@ -478,15 +480,48 @@ impl SemanticAnalyzer {
             }
 
             // 处理类实例方法调用 - 支持方法重载
-            if let Type::Object(class_name) = obj_type {
+            if let Type::Object(class_name) = &obj_type {
                 // 先推断所有参数类型
                 let mut arg_types = Vec::new();
                 for arg in &call.args {
                     arg_types.push(self.infer_expr_type(arg)?);
                 }
 
+                // 首先检查是否是函数指针字段调用
+                // 查找类的字段，看是否是函数指针类型
+                if let Some(class_info) = self.type_registry.get_class(class_name) {
+                    if let Some(field_info) = class_info.fields.get(&member.member) {
+                        if let Type::Function(func_type) = &field_info.field_type {
+                            // 是函数指针字段调用
+                            let return_type = *func_type.return_type.clone();
+                            let params = func_type.params.clone();
+                            // 检查参数数量
+                            if call.args.len() != params.len() {
+                                return Err(semantic_error(
+                                    call.loc.line,
+                                    call.loc.column,
+                                    format!("Function pointer field '{}' requires {} arguments, but got {}",
+                                        member.member, params.len(), call.args.len())
+                                ));
+                            }
+                            // 检查参数类型兼容性（手动检查，因为params是Vec<Type>而不是Vec<ParameterInfo>）
+                            for (i, (arg, expected_type)) in call.args.iter().zip(params.iter()).enumerate() {
+                                let arg_type = self.infer_expr_type(arg)?;
+                                if !self.types_compatible(&arg_type, expected_type) {
+                                    return Err(semantic_error(
+                                        call.loc.line,
+                                        call.loc.column,
+                                        format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                                    ));
+                                }
+                            }
+                            return Ok(return_type);
+                        }
+                    }
+                }
+
                 // 使用参数类型查找匹配的方法
-                if let Some(method_info) = self.type_registry.find_method(&class_name, &member.member, &arg_types) {
+                if let Some(method_info) = self.type_registry.find_method(class_name, &member.member, &arg_types) {
                     let return_type = method_info.return_type.clone();
                     let params = method_info.params.clone();
                     // 检查参数类型兼容性（支持可变参数）
@@ -505,10 +540,44 @@ impl SemanticAnalyzer {
             }
         }
 
-        // 如果找不到任何合适的方法，报告错误
+        // 检查标识符是否是函数指针变量
         if let Expr::Identifier(name) = call.callee.as_ref() {
+            // 首先检查是否是函数指针变量 - 先收集类型信息避免借用冲突
+            let func_ptr_info = self.symbol_table.lookup(name.as_ref()).and_then(|info| {
+                if let Type::Function(func_type) = &info.symbol_type {
+                    Some((func_type.params.clone(), *func_type.return_type.clone()))
+                } else {
+                    None
+                }
+            });
+            
+            if let Some((params, return_type)) = func_ptr_info {
+                // 检查参数数量
+                let expected_args = params.len();
+                let actual_args = call.args.len();
+                if actual_args != expected_args {
+                    return Err(semantic_error(
+                        call.loc.line,
+                        call.loc.column,
+                        format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
+                    ));
+                }
+                // 检查参数类型兼容性
+                for (i, (arg, expected_type)) in call.args.iter().zip(params.iter()).enumerate() {
+                    let arg_type = self.infer_expr_type(arg)?;
+                    if !self.types_compatible(&arg_type, expected_type) {
+                        return Err(semantic_error(
+                            call.loc.line,
+                            call.loc.column,
+                            format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                        ));
+                    }
+                }
+                return Ok(return_type);
+            }
+            
+            // 检查是否存在同名方法（参数不匹配）
             if let Some(ref current_class) = self.current_class {
-                // 检查是否存在同名方法（参数不匹配）
                 if let Some(class_info) = self.type_registry.get_class(current_class) {
                     if class_info.methods.contains_key(name.as_ref()) {
                         return Err(semantic_error(
@@ -543,6 +612,34 @@ impl SemanticAnalyzer {
             }
         }
 
+        // 最后检查是否是函数指针类型调用: fn_ptr(args...)
+        // 如果callee不是标识符或标识符不是已知函数名，则尝试作为函数指针处理
+        let callee_type = self.infer_expr_type(&call.callee)?;
+        if let Type::Function(func_type) = &callee_type {
+            // 检查参数数量
+            let expected_args = func_type.params.len();
+            let actual_args = call.args.len();
+            if actual_args != expected_args {
+                return Err(semantic_error(
+                    call.loc.line,
+                    call.loc.column,
+                    format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
+                ));
+            }
+            // 检查参数类型兼容性
+            for (i, (arg, expected_type)) in call.args.iter().zip(func_type.params.iter()).enumerate() {
+                let arg_type = self.infer_expr_type(arg)?;
+                if !self.types_compatible(&arg_type, expected_type) {
+                    return Err(semantic_error(
+                        call.loc.line,
+                        call.loc.column,
+                        format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                    ));
+                }
+            }
+            return Ok(*func_type.return_type.clone());
+        }
+
         Err(semantic_error(
             call.loc.line,
             call.loc.column,
@@ -552,9 +649,10 @@ impl SemanticAnalyzer {
 
     /// 推断成员访问类型
     fn infer_member_access_type(&mut self, member: &MemberAccessExpr) -> cayResult<Type> {
-        // 检查是否是静态字段访问: ClassName.fieldName
+        // 检查是否是静态字段或方法访问: ClassName.fieldName 或 ClassName.methodName
         if let Expr::Identifier(class_name) = &*member.object {
             if let Some(class_info) = self.type_registry.get_class(class_name.as_ref()) {
+                // 首先检查字段
                 if let Some(field_info) = class_info.fields.get(&member.member) {
                     if field_info.is_static {
                         // 检查私有字段访问权限
@@ -576,6 +674,43 @@ impl SemanticAnalyzer {
                             }
                         }
                         return Ok(field_info.field_type.clone());
+                    }
+                }
+                
+                // 检查静态方法 - 返回函数指针类型
+                // 由于支持方法重载，需要遍历所有同名方法
+                if let Some(methods) = class_info.methods.get(&member.member) {
+                    // 查找第一个静态方法（假设没有重载的静态方法）
+                    if let Some(method_info) = methods.iter().find(|m| m.is_static) {
+                        // 检查私有方法访问权限
+                        if !method_info.is_public {
+                            if let Some(current_class) = &self.current_class {
+                                if current_class != class_name.as_ref() {
+                                    return Err(semantic_error(
+                                        member.loc.line,
+                                        member.loc.column,
+                                        format!("{} has private access in {}", member.member, class_name)
+                                    ));
+                                }
+                            } else {
+                                return Err(semantic_error(
+                                    member.loc.line,
+                                    member.loc.column,
+                                    format!("{} has private access in {}", member.member, class_name)
+                                ));
+                            }
+                        }
+                        // 返回函数指针类型
+                        let param_types = method_info.params.iter()
+                            .filter(|p| !p.is_varargs)
+                            .map(|p| p.param_type.clone())
+                            .collect();
+                        let return_type = Box::new(method_info.return_type.clone());
+                        return Ok(Type::Function(Box::new(crate::types::FunctionType {
+                            params: param_types,
+                            return_type,
+                            is_static: true,
+                        })));
                     }
                 }
             }
@@ -801,6 +936,17 @@ impl SemanticAnalyzer {
             (Type::Char, Type::String) |
             (Type::Bool, Type::String) => true,
 
+            // String 与 c_string (c_char*) 之间的转换（两者在底层都是 i8*）
+            (Type::String, Type::CChar) |
+            (Type::CChar, Type::String) => true,
+            // String 与 c_char* (Pointer(CChar)) 之间的转换
+            (Type::String, Type::Pointer(inner)) if matches!(inner.as_ref(), Type::CChar) => true,
+            (Type::Pointer(inner), Type::String) if matches!(inner.as_ref(), Type::CChar) => true,
+
+            // c_void* 与任意指针类型之间的转换（C风格）
+            (Type::Pointer(from_inner), Type::Pointer(to_inner)) 
+                if matches!(from_inner.as_ref(), Type::CVoid) || matches!(to_inner.as_ref(), Type::CVoid) => true,
+
             // FFI 类型与基本类型之间的转换
             // c_int <-> int
             (Type::CInt, Type::Int32) | (Type::Int32, Type::CInt) => true,
@@ -808,13 +954,27 @@ impl SemanticAnalyzer {
             (Type::CLong, Type::Int64) | (Type::Int64, Type::CLong) => true,
             // c_short <-> int (16位到32位)
             (Type::CShort, Type::Int32) | (Type::Int32, Type::CShort) => true,
-            // c_char <-> int (8位到32位)
+            // c_char/c_uchar <-> int
             (Type::CChar, Type::Int32) | (Type::Int32, Type::CChar) => true,
+            (Type::CUChar, Type::Int32) | (Type::Int32, Type::CUChar) => true,
             (Type::CChar, Type::Char) | (Type::Char, Type::CChar) => true,
-            // c_float <-> float
+            // c_short/c_ushort <-> int
+            (Type::CShort, Type::Int32) | (Type::Int32, Type::CShort) => true,
+            (Type::CUShort, Type::Int32) | (Type::Int32, Type::CUShort) => true,
+            // c_int/c_uint <-> int/long
+            (Type::CInt, Type::Int32) | (Type::Int32, Type::CInt) => true,
+            (Type::CUInt, Type::Int32) | (Type::Int32, Type::CUInt) => true,
+            (Type::CInt, Type::Int64) | (Type::Int64, Type::CInt) => true,
+            (Type::CUInt, Type::Int64) | (Type::Int64, Type::CUInt) => true,
+            // c_long <-> int/long
+            (Type::CLong, Type::Int32) | (Type::Int32, Type::CLong) => true,
+            (Type::CLong, Type::Int64) | (Type::Int64, Type::CLong) => true,
+            // c_float <-> float/double
             (Type::CFloat, Type::Float32) | (Type::Float32, Type::CFloat) => true,
-            // c_double <-> double
+            (Type::CFloat, Type::Float64) | (Type::Float64, Type::CFloat) => true,
+            // c_double <-> float/double
             (Type::CDouble, Type::Float64) | (Type::Float64, Type::CDouble) => true,
+            (Type::CDouble, Type::Float32) | (Type::Float32, Type::CDouble) => true,
             // size_t/ssize_t <-> long 和 int
             (Type::SizeT, Type::Int64) | (Type::Int64, Type::SizeT) => true,
             (Type::SizeT, Type::Int32) | (Type::Int32, Type::SizeT) => true,
@@ -825,6 +985,9 @@ impl SemanticAnalyzer {
             (Type::UIntPtr, Type::Int32) | (Type::Int32, Type::UIntPtr) => true,
             (Type::IntPtr, Type::Int64) | (Type::Int64, Type::IntPtr) => true,
             (Type::IntPtr, Type::Int32) | (Type::Int32, Type::IntPtr) => true,
+            // ptr <-> uintptr_t/intptr_t (指针与整数类型转换)
+            (Type::Pointer(_), Type::UIntPtr) | (Type::UIntPtr, Type::Pointer(_)) => true,
+            (Type::Pointer(_), Type::IntPtr) | (Type::IntPtr, Type::Pointer(_)) => true,
             // c_bool <-> bool 和 int
             (Type::CBool, Type::Bool) | (Type::Bool, Type::CBool) => true,
             (Type::CBool, Type::Int32) | (Type::Int32, Type::CBool) => true,
@@ -836,6 +999,7 @@ impl SemanticAnalyzer {
             (Type::CFloat, Type::CDouble) | (Type::CDouble, Type::CFloat) => true,
             (Type::SizeT, Type::UIntPtr) | (Type::UIntPtr, Type::SizeT) => true,
             (Type::SSizeT, Type::IntPtr) | (Type::IntPtr, Type::SSizeT) => true,
+            (Type::UIntPtr, Type::IntPtr) | (Type::IntPtr, Type::UIntPtr) => true,
 
             // 引用类型之间的转换：需要继承关系
             (Type::Object(from_name), Type::Object(to_name)) => {
@@ -1209,6 +1373,14 @@ impl SemanticAnalyzer {
 
     /// 辅助方法：检查类型是否为数值类型
     fn is_numeric_type_helper(ty: &Type) -> bool {
-        matches!(ty, Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char)
+        matches!(ty, 
+            // 内置数值类型
+            Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char |
+            // FFI 数值类型
+            Type::CInt | Type::CUInt | Type::CLong |
+            Type::CShort | Type::CUShort | Type::CChar | Type::CUChar |
+            Type::CFloat | Type::CDouble | Type::SizeT | Type::SSizeT |
+            Type::UIntPtr | Type::IntPtr
+        )
     }
 }

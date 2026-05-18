@@ -1,0 +1,101 @@
+// 测试 std/ffi.cay 中新增的 ROADMAP 0.5.1.x FFI 类型
+// 验证大写风格类型别名和 RawPtr<T> 类型
+
+#pragma include "std/ffi.cay"
+
+public class TestStdFFITypes {
+    public static int main() {
+        // 测试核心整数类型 (CInt, CLong, CShort, CChar, CByte)
+        CInt ci = 42;
+        CLong cl = 1000000L;
+        CShort cs = 1000;
+        CChar cc = 'A';
+        CByte cb = 127;
+
+        print("CInt: ");
+        println(ci);
+        print("CLong: ");
+        println(cl);
+        print("CShort: ");
+        println(cs);
+        print("CChar: ");
+        println(cc);
+        print("CByte: ");
+        println(cb);
+
+        // 测试无符号整数类型
+        CUInt cui = 100;
+        CULong cul = 1000000L;
+        CUShort cus = 50000;
+        CUChar cuc = 255;
+
+        print("CUInt: ");
+        println(cui);
+        print("CULong: ");
+        println(cul);
+
+        // 测试浮点类型
+        CFloat cf = 3.14f;
+        CDouble cd = 2.718281828;
+
+        print("CFloat: ");
+        println(cf);
+        print("CDouble: ");
+        println(cd);
+
+        // 测试布尔类型
+        CBool ctrue = true;
+        CBool cfalse = false;
+
+        print("CBool true: ");
+        println(ctrue);
+        print("CBool false: ");
+        println(cfalse);
+
+        // 测试 SizeT 类型
+        SizeT st = 1024;
+        print("SizeT: ");
+        println(st);
+
+        // 测试固定宽度整数类型
+        Int32T i32 = 2147483647;
+        Int64T i64 = 9223372036854775807L;
+        UInt32T ui32 = 4294967295;
+        UInt64T ui64 = 18446744073709551615L;
+
+        print("Int32T max: ");
+        println(i32);
+        print("Int64T max: ");
+        println(i64);
+
+        // 测试裸指针类型
+        CInt value = 12345;
+        RawPtrInt ptr = &value;
+
+        print("RawPtrInt dereference: ");
+        println(*ptr);
+
+        // 测试常用裸指针别名
+        RawPtrVoid rv = null;
+        RawPtrChar rc = null;
+        RawPtrLong rl = null;
+
+        println("RawPtr types test passed");
+
+        // 测试使用 FFI 类型调用 C 函数
+        CInt abs_result = abs(-100);
+        print("abs(-100) using CInt: ");
+        println(abs_result);
+
+        CInt atoi_result = atoi("456");
+        print("atoi(\"456\") using CInt: ");
+        println(atoi_result);
+
+        CDouble sqrt_result = sqrt(16.0);
+        print("sqrt(16.0) using CDouble: ");
+        println(sqrt_result);
+
+        println("All std/ffi type tests passed!");
+        return 0;
+    }
+}

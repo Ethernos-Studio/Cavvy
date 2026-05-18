@@ -84,12 +84,14 @@ impl IRGenerator {
         // 整数到指针的转换（inttoptr）- 优先检查（排除 i8* 因为已处理）
         // 使用 i64 作为中间类型（指针大小）
         if from_type.starts_with("i") && !from_type.ends_with("*") && to_type.ends_with("*") && to_type != "i8*" {
+            // LLVM 不支持 void*，使用 i8* 代替
+            let llvm_to_type = if to_type == "void*" { "i8*".to_string() } else { to_type.clone() };
             if from_type != "i64" {
                 let i64_temp = self.new_temp();
                 self.emit_line(&format!("  {} = sext {} {} to i64", i64_temp, from_type, val));
-                self.emit_line(&format!("  {} = inttoptr i64 {} to {}", temp, i64_temp, to_type));
+                self.emit_line(&format!("  {} = inttoptr i64 {} to {}", temp, i64_temp, llvm_to_type));
             } else {
-                self.emit_line(&format!("  {} = inttoptr {} {} to {}", temp, from_type, val, to_type));
+                self.emit_line(&format!("  {} = inttoptr {} {} to {}", temp, from_type, val, llvm_to_type));
             }
             return Ok(format!("{} {}", to_type, temp));
         }
@@ -105,10 +107,22 @@ impl IRGenerator {
             let from_bits: u32 = from_type.trim_start_matches('i').parse().unwrap_or(64);
             let to_bits: u32 = to_type.trim_start_matches('i').parse().unwrap_or(64);
             
+            // 判断源类型是否是无符号类型
+            let is_from_unsigned = if let Some(src_type) = self.get_expression_type(&cast.expr) {
+                matches!(src_type, crate::types::Type::CUChar | 
+                                  crate::types::Type::CUShort | 
+                                  crate::types::Type::CUInt |
+                                  crate::types::Type::SizeT |
+                                  crate::types::Type::UIntPtr)
+            } else {
+                false
+            };
+            
             if to_bits > from_bits {
-                // 符号扩展
-                self.emit_line(&format!("  {} = sext {} {} to {}",
-                    temp, from_type, val, to_type));
+                // 根据源类型选择扩展方式：无符号用零扩展(zext)，有符号用符号扩展(sext)
+                let ext_op = if is_from_unsigned { "zext" } else { "sext" };
+                self.emit_line(&format!("  {} = {} {} {} to {}",
+                    temp, ext_op, from_type, val, to_type));
             } else {
                 // 截断
                 self.emit_line(&format!("  {} = trunc {} {} to {}",

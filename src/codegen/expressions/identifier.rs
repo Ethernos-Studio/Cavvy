@@ -24,6 +24,16 @@ impl IRGenerator {
             return Ok("i8* null".to_string());
         }
 
+        // 检查是否是顶层函数 - 返回函数指针
+        if self.is_top_level_function(name) {
+            // 顶层函数作为函数指针使用
+            let func_ptr_type = self.get_top_level_function_type(name);
+            let llvm_func_type = self.type_to_llvm(&func_ptr_type);
+            let func_name = format!("__toplevel_{}", name);
+            // 返回函数指针 - 在 LLVM IR 中直接使用函数名作为指针
+            return Ok(format!("{} @{}", llvm_func_type, func_name));
+        }
+
         // 检查是否是类名（静态成员访问的上下文）
         if let Some(ref registry) = self.type_registry {
             if registry.class_exists(name) {

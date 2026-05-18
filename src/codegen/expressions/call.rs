@@ -84,6 +84,12 @@ impl IRGenerator {
                 if let Some(_extern_func) = self.get_extern_function(name_str) {
                     return self.generate_extern_function_call(name_str, &call.args);
                 }
+                // 检查是否是函数指针变量
+                if let Some(var_type) = self.get_variable_type(name_str) {
+                    if matches!(var_type, crate::types::Type::Function(_)) {
+                        return self.generate_function_pointer_call(name_str, &call.args, &var_type);
+                    }
+                }
                 // 检查是否是顶层函数
                 if self.is_top_level_function(name_str) {
                     // 顶层函数没有类名前缀
@@ -106,7 +112,14 @@ impl IRGenerator {
                                 .unwrap_or_else(|| self.current_class.clone());
                             (parent_class, member.member.clone(), Some(member.object.clone()))
                         } else if obj_name_str == "this" {
-                            // this.methodName() 调用当前类的方法
+                            // this.methodName() - 首先检查是否是函数指针字段
+                            if let Some(field_type) = self.get_field_type(&self.current_class, &member.member) {
+                                if matches!(field_type, crate::types::Type::Function(_)) {
+                                    // 是函数指针字段调用
+                                    return self.generate_member_func_ptr_call(member, &call.args, &field_type);
+                                }
+                            }
+                            // 不是函数指针字段，按普通方法处理
                             (self.current_class.clone(), member.member.clone(), Some(member.object.clone()))
                         } else {
                             // 首先检查是否是已知的类名
@@ -131,16 +144,25 @@ impl IRGenerator {
                         // object 不是标识符，可能是其他表达式（如 new 表达式）
                         // 尝试从表达式推断类型
                         if let Some(obj_type) = self.get_expression_type(&member.object) {
-                            let class_name = match obj_type {
-                                crate::types::Type::Object(name) => name,
+                            match obj_type {
+                                crate::types::Type::Object(class_name) => {
+                                    // 首先检查是否是函数指针字段
+                                    if let Some(field_type) = self.get_field_type(&class_name, &member.member) {
+                                        if matches!(field_type, crate::types::Type::Function(_)) {
+                                            // 是函数指针字段调用，生成函数指针调用代码
+                                            return self.generate_member_func_ptr_call(member, &call.args, &field_type);
+                                        }
+                                    }
+                                    // 不是函数指针字段，按普通方法处理
+                                    (class_name, member.member.clone(), Some(member.object.clone()))
+                                }
                                 _ => {
                                     return Err(codegen_error(format!(
                                         "Cannot call method '{}' on non-class type",
                                         member.member
                                     )));
                                 }
-                            };
-                            (class_name, member.member.clone(), Some(member.object.clone()))
+                            }
                         } else {
                             return Err(codegen_error(format!(
                                 "Cannot determine type for method call '{}'",
@@ -352,7 +374,14 @@ impl IRGenerator {
     }
 
     /// 根据方法定义的参数类型构建函数名
-    fn build_function_name_from_method(&self, class_name: &str, method_name: &str, params: &[crate::types::ParameterInfo], has_varargs_array: bool) -> String {
+    /// 从方法信息构建函数名
+    /// 
+    /// # Arguments
+    /// * `class_name` - 类名
+    /// * `method_name` - 方法名
+    /// * `params` - 参数信息列表
+    /// * `has_varargs_array` - 是否有可变参数数组
+    pub fn build_function_name_from_method(&self, class_name: &str, method_name: &str, params: &[crate::types::ParameterInfo], has_varargs_array: bool) -> String {
         if params.is_empty() {
             return format!("{}.{}", class_name, method_name);
         }
@@ -361,7 +390,9 @@ impl IRGenerator {
             .enumerate()
             .map(|(idx, p)| {
                 let is_last_varargs = has_varargs_array && idx == params.len() - 1 && p.is_varargs;
-                self.param_type_to_signature(&p.param_type, is_last_varargs)
+                // 解析类型别名后再生成签名
+                let resolved_type = self.resolve_type(&p.param_type);
+                self.param_type_to_signature(&resolved_type, is_last_varargs)
             })
             .collect();
 
@@ -376,6 +407,7 @@ impl IRGenerator {
         }
 
         match ty {
+            crate::types::Type::Void => "v".to_string(),
             crate::types::Type::Int32 => "i".to_string(),
             crate::types::Type::Int64 => "l".to_string(),
             crate::types::Type::Float32 => "f".to_string(),
@@ -385,6 +417,34 @@ impl IRGenerator {
             crate::types::Type::Char => "c".to_string(),
             crate::types::Type::Object(name) => format!("o{}", name),
             crate::types::Type::Array(inner) => format!("a{}", self.param_type_to_signature(inner, false)),
+            // FFI 类型
+            crate::types::Type::CInt => "ci".to_string(),
+            crate::types::Type::CUInt => "cu".to_string(),
+            crate::types::Type::CLong => "cl".to_string(),
+            crate::types::Type::CShort => "cs".to_string(),
+            crate::types::Type::CUShort => "cus".to_string(),
+            crate::types::Type::CChar => "cc".to_string(),
+            crate::types::Type::CUChar => "cuc".to_string(),
+            crate::types::Type::CFloat => "cf".to_string(),
+            crate::types::Type::CDouble => "cd".to_string(),
+            crate::types::Type::SizeT => "sz".to_string(),
+            crate::types::Type::SSizeT => "ssz".to_string(),
+            crate::types::Type::UIntPtr => "uptr".to_string(),
+            crate::types::Type::IntPtr => "iptr".to_string(),
+            crate::types::Type::CVoid => "cv".to_string(),
+            crate::types::Type::CBool => "cb".to_string(),
+            crate::types::Type::Pointer(inner) => format!("p{}", self.param_type_to_signature(inner, false)),
+            // 函数指针类型
+            crate::types::Type::Function(func_type) => {
+                // 生成函数指针签名: fn_<return>_<param1>_<param2>_...
+                let mut sig = "fn".to_string();
+                sig.push_str(&self.param_type_to_signature(&func_type.return_type, false));
+                for param in &func_type.params {
+                    sig.push_str("_");
+                    sig.push_str(&self.param_type_to_signature(param, false));
+                }
+                sig
+            }
             _ => "x".to_string(),
         }
     }
@@ -845,15 +905,48 @@ impl IRGenerator {
         // 获取返回类型
         let llvm_ret_type = self.type_to_llvm(&extern_func.return_type);
 
+        // 检查是否是可变参数函数
+        let is_varargs = extern_func.params.iter().any(|p| p.is_varargs);
+
         // 直接调用 extern 函数（不创建包装函数）
         if llvm_ret_type == "void" {
-            self.emit_line(&format!("  call void @{}({})",
-                func_name, processed_args.join(", ")));
+            if is_varargs {
+                // 可变参数函数需要显式类型签名
+                let param_types: Vec<String> = extern_func.params.iter()
+                    .filter(|p| !p.is_varargs)
+                    .map(|p| self.type_to_llvm(&p.param_type))
+                    .collect();
+                let type_sig = if param_types.is_empty() {
+                    "(...)".to_string()
+                } else {
+                    format!("({}, ...)", param_types.join(", "))
+                };
+                self.emit_line(&format!("  call void {} @{}({})",
+                    type_sig, func_name, processed_args.join(", ")));
+            } else {
+                self.emit_line(&format!("  call void @{}({})",
+                    func_name, processed_args.join(", ")));
+            }
             Ok("void %dummy".to_string())
         } else {
             let temp = self.new_temp();
-            self.emit_line(&format!("  {} = call {} @{}({})",
-                temp, llvm_ret_type, func_name, processed_args.join(", ")));
+            if is_varargs {
+                // 可变参数函数需要显式类型签名
+                let param_types: Vec<String> = extern_func.params.iter()
+                    .filter(|p| !p.is_varargs)
+                    .map(|p| self.type_to_llvm(&p.param_type))
+                    .collect();
+                let type_sig = if param_types.is_empty() {
+                    format!("{} (...)", llvm_ret_type)
+                } else {
+                    format!("{} ({}, ...)", llvm_ret_type, param_types.join(", "))
+                };
+                self.emit_line(&format!("  {} = call {} @{}({})",
+                    temp, type_sig, func_name, processed_args.join(", ")));
+            } else {
+                self.emit_line(&format!("  {} = call {} @{}({})",
+                    temp, llvm_ret_type, func_name, processed_args.join(", ")));
+            }
             Ok(format!("{} {}", llvm_ret_type, temp))
         }
     }
@@ -1089,5 +1182,169 @@ impl IRGenerator {
             temp, arg_val));
 
         Ok(format!("i32 {}", temp))
+    }
+
+    /// 生成函数指针调用
+    /// 
+    /// # Arguments
+    /// * `var_name` - 函数指针变量名
+    /// * `args` - 参数表达式列表
+    /// * `func_type` - 函数指针类型
+    fn generate_function_pointer_call(&mut self, var_name: &str, args: &[Expr], func_type: &crate::types::Type) -> cayResult<String> {
+        use crate::types::{Type, FunctionType};
+        
+        // 获取函数类型信息
+        let (param_types, ret_type) = if let Type::Function(func) = func_type {
+            (func.params.clone(), *func.return_type.clone())
+        } else {
+            return Err(codegen_error(format!("Variable '{}' is not a function pointer", var_name)));
+        };
+        
+        // 检查参数数量
+        if args.len() != param_types.len() {
+            return Err(codegen_error(format!(
+                "Function pointer call requires {} arguments, but got {}",
+                param_types.len(), args.len()
+            )));
+        }
+        
+        // 生成参数
+        let mut arg_values = Vec::new();
+        for (i, arg) in args.iter().enumerate() {
+            let arg_result = self.generate_expression(arg)?;
+            let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+            let param_llvm_type = self.type_to_llvm(&param_types[i]);
+            let converted_arg = self.convert_arg_type(&arg_type, &arg_val, &param_llvm_type);
+            arg_values.push(converted_arg);
+        }
+        
+        // 获取函数指针变量
+        let llvm_name = self.scope_manager.get_llvm_name(var_name)
+            .ok_or_else(|| codegen_error(format!("Undefined function pointer variable: {}", var_name)))?;
+        
+        // 加载函数指针
+        let func_ptr_temp = self.new_temp();
+        let func_ptr_type = self.type_to_llvm(func_type);
+        self.emit_line(&format!("  {} = load {}, {}* %{}, align 8",
+            func_ptr_temp, func_ptr_type, func_ptr_type, llvm_name));
+        
+        // 生成调用
+        let llvm_ret_type = self.type_to_llvm(&ret_type);
+        if llvm_ret_type == "void" {
+            self.emit_line(&format!("  call void {}({})",
+                func_ptr_temp, arg_values.join(", ")));
+            Ok("void %dummy".to_string())
+        } else {
+            let temp = self.new_temp();
+            self.emit_line(&format!("  {} = call {} {}({})",
+                temp, llvm_ret_type, func_ptr_temp, arg_values.join(", ")));
+            Ok(format!("{} {}", llvm_ret_type, temp))
+        }
+    }
+
+    /// 获取类的字段类型
+    fn get_field_type(&self, class_name: &str, field_name: &str) -> Option<crate::types::Type> {
+        if let Some(ref registry) = self.type_registry {
+            if let Some(class_info) = registry.get_class(class_name) {
+                if let Some(field_info) = class_info.fields.get(field_name) {
+                    return Some(field_info.field_type.clone());
+                }
+            }
+        }
+        None
+    }
+
+    /// 生成成员函数指针字段调用
+    fn generate_member_func_ptr_call(&mut self, member: &crate::ast::MemberAccessExpr, args: &[Expr], func_type: &crate::types::Type) -> cayResult<String> {
+        use crate::types::{Type, FunctionType};
+        use crate::ast::Expr;
+
+        // 获取函数类型信息
+        let (param_types, ret_type) = if let Type::Function(func) = func_type {
+            (func.params.clone(), *func.return_type.clone())
+        } else {
+            return Err(codegen_error(format!("Field '{}' is not a function pointer", member.member)));
+        };
+
+        // 检查参数数量
+        if args.len() != param_types.len() {
+            return Err(codegen_error(format!(
+                "Function pointer call requires {} arguments, but got {}",
+                param_types.len(), args.len()
+            )));
+        }
+
+        // 生成参数
+        let mut arg_values = Vec::new();
+        for (i, arg) in args.iter().enumerate() {
+            let arg_result = self.generate_expression(arg)?;
+            let (arg_type, arg_val) = self.parse_typed_value(&arg_result);
+            let param_llvm_type = self.type_to_llvm(&param_types[i]);
+            let converted_arg = self.convert_arg_type(&arg_type, &arg_val, &param_llvm_type);
+            arg_values.push(converted_arg);
+        }
+
+        // 生成对象表达式以获取this指针
+        let obj_result = self.generate_expression(&member.object)?;
+        let (_, obj_val) = self.parse_typed_value(&obj_result);
+
+        // 获取字段偏移量并加载函数指针
+        // 确定类名：如果是this，使用current_class；否则从表达式推断
+        let class_name = if let Expr::Identifier(obj_name) = member.object.as_ref() {
+            if obj_name.as_ref() == "this" {
+                self.current_class.clone()
+            } else if let Some(obj_type) = self.get_expression_type(&member.object) {
+                if let Type::Object(name) = obj_type {
+                    name
+                } else {
+                    return Err(codegen_error("Object is not a class instance".to_string()));
+                }
+            } else {
+                return Err(codegen_error("Cannot determine object type".to_string()));
+            }
+        } else if let Some(obj_type) = self.get_expression_type(&member.object) {
+            if let Type::Object(name) = obj_type {
+                name
+            } else {
+                return Err(codegen_error("Object is not a class instance".to_string()));
+            }
+        } else {
+            return Err(codegen_error("Cannot determine object type".to_string()));
+        };
+
+        // 获取字段信息（使用类布局信息获取偏移量）
+        let field_offset = if let Some(field_info) = self.get_instance_field(&class_name, &member.member) {
+            field_info.offset
+        } else {
+            return Err(codegen_error(format!("Field '{}' not found in class '{}'", member.member, class_name)));
+        };
+
+        // 计算字段地址
+        let field_ptr_i8 = self.new_temp();
+        self.emit_line(&format!("  {} = getelementptr i8, i8* {}, i64 {}",
+            field_ptr_i8, obj_val, field_offset));
+
+        // 加载函数指针
+        let func_ptr_type = self.type_to_llvm(func_type);
+        let func_ptr_temp = self.new_temp();
+        self.emit_line(&format!("  {} = bitcast i8* {} to {}*",
+            func_ptr_temp, field_ptr_i8, func_ptr_type));
+
+        let loaded_func_ptr = self.new_temp();
+        self.emit_line(&format!("  {} = load {}, {}* {}, align 8",
+            loaded_func_ptr, func_ptr_type, func_ptr_type, func_ptr_temp));
+
+        // 生成调用
+        let llvm_ret_type = self.type_to_llvm(&ret_type);
+        if llvm_ret_type == "void" {
+            self.emit_line(&format!("  call void {}({})",
+                loaded_func_ptr, arg_values.join(", ")));
+            Ok("void %dummy".to_string())
+        } else {
+            let temp = self.new_temp();
+            self.emit_line(&format!("  {} = call {} {}({})",
+                temp, llvm_ret_type, loaded_func_ptr, arg_values.join(", ")));
+            Ok(format!("{} {}", llvm_ret_type, temp))
+        }
     }
 }

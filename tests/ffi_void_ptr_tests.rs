@@ -116,28 +116,30 @@ extern {
     void free(ptr p);
 }
 
-// 返回void*的函数
-fn allocate_buffer(size: size_t) -> ptr {
-    return malloc(size);
-}
+class BufferManager {
+    // 返回void*的函数
+    public static ptr allocate_buffer(size_t size) {
+        return malloc(size);
+    }
 
-// 接受void*参数的函数
-fn process_buffer(buffer: ptr, size: size_t) -> void {
-    if (buffer != null) {
-        printf("Processing buffer at %p, size %zu\n", buffer, size);
+    // 接受void*参数的函数
+    public static void process_buffer(ptr buffer, size_t size) {
+        if (buffer != null) {
+            printf("Processing buffer at %p, size %zu\n", buffer, size);
+        }
     }
 }
 
 public int main() {
-    ptr buf = allocate_buffer(64);
-    
+    ptr buf = BufferManager.allocate_buffer(64);
+
     if (buf == null) {
         printf("Allocation failed\n");
         return 1;
     }
-    
-    process_buffer(buf, 64);
-    
+
+    BufferManager.process_buffer(buf, 64);
+
     free(buf);
     printf("void* as param and return test passed!\n");
     return 0;
@@ -217,8 +219,8 @@ public int main() {
 #[test]
 fn test_void_ptr_with_callback() {
     let code = r#"
-// 定义使用void*的回调类型
-alias VisitorFn = fn(ptr data, ptr user_data) -> void;
+// 定义使用void*的回调类型 - 支持参数名
+alias VisitorFn = fn(data: ptr, user_data: ptr) -> void;
 
 extern {
     c_int printf(c_string fmt, ...);
@@ -226,32 +228,36 @@ extern {
     void free(ptr p);
 }
 
-// 模拟遍历函数
-fn foreach_element(arr: ptr, count: size_t, visitor: VisitorFn, user_data: ptr) -> void {
-    printf("Iterating %zu elements\n", count);
-    // 简化：只调用一次visitor
-    visitor(arr, user_data);
+class ArrayIterator {
+    // 模拟遍历函数
+    public static void foreach_element(ptr arr, size_t count, VisitorFn visitor, ptr user_data) {
+        printf("Iterating %zu elements\n", count);
+        // 简化：只调用一次visitor
+        visitor(arr, user_data);
+    }
 }
 
-// 访问者函数
-fn print_element(data: ptr, user_data: ptr) -> void {
-    printf("Visiting element at %p, user data at %p\n", data, user_data);
+class ElementPrinter {
+    // 访问者函数
+    public static void print_element(ptr data, ptr user_data) {
+        printf("Visiting element at %p, user data at %p\n", data, user_data);
+    }
 }
 
 public int main() {
     ptr arr = malloc(16);
     ptr user_data = malloc(8);
-    
+
     if (arr == null || user_data == null) {
         printf("Allocation failed\n");
         return 1;
     }
-    
-    foreach_element(arr, 4, print_element, user_data);
-    
+
+    ArrayIterator.foreach_element(arr, 4, ElementPrinter.print_element, user_data);
+
     free(arr);
     free(user_data);
-    
+
     printf("void* with callback test passed!\n");
     return 0;
 }

@@ -113,17 +113,40 @@ impl IRGenerator {
 
     /// 推断成员访问表达式的类型
     fn infer_member_access_type(&self, member: &MemberAccessExpr) -> Option<crate::types::Type> {
-        use crate::types::Type;
+        use crate::types::{Type, FunctionType};
 
-        // 获取对象类型
+        // 获取对象类型或类名
         let obj_type = self.infer_expr_type_for_member(&member.object)?;
 
         match obj_type {
             Type::Object(class_name) => {
-                // 查找类字段
+                // 首先查找类字段
                 if let Some(class_info) = self.class_layouts.get(&class_name) {
                     if let Some(field) = class_info.fields.get(&member.member) {
                         return Some(field.field_type.clone());
+                    }
+                }
+                // 然后查找静态方法（如 MathUtils.multiply）
+                if let Some(ref registry) = self.type_registry {
+                    if let Some(class_info) = registry.get_class(&class_name) {
+                        // 查找静态方法
+                        for (method_name, methods) in &class_info.methods {
+                            if method_name == &member.member {
+                                for method in methods {
+                                    if method.is_static {
+                                        // 返回函数指针类型
+                                        let param_types = method.params.iter()
+                                            .map(|p| p.param_type.clone())
+                                            .collect();
+                                        return Some(Type::Function(Box::new(FunctionType {
+                                            params: param_types,
+                                            return_type: Box::new(method.return_type.clone()),
+                                            is_static: true,
+                                        })));
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
                 None
@@ -142,7 +165,17 @@ impl IRGenerator {
 
         match expr {
             Expr::Identifier(ident) => {
-                self.var_cay_types.get(&ident.name).cloned()
+                // 首先检查是否是变量
+                if let Some(var_type) = self.var_cay_types.get(&ident.name) {
+                    return Some(var_type.clone());
+                }
+                // 检查是否是类名（静态方法调用如 MathUtils.multiply）
+                if let Some(ref registry) = self.type_registry {
+                    if registry.class_exists(&ident.name) {
+                        return Some(Type::Object(ident.name.clone()));
+                    }
+                }
+                None
             }
             Expr::Literal(lit) => {
                 match lit {

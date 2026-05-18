@@ -312,6 +312,7 @@ pub fn get_token_name(token: &Token) -> String {
         Token::IntPtr => "intptr_t".to_string(),
         Token::CVoid => "c_void".to_string(),
         Token::CBool => "c_bool".to_string(),
+        Token::CString => "c_string".to_string(),
         Token::Cdecl => "cdecl".to_string(),
         Token::Stdcall => "stdcall".to_string(),
         Token::Fastcall => "fastcall".to_string(),

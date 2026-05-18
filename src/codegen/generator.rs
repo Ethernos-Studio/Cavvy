@@ -1167,6 +1167,8 @@ impl IRGenerator {
             self.emit_line(&format!("  store {} %{}.param, {}* %{}",
                 param_type, param.name, param_type, llvm_name));
             self.var_types.insert(param.name.clone(), param_type);
+            // 同时保存Cavvy类型用于函数指针识别
+            self.var_cay_types.insert(param.name.clone(), param.param_type.clone());
         }
 
         self.generate_block(&func.body)?;
@@ -1258,7 +1260,14 @@ impl IRGenerator {
     /// 将调用约定转换为 LLVM 属性
     fn calling_convention_to_llvm_attr(&self, cc: crate::ast::CallingConvention) -> String {
         match cc {
-            crate::ast::CallingConvention::Cdecl => "#0".to_string(),
+            // Windows x64 平台使用 win64 调用约定
+            crate::ast::CallingConvention::Cdecl => {
+                if self.is_windows_target() {
+                    "#4".to_string()  // win64
+                } else {
+                    "#0".to_string()  // cdecl
+                }
+            }
             crate::ast::CallingConvention::Stdcall => "#1".to_string(),
             crate::ast::CallingConvention::Fastcall => "#2".to_string(),
             crate::ast::CallingConvention::Sysv64 => "#3".to_string(),

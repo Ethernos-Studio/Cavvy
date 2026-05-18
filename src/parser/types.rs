@@ -31,6 +31,8 @@ pub fn parse_type(parser: &mut Parser) -> cayResult<Type> {
         crate::lexer::Token::IntPtr => { parser.advance(); Type::IntPtr }
         crate::lexer::Token::CVoid => { parser.advance(); Type::CVoid }
         crate::lexer::Token::CBool => { parser.advance(); Type::CBool }
+        // c_string 是 *c_char 的别名
+        crate::lexer::Token::CString => { parser.advance(); Type::Pointer(Box::new(Type::CChar)) }
         crate::lexer::Token::Identifier(name) => {
             let name = name.clone();
             parser.advance();
@@ -168,7 +170,8 @@ pub fn is_type_token(parser: &Parser) -> bool {
         crate::lexer::Token::CChar | crate::lexer::Token::CUChar |
         crate::lexer::Token::CFloat | crate::lexer::Token::CDouble |
         crate::lexer::Token::SizeT | crate::lexer::Token::SSizeT | crate::lexer::Token::UIntPtr |
-        crate::lexer::Token::IntPtr | crate::lexer::Token::CVoid | crate::lexer::Token::CBool
+        crate::lexer::Token::IntPtr | crate::lexer::Token::CVoid | crate::lexer::Token::CBool |
+        crate::lexer::Token::CString
     )
 }
 

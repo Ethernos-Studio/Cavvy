@@ -168,9 +168,14 @@ impl SemanticAnalyzer {
 
             // 将顶层函数添加到符号表
             // 使用函数类型作为符号类型，参数和返回类型编码在类型中
+            let func_type = Type::Function(Box::new(crate::types::FunctionType {
+                params: func.params.iter().map(|p| p.param_type.clone()).collect(),
+                return_type: Box::new(func.return_type.clone()),
+                is_static: true,
+            }));
             let symbol_info = SemanticSymbolInfo {
                 name: func.name.clone(),
-                symbol_type: func.return_type.clone(),
+                symbol_type: func_type,
                 is_final: true,
                 is_initialized: true,
             };

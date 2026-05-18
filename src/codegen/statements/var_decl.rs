@@ -237,8 +237,10 @@ impl IRGenerator {
                     }
                     // 整数到指针转换 (inttoptr)
                     else if var_type.ends_with("*") && value_type.starts_with("i") && !value_type.ends_with("*") {
+                        // LLVM 不支持 void*，使用 i8* 代替
+                        let llvm_var_type: &str = if var_type == "void*" { "i8*" } else { &var_type };
                         self.emit_line(&format!("  {} = inttoptr {} {} to {}",
-                            temp, value_type, val, var_type));
+                            temp, value_type, val, llvm_var_type));
                         self.emit_line(&format!("  store {} {}, {}* %{}, align {}", var_type, temp, var_type, llvm_name, align));
                     }
                     else {

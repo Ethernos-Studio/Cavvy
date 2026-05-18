@@ -48,8 +48,16 @@ impl IRGenerator {
         self.emit_raw("");
 
         // 声明外部函数 (printf 和标准C库函数)
-        self.emit_raw("declare i32 @printf(i8*, ...)");
-        self.emit_raw("declare i32 @scanf(i8*, ...)");
+        // 注意：这些声明会被标记为已发射，以避免与用户代码中的重复声明冲突
+        // 签名格式: 函数名@返回类型@参数1@参数2@...@...
+        if !self.is_extern_emitted("printf@i32@i8*@...") {
+            self.emit_raw("declare i32 @printf(i8*, ...)");
+            self.mark_extern_emitted("printf@i32@i8*@...".to_string());
+        }
+        if !self.is_extern_emitted("scanf@i32@i8*@...") {
+            self.emit_raw("declare i32 @scanf(i8*, ...)");
+            self.mark_extern_emitted("scanf@i32@i8*@...".to_string());
+        }
         
         // 根据平台配置声明平台特定函数
         let platform_declarations = if let Some(config) = &self.platform_config {
@@ -106,18 +114,43 @@ impl IRGenerator {
             self.emit_raw(&platform_declarations);
         }
         
-        self.emit_raw("declare i64 @strlen(i8*)");
-        self.emit_raw("declare i32 @strcmp(i8*, i8*)");
-        self.emit_raw("declare i8* @calloc(i64, i64)");
-        self.emit_raw("declare void @exit(i32)");
-        self.emit_raw("declare i32 @atoi(i8*)");
+        // 声明外部C库函数（使用签名检查避免重复声明）
+        // 签名格式: 函数名@返回类型@参数1@参数2@...
+        let extern_decls = vec![
+            ("strlen", "i64", vec!["i8*"], "declare i64 @strlen(i8*)"),
+            ("strcmp", "i32", vec!["i8*", "i8*"], "declare i32 @strcmp(i8*, i8*)"),
+            ("calloc", "i8*", vec!["i64", "i64"], "declare i8* @calloc(i64, i64)"),
+            ("exit", "void", vec!["i32"], "declare void @exit(i32)"),
+            ("atoi", "i32", vec!["i8*"], "declare i32 @atoi(i8*)"),
+            ("snprintf", "i32", vec!["i8*", "i64", "i8*", "..."], "declare i32 @snprintf(i8*, i64, i8*, ...)"),
+            ("fgets", "i8*", vec!["i8*", "i32", "i8*"], "declare i8* @fgets(i8*, i32, i8*)"),
+        ];
+        
+        for (name, ret, params, decl) in extern_decls {
+            let sig = if params.contains(&"...") {
+                format!("{}@{}@{}@...", name, ret, params[..params.len()-1].join("@"))
+            } else if params.is_empty() {
+                format!("{}@{}@void", name, ret)
+            } else {
+                format!("{}@{}@{}" , name, ret, params.join("@"))
+            };
+            if !self.is_extern_emitted(&sig) {
+                self.emit_raw(decl);
+                self.mark_extern_emitted(sig);
+            }
+        }
+        
+        // llvm.memcpy 是内部函数，不需要检查重复
         self.emit_raw("declare void @llvm.memcpy.p0i8.p0i8.i64(i8* noalias nocapture writeonly, i8* noalias nocapture readonly, i64, i1 immarg)");
-        self.emit_raw("declare i32 @snprintf(i8*, i64, i8*, ...)");
-        self.emit_raw("declare i8* @fgets(i8*, i32, i8*)");
+        
         // Windows平台使用 __acrt_iob_func 获取stdin, Linux/macOS使用外部全局变量
         if target_triple.contains("windows") || target_triple.contains("mingw") {
-            self.emit_raw("declare i8* @__acrt_iob_func(i32)");
+            if !self.is_extern_emitted("__acrt_iob_func@i8*@i32") {
+                self.emit_raw("declare i8* @__acrt_iob_func(i32)");
+                self.mark_extern_emitted("__acrt_iob_func@i8*@i32".to_string());
+            }
         } else {
+            // stdin 是全局变量，不是函数，使用不同的检查机制
             self.emit_raw("@stdin = external global i8*");
         }
         self.emit_raw("@.str.float_fmt = private unnamed_addr constant [3 x i8] c\"%f\\00\", align 1");

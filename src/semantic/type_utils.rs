@@ -52,6 +52,8 @@ impl SemanticAnalyzer {
             // FFI 类型与基本类型之间的兼容
             // c_int <-> int
             (Type::CInt, Type::Int32) | (Type::Int32, Type::CInt) => true,
+            // c_uint <-> int
+            (Type::CUInt, Type::Int32) | (Type::Int32, Type::CUInt) => true,
             // c_long <-> long
             (Type::CLong, Type::Int64) | (Type::Int64, Type::CLong) => true,
             // c_short <-> int
@@ -73,12 +75,31 @@ impl SemanticAnalyzer {
             (Type::UIntPtr, Type::Int32) | (Type::Int32, Type::UIntPtr) => true,
             (Type::IntPtr, Type::Int64) | (Type::Int64, Type::IntPtr) => true,
             (Type::IntPtr, Type::Int32) | (Type::Int32, Type::IntPtr) => true,
+            // ptr (void*) <-> uintptr_t/intptr_t
+            (Type::Pointer(_), Type::UIntPtr) | (Type::UIntPtr, Type::Pointer(_)) => true,
+            (Type::Pointer(_), Type::IntPtr) | (Type::IntPtr, Type::Pointer(_)) => true,
             // c_bool <-> bool 和 int
             (Type::CBool, Type::Bool) | (Type::Bool, Type::CBool) => true,
             (Type::CBool, Type::Int32) | (Type::Int32, Type::CBool) => true,
+            // String -> c_string (c_char*) 自动转换
+            (Type::String, Type::Pointer(to_inner)) => {
+                if matches!(to_inner.as_ref(), Type::CChar) {
+                    return true;
+                }
+                false
+            }
             // 指针类型与 long/int 之间的兼容（用于 FFI）
             (Type::Pointer(_), Type::Int64) | (Type::Int64, Type::Pointer(_)) => true,
             (Type::Pointer(_), Type::Int32) | (Type::Int32, Type::Pointer(_)) => true,
+            // ptr (void*) 可以转换为任何其他指针类型（C 语言规则）
+            (Type::Pointer(from_inner), Type::Pointer(_)) => {
+                if matches!(from_inner.as_ref(), Type::CVoid) {
+                    return true;
+                }
+                false
+            }
+            // 数组类型可以退化为指针类型（数组作为参数传递时退化为指针）
+            (Type::Array(_), Type::Pointer(_)) => true,
             // FFI 类型之间的兼容
             (Type::CInt, Type::CLong) | (Type::CLong, Type::CInt) => true,
             (Type::CInt, Type::CShort) | (Type::CShort, Type::CInt) => true,
@@ -86,6 +107,26 @@ impl SemanticAnalyzer {
             (Type::CFloat, Type::CDouble) | (Type::CDouble, Type::CFloat) => true,
             (Type::SizeT, Type::UIntPtr) | (Type::UIntPtr, Type::SizeT) => true,
             (Type::SSizeT, Type::IntPtr) | (Type::IntPtr, Type::SSizeT) => true,
+            (Type::UIntPtr, Type::IntPtr) | (Type::IntPtr, Type::UIntPtr) => true,
+            // 函数类型兼容性：函数指针可以赋值给兼容的函数指针类型
+            // 顶层函数可以赋值给函数指针类型（当参数和返回类型匹配时）
+            (Type::Function(from_fn), Type::Function(to_fn)) => {
+                // 检查返回类型是否兼容
+                let ret_compatible = Self::types_compatible(self, &from_fn.return_type, &to_fn.return_type);
+                // 检查参数数量是否相同
+                let params_count_match = from_fn.params.len() == to_fn.params.len();
+                // 检查每个参数类型是否兼容（允许协变/逆变）
+                let params_compatible = if params_count_match {
+                    from_fn.params.iter().zip(to_fn.params.iter())
+                        .all(|(from_param, to_param)| {
+                            Self::types_compatible(self, from_param, to_param) || 
+                            Self::types_compatible(self, to_param, from_param)
+                        })
+                } else {
+                    false
+                };
+                ret_compatible && params_count_match && params_compatible
+            }
             _ => false,
         }
     }
@@ -105,8 +146,18 @@ impl SemanticAnalyzer {
     }
 
     /// 检查类型是否为数值类型
+    /// 检查类型是否为数值类型
+    /// 时间复杂度: O(1)
     pub fn is_numeric_type(ty: &Type) -> bool {
-        matches!(ty, Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char)
+        matches!(ty, 
+            // 内置数值类型
+            Type::Int32 | Type::Int64 | Type::Float32 | Type::Float64 | Type::Char |
+            // FFI 数值类型
+            Type::CInt | Type::CUInt | Type::CLong |
+            Type::CShort | Type::CUShort | Type::CChar | Type::CUChar |
+            Type::CFloat | Type::CDouble | Type::SizeT | Type::SSizeT |
+            Type::UIntPtr | Type::IntPtr
+        )
     }
 
     /// 检查 subtype 是否是 supertype 的子类型

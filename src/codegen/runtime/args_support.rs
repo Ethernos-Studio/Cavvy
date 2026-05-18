@@ -12,8 +12,11 @@ use crate::codegen::context::IRGenerator;
 impl IRGenerator {
     /// 生成命令行参数支持运行时函数
     pub(super) fn emit_args_support_runtime(&mut self) {
-        // 声明额外的 C 库函数（这些函数在 mod.rs 中未声明）
-        self.emit_raw("declare i8* @strcpy(i8*, i8*)");
+        // 声明额外的 C 库函数（使用签名检查避免重复声明）
+        if !self.is_extern_emitted("strcpy@i8*@i8*@i8*") {
+            self.emit_raw("declare i8* @strcpy(i8*, i8*)");
+            self.mark_extern_emitted("strcpy@i8*@i8*@i8*".to_string());
+        }
         self.emit_raw("");
 
         // __cay_create_string_array: 创建 String[] 数组

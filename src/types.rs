@@ -159,6 +159,39 @@ impl ClassInfo {
             (Type::Float64, Type::Int64) => true,
             (Type::Float64, Type::Float32) => true,
             (Type::Float32, Type::Float64) => true,  // double -> float 截断转换
+            // FFI 类型与内置类型的匹配
+            (Type::CInt, Type::Int32) | (Type::Int32, Type::CInt) => true,
+            (Type::CUInt, Type::Int32) | (Type::Int32, Type::CUInt) => true,
+            (Type::CLong, Type::Int64) | (Type::Int64, Type::CLong) => true,
+            (Type::CShort, Type::Int32) | (Type::Int32, Type::CShort) => true,
+            (Type::CChar, Type::Int32) | (Type::Int32, Type::CChar) => true,
+            (Type::CChar, Type::Char) | (Type::Char, Type::CChar) => true,
+            (Type::CFloat, Type::Float32) | (Type::Float32, Type::CFloat) => true,
+            (Type::CDouble, Type::Float64) | (Type::Float64, Type::CDouble) => true,
+            (Type::CBool, Type::Bool) | (Type::Bool, Type::CBool) => true,
+            // size_t 和 ssize_t 与整数类型的匹配
+            (Type::SizeT, Type::Int64) | (Type::Int64, Type::SizeT) => true,
+            (Type::SizeT, Type::Int32) | (Type::Int32, Type::SizeT) => true,
+            (Type::SSizeT, Type::Int64) | (Type::Int64, Type::SSizeT) => true,
+            (Type::SSizeT, Type::Int32) | (Type::Int32, Type::SSizeT) => true,
+            // 指针类型匹配：允许 null 赋值给任何指针类型
+            (Type::Pointer(_), Type::Object(obj_name)) if obj_name == "Object" => true,
+            // 数组类型可以匹配指针类型（数组退化为指针）
+            (Type::Pointer(_), Type::Array(_)) => true,
+            // 函数指针类型匹配：允许将静态方法作为函数指针传递
+            (Type::Function(expected), Type::Function(actual)) => {
+                // 检查返回类型是否匹配
+                if !Self::types_match(&expected.return_type, &actual.return_type) {
+                    return false;
+                }
+                // 检查参数数量和类型是否匹配
+                if expected.params.len() != actual.params.len() {
+                    return false;
+                }
+                expected.params.iter().zip(actual.params.iter()).all(|(e, a)| {
+                    Self::types_match(e, a)
+                })
+            }
             _ => false,
         }
     }
@@ -254,14 +287,22 @@ impl Type {
         }
     }
 
+    /// 检查是否为原始类型（包括内置数值类型和FFI类型）
+    /// 时间复杂度: O(1)
     pub fn is_primitive(&self) -> bool {
         matches!(self, 
+            // 内置数值类型
             Type::Int32 | 
             Type::Int64 | 
             Type::Float32 | 
             Type::Float64 | 
             Type::Bool | 
-            Type::Char
+            Type::Char |
+            // FFI 数值类型
+            Type::CInt | Type::CUInt | Type::CLong |
+            Type::CShort | Type::CUShort | Type::CChar | Type::CUChar |
+            Type::CFloat | Type::CDouble | Type::SizeT | Type::SSizeT |
+            Type::UIntPtr | Type::IntPtr | Type::CVoid | Type::CBool
         )
     }
 

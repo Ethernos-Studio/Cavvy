@@ -726,21 +726,44 @@ impl Parser {
     }
 
     /// 解析函数指针类型: fn(ParamType1, ParamType2, ...) -> ReturnType
+    /// 支持可选参数名: fn(param1: Type1, param2: Type2, ...) -> ReturnType
     fn parse_fn_ptr_type(&mut self) -> cayResult<crate::types::Type> {
+        use crate::lexer::Token;
+
         // 消费 fn 关键字
-        self.consume(&crate::lexer::Token::Fn, "期望 'fn'")?;
+        self.consume(&Token::Fn, "期望 'fn'")?;
 
         // 消费 (
-        self.consume(&crate::lexer::Token::LParen, "期望 '('\n提示: 函数指针类型格式为 fn(ParamTypes...) -> ReturnType")?;
+        self.consume(&Token::LParen, "期望 '('\n提示: 函数指针类型格式为 fn(ParamTypes...) -> ReturnType")?;
 
-        // 解析参数类型列表
+        // 解析参数类型列表（支持可选参数名）
         let mut param_types = Vec::new();
-        if !self.check(&crate::lexer::Token::RParen) {
+        if !self.check(&Token::RParen) {
             loop {
-                let param_type = self.parse_type()?;
+                // 检查是否是命名参数格式: name: Type
+                // 通过预读判断：如果是标识符后面跟着冒号，则是命名参数
+                let param_type = if matches!(self.current_token(), Token::Identifier(_)) {
+                    // 预读：保存当前位置，尝试解析标识符和冒号
+                    let saved_pos = self.pos;
+                    self.advance(); // 消费标识符
+
+                    if self.check(&Token::Colon) {
+                        // 是命名参数格式: name: Type
+                        self.advance(); // 消费冒号
+                        let ty = self.parse_type()?;
+                        ty
+                    } else {
+                        // 不是命名参数格式，回退并解析为类型
+                        self.pos = saved_pos;
+                        self.parse_type()?
+                    }
+                } else {
+                    // 普通类型
+                    self.parse_type()?
+                };
                 param_types.push(param_type);
 
-                if !self.match_token(&crate::lexer::Token::Comma) {
+                if !self.match_token(&Token::Comma) {
                     break;
                 }
             }

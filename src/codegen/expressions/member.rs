@@ -40,8 +40,39 @@ impl IRGenerator {
     /// # Arguments
     /// * `member` - 成员访问表达式
     pub fn generate_member_access(&mut self, member: &MemberAccessExpr) -> cayResult<String> {
-        // 检查是否是静态字段访问: ClassName.fieldName
+        // 检查是否是类名.静态方法访问: ClassName.methodName
         if let Expr::Identifier(class_name) = &*member.object {
+            // 首先检查是否是静态方法访问（返回函数指针）
+            if let Some(ref registry) = self.type_registry {
+                if let Some(class_info) = registry.get_class(class_name.as_ref()) {
+                    if let Some(methods) = class_info.methods.get(&member.member) {
+                        // 查找静态方法
+                        if let Some(method_info) = methods.iter().find(|m| m.is_static) {
+                            // 生成函数指针（函数地址）
+                            // 使用 build_function_name_from_method 生成正确的函数名
+                            let func_name = self.build_function_name_from_method(
+                                class_name.as_ref(), 
+                                &member.member, 
+                                &method_info.params, 
+                                false
+                            );
+                            // 返回函数指针类型
+                            let func_type = crate::types::Type::Function(Box::new(crate::types::FunctionType {
+                                params: method_info.params.iter()
+                                    .filter(|p| !p.is_varargs)
+                                    .map(|p| p.param_type.clone())
+                                    .collect(),
+                                return_type: Box::new(method_info.return_type.clone()),
+                                is_static: true,
+                            }));
+                            let llvm_func_type = self.type_to_llvm(&func_type);
+                            return Ok(format!("{} @{}", llvm_func_type, func_name));
+                        }
+                    }
+                }
+            }
+            
+            // 检查是否是静态字段访问: ClassName.fieldName
             let static_key = format!("{}.{}", class_name, member.member);
             if let Some(field_info) = self.static_field_map.get(&static_key).cloned() {
                 // 检查是否是数组类型

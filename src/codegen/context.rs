@@ -316,6 +316,41 @@ impl IRGenerator {
         self.top_level_functions.iter().any(|f| f.name == func_name)
     }
 
+    /// 获取顶层函数的类型
+    /// 时间复杂度: O(n)，n为顶层函数数量
+    pub fn get_top_level_function_type(&self, func_name: &str) -> crate::types::Type {
+        if let Some(func) = self.top_level_functions.iter().find(|f| f.name == func_name) {
+            crate::types::Type::Function(Box::new(crate::types::FunctionType {
+                params: func.params.iter().map(|p| p.param_type.clone()).collect(),
+                return_type: Box::new(func.return_type.clone()),
+                is_static: true,
+            }))
+        } else {
+            // 默认返回 int () 类型
+            crate::types::Type::Function(Box::new(crate::types::FunctionType {
+                params: vec![],
+                return_type: Box::new(crate::types::Type::Int32),
+                is_static: true,
+            }))
+        }
+    }
+
+    /// 获取变量的Cavvy类型
+    /// 时间复杂度: O(1)
+    pub fn get_variable_type(&self, var_name: &str) -> Option<crate::types::Type> {
+        // 首先检查局部变量
+        if let Some(cay_type) = self.var_cay_types.get(var_name) {
+            return Some(cay_type.clone());
+        }
+        // 然后检查作用域管理器
+        if let Some(llvm_name) = self.scope_manager.get_llvm_name(var_name) {
+            if let Some(cay_type) = self.var_cay_types.get(&llvm_name) {
+                return Some(cay_type.clone());
+            }
+        }
+        None
+    }
+
     /// 检查extern声明是否已生成（基于函数签名）
     pub fn is_extern_emitted(&self, func_signature: &str) -> bool {
         self.emitted_externs.contains(func_signature)
@@ -651,7 +686,9 @@ impl IRGenerator {
     /// 将类型转换为方法签名的一部分
     pub fn type_to_signature(&self, ty: &crate::types::Type) -> String {
         use crate::types::Type;
-        match ty {
+        // 首先解析类型别名
+        let resolved_ty = self.resolve_type(ty);
+        match &resolved_ty {
             Type::Void => "v".to_string(),
             Type::Int32 => "i".to_string(),
             Type::Int64 => "l".to_string(),
@@ -662,7 +699,16 @@ impl IRGenerator {
             Type::Char => "c".to_string(),
             Type::Object(name) => format!("o{}", name),
             Type::Array(inner) => format!("a{}", self.type_to_signature(inner)),
-            Type::Function(_) => "fn".to_string(),
+            Type::Function(func_type) => {
+                // 生成完整的函数指针签名: fn_<return>_<param1>_<param2>_...
+                let mut sig = "fn".to_string();
+                sig.push_str(&self.type_to_signature(&func_type.return_type));
+                for param in &func_type.params {
+                    sig.push_str("_");
+                    sig.push_str(&self.type_to_signature(param));
+                }
+                sig
+            }
             Type::Auto => panic!("Type::Auto should have been resolved before code generation"),
             // FFI 类型签名
             Type::CInt => "ci".to_string(),

@@ -33,7 +33,14 @@ impl IRGenerator {
             Type::String => "i8*".to_string(),
             Type::Char => "i8".to_string(),
             Type::Object(_) => "i8*".to_string(),
-            Type::Array(inner) => format!("{}*", self.type_to_llvm(inner)),
+            Type::Array(inner) => {
+                // LLVM 不允许 void*，使用 i8* 代替
+                if matches!(inner.as_ref(), Type::CVoid) {
+                    "i8*".to_string()
+                } else {
+                    format!("{}*", self.type_to_llvm(inner))
+                }
+            },
             Type::Function(_) => "i8*".to_string(),
             Type::Auto => panic!("Type::Auto should have been resolved before code generation"),
             // FFI 类型映射

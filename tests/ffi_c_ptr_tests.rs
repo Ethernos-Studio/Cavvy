@@ -9,9 +9,9 @@ use common::compile_and_run_eol;
 #[test]
 fn test_c_pointer_basic() {
     let code = r#"
+#include <std/ffi.cay>
+
 extern {
-    // C标准库函数
-    c_int printf(c_string fmt, ...);
     ptr malloc(size_t size);
     void free(ptr p);
 }
@@ -57,8 +57,9 @@ public int main() {
 #[test]
 fn test_c_pointer_multi_level() {
     let code = r#"
+#include <std/ffi.cay>
+
 extern {
-    c_int printf(c_string fmt, ...);
     ptr malloc(size_t size);
     void free(ptr p);
 }
@@ -100,8 +101,9 @@ public int main() {
 #[test]
 fn test_c_void_pointer() {
     let code = r#"
+#include <std/ffi.cay>
+
 extern {
-    c_int printf(c_string fmt, ...);
     ptr malloc(size_t size);
     void free(ptr p);
     ptr memset(ptr s, c_int c, size_t n);
@@ -147,26 +149,26 @@ public int main() {
 #[test]
 fn test_function_pointer_type_alias() {
     let code = r#"
+#include <std/ffi.cay>
+
 // 定义比较函数指针类型
 alias CompareFn = fn(c_int, c_int) -> c_int;
 
-extern {
-    c_int printf(c_string fmt, ...);
-}
-
-// 比较函数实现
-fn compare_asc(a: c_int, b: c_int) -> c_int {
-    return a - b;
-}
-
-fn compare_desc(a: c_int, b: c_int) -> c_int {
-    return b - a;
+// 比较函数实现 - 使用类静态方法
+class CompareUtils {
+    public static c_int compare_asc(c_int a, c_int b) {
+        return a - b;
+    }
+    
+    public static c_int compare_desc(c_int a, c_int b) {
+        return b - a;
+    }
 }
 
 public int main() {
     // 使用类型别名声明函数指针
-    CompareFn cmp_asc = compare_asc;
-    CompareFn cmp_desc = compare_desc;
+    CompareFn cmp_asc = CompareUtils.compare_asc;
+    CompareFn cmp_desc = CompareUtils.compare_desc;
     
     c_int result1 = cmp_asc(5, 3);
     c_int result2 = cmp_desc(5, 3);
@@ -204,24 +206,27 @@ public int main() {
 #[test]
 fn test_extern_function_pointer_param() {
     let code = r#"
+#include <std/ffi.cay>
+
 // 定义回调函数类型
 alias CallbackFn = fn(c_int) -> void;
 
-extern {
-    c_int printf(c_string fmt, ...);
+// 回调处理类
+class CallbackProcessor {
+    public static void process_with_callback(c_int value, CallbackFn callback) {
+        callback(value);
+    }
 }
 
-// 模拟回调处理
-fn process_with_callback(value: c_int, callback: CallbackFn) -> void {
-    callback(value);
-}
-
-fn print_value(val: c_int) -> void {
-    printf("Value: %d\n", val);
+// 回调函数实现类
+class CallbackHandlers {
+    public static void print_value(c_int val) {
+        printf("Value: %d\n", val);
+    }
 }
 
 public int main() {
-    process_with_callback(42, print_value);
+    CallbackProcessor.process_with_callback(42, CallbackHandlers.print_value);
     printf("Callback test passed!\n");
     return 0;
 }
@@ -250,11 +255,12 @@ public int main() {
 #[test]
 fn test_type_alias_chain() {
     let code = r#"
+#include <std/ffi.cay>
+
 alias IntPtr = ptr;
 alias IntPtrAlias = IntPtr;
 
 extern {
-    c_int printf(c_string fmt, ...);
     ptr malloc(size_t size);
     void free(ptr p);
 }
@@ -294,33 +300,41 @@ public int main() {
 #[test]
 fn test_qsort_style_callback() {
     let code = r#"
+#include <std/ffi.cay>
+
 // 定义比较函数指针类型（类似C的qsort）
-alias CompareFn = fn(ptr a, ptr b) -> c_int;
+alias CompareFn = fn(ptr, ptr) -> c_int;
 
-extern {
-    c_int printf(c_string fmt, ...);
+// 比较函数实现类
+class CompareUtils {
+    public static c_int int_compare(ptr a, ptr b) {
+        // 注意：这里简化处理，实际应该解引用指针
+        // 由于当前不支持直接解引用，我们只测试函数指针调用
+        return 0;
+    }
 }
 
-// 简单的整数比较函数
-fn int_compare(a: ptr, b: ptr) -> c_int {
-    // 注意：这里简化处理，实际应该解引用指针
-    // 由于当前不支持直接解引用，我们只测试函数指针调用
-    return 0;
-}
-
-// 模拟排序函数
-fn my_sort(base: ptr, nmemb: size_t, size: size_t, cmp: CompareFn) -> void {
-    printf("Sorting %zu elements of size %zu\n", nmemb, size);
-    // 简化：只调用一次比较函数测试
-    c_int result = cmp(base, base);
-    printf("Compare result: %d\n", result);
+// 排序类
+class Sorter {
+    public static void my_sort(ptr base, size_t nmemb, size_t size, CompareFn cmp) {
+        printf("Sorting %zu elements of size %zu\n", nmemb, size);
+        // 简化：只调用一次比较函数测试
+        c_int result = cmp(base, base);
+        printf("Compare result: %d\n", result);
+    }
 }
 
 public int main() {
-    c_int arr[5] = {5, 2, 8, 1, 9};
+    // 使用int数组（Cavvy内置类型）
+    int[] arr = new int[5];
+    arr[0] = 5;
+    arr[1] = 2;
+    arr[2] = 8;
+    arr[3] = 1;
+    arr[4] = 9;
     
     // 使用函数指针调用排序
-    my_sort(arr, 5, 4, int_compare);
+    Sorter.my_sort(arr, 5, 4, CompareUtils.int_compare);
     
     printf("Qsort-style callback test passed!\n");
     return 0;
@@ -350,32 +364,33 @@ public int main() {
 #[test]
 fn test_function_pointer_return() {
     let code = r#"
+#include <std/ffi.cay>
+
 alias BinaryOp = fn(c_int, c_int) -> c_int;
 
-extern {
-    c_int printf(c_string fmt, ...);
-}
-
-fn add(a: c_int, b: c_int) -> c_int {
-    return a + b;
-}
-
-fn subtract(a: c_int, b: c_int) -> c_int {
-    return a - b;
-}
-
-// 返回函数指针的函数
-fn get_operation(is_add: bool) -> BinaryOp {
-    if (is_add) {
-        return add;
-    } else {
-        return subtract;
+// 数学运算类
+class MathOps {
+    public static c_int add(c_int a, c_int b) {
+        return a + b;
+    }
+    
+    public static c_int subtract(c_int a, c_int b) {
+        return a - b;
+    }
+    
+    // 返回函数指针的静态方法
+    public static BinaryOp get_operation(bool is_add) {
+        if (is_add) {
+            return MathOps.add;
+        } else {
+            return MathOps.subtract;
+        }
     }
 }
 
 public int main() {
-    BinaryOp op1 = get_operation(true);
-    BinaryOp op2 = get_operation(false);
+    BinaryOp op1 = MathOps.get_operation(true);
+    BinaryOp op2 = MathOps.get_operation(false);
     
     c_int result1 = op1(10, 5);
     c_int result2 = op2(10, 5);
