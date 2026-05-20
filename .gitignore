@@ -22,6 +22,7 @@ temp_*
 !/examples/*.cay
 !/examples/errors/*.cay
 !/caylibs/*.cay
+!/caylibs/**/*.cay
 !/test_docs/*.cay
 
 .trae/

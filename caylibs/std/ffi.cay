@@ -1,0 +1,293 @@
+/**
+ * Cavvy FFI 标准库 (std/ffi.cay)
+ *
+ * 提供 C 标准库函数和常用系统函数的 FFI 绑定
+ * 时间复杂度: 所有函数调用为 O(1)
+ * 磁盘 I/O: 无（纯声明文件）
+ */
+
+#pragma once
+
+// ============================================
+// 指针类型别名 (原始小写风格 - 向后兼容)
+// ============================================
+
+alias ptr = c_void*;                // 通用指针 (void*)
+alias void_ptr = c_void*;           // void*
+alias const_void_ptr = c_void*;     // const void*
+alias char_ptr = c_char*;           // char*
+alias const_char_ptr = c_char*;     // const char*
+// c_string 现在是内置类型，不需要别名定义
+
+// ============================================
+// FFI 基础类型包 - 跨平台固定宽度别名 (ROADMAP 0.5.1.x)
+// ============================================
+// 提供符合ROADMAP规范的大写风格类型别名
+// 这些类型映射到C标准类型的固定宽度版本
+
+// 核心整数类型
+alias CInt = c_int;                  // C int 类型
+alias CLong = c_long;                // C long 类型
+alias CShort = c_short;              // C short 类型
+alias CChar = c_char;                // C char 类型
+alias CByte = c_byte;                // C signed char 类型
+
+// 无符号整数类型
+alias CUInt = c_uint;                // C unsigned int 类型
+alias CULong = c_ulong;              // C unsigned long 类型
+alias CUShort = c_ushort;            // C unsigned short 类型
+alias CUChar = c_uchar;              // C unsigned char 类型
+
+// 浮点类型
+alias CFloat = c_float;              // C float 类型
+alias CDouble = c_double;            // C double 类型
+
+// 布尔和空类型
+alias CBool = c_bool;                // C99 _Bool 类型
+alias CVoid = c_void;                // C void 类型
+
+// 平台相关整数类型
+alias SizeT = size_t;                // C size_t 类型 (无符号, 平台相关宽度)
+alias SSizeT = ssize_t;              // C ssize_t 类型 (有符号, 平台相关宽度)
+
+// 固定宽度整数类型
+alias Int8T = int8_t;                // 8位有符号整数
+alias Int16T = int16_t;              // 16位有符号整数
+alias Int32T = int32_t;              // 32位有符号整数
+alias Int64T = int64_t;              // 64位有符号整数
+alias UInt8T = uint8_t;              // 8位无符号整数
+alias UInt16T = uint16_t;            // 16位无符号整数
+alias UInt32T = uint32_t;            // 32位无符号整数
+alias UInt64T = uint64_t;            // 64位无符号整数
+
+// 指针整数类型
+alias IntPtrT = intptr_t;            // 可存储指针的有符号整数
+alias UIntPtrT = uintptr_t;          // 可存储指针的无符号整数
+
+// ============================================
+// 裸指针类型 RawPtr<T> (ROADMAP 0.5.1.x)
+// ============================================
+// 不参与GC的裸指针类型，用于接收C指针
+// 注意: Cavvy 当前不支持泛型类型别名，使用具体类型别名代替
+
+// 常用裸指针类型别名 (对应 C++ 的 RawPtr<T> 概念)
+alias RawPtrInt = c_int*;            // int* 裸指针
+alias RawPtrLong = c_long*;          // long* 裸指针
+alias RawPtrVoid = c_void*;          // void* 裸指针
+alias RawPtrChar = c_char*;          // char* 裸指针
+alias RawPtrByte = c_byte*;          // byte* 裸指针
+alias RawPtrFloat = c_float*;        // float* 裸指针
+alias RawPtrDouble = c_double*;      // double* 裸指针
+
+// 大写风格的裸指针别名
+alias RawPtrCInt = c_int*;           // CInt* 裸指针
+alias RawPtrCLong = c_long*;         // CLong* 裸指针
+alias RawPtrCChar = c_char*;         // CChar* 裸指针
+alias RawPtrCFloat = c_float*;       // CFloat* 裸指针
+alias RawPtrCDouble = c_double*;     // CDouble* 裸指针
+
+// ============================================
+// 函数指针类型
+// ============================================
+
+alias CompareFn = fn(c_void*, c_void*) -> c_int;
+alias SortFn = fn(c_void*, size_t, size_t, CompareFn) -> c_void;
+
+// ============================================
+// 标准 C 库函数 - stdio.h
+// ============================================
+
+extern {
+    // 格式化输出
+    c_int printf(c_string fmt, ...);
+    c_int fprintf(c_void* stream, c_string fmt, ...);
+    c_int sprintf(c_char* str, c_string fmt, ...);
+    c_int snprintf(c_char* str, size_t size, c_string fmt, ...);
+
+    // 格式化输入
+    c_int scanf(c_string fmt, ...);
+    c_int fscanf(c_void* stream, c_string fmt, ...);
+    c_int sscanf(c_string str, c_string fmt, ...);
+
+    // 字符 I/O
+    c_int getchar();
+    c_int putchar(c_int c);
+    c_int puts(c_string str);
+    c_string fgets(c_char* str, c_int n, c_void* stream);
+    c_int fputs(c_string str, c_void* stream);
+
+    // 文件操作
+    c_void* fopen(c_string filename, c_string mode);
+    c_int fclose(c_void* stream);
+    c_int fflush(c_void* stream);
+    c_void* freopen(c_string filename, c_string mode, c_void* stream);
+
+    // 文件读写
+    size_t fread(c_void* ptr, size_t size, size_t nmemb, c_void* stream);
+    size_t fwrite(c_void* ptr, size_t size, size_t nmemb, c_void* stream);
+    c_int fgetc(c_void* stream);
+    c_int fputc(c_int c, c_void* stream);
+
+    // 文件定位
+    c_int fseek(c_void* stream, c_long offset, c_int whence);
+    c_long ftell(c_void* stream);
+    c_void rewind(c_void* stream);
+
+    // 错误处理
+    void clearerr(c_void* stream);
+    c_int feof(c_void* stream);
+    c_int ferror(c_void* stream);
+    void perror(c_string s);
+}
+
+// ============================================
+// 标准 C 库函数 - stdlib.h
+// ============================================
+
+// 文件定位常量 (在代码中使用数字: 0=SEEK_SET, 1=SEEK_CUR, 2=SEEK_END)
+
+extern {
+    // 内存分配
+    c_void* malloc(size_t size);
+    c_void* calloc(size_t nmemb, size_t size);
+    c_void* realloc(c_void* ptr, size_t size);
+    void free(c_void* ptr);
+
+    // 程序控制
+    void exit(c_int status);
+    void abort();
+    // atexit 接受无参数无返回值的函数指针
+    // c_int atexit(fn() -> void);  // 暂不支持此语法
+    void _Exit(c_int status);
+
+    // 搜索和排序
+    void qsort(c_void* base, size_t nmemb, size_t size, CompareFn compar);
+    c_void* bsearch(c_void* key, c_void* base, size_t nmemb, size_t size, CompareFn compar);
+
+    // 随机数
+    c_int rand();
+    void srand(c_uint seed);
+
+    // 整数算术
+    c_int abs(c_int n);
+    c_long labs(c_long n);
+
+    // 字符串转换
+    c_int atoi(c_string nptr);
+    c_long atol(c_string nptr);
+    c_double atof(c_string nptr);
+    c_long strtol(c_string nptr, c_char** endptr, c_int base);
+    c_ulong strtoul(c_string nptr, c_char** endptr, c_int base);
+    c_double strtod(c_string nptr, c_char** endptr);
+}
+
+// ============================================
+// 标准 C 库函数 - string.h
+// ============================================
+
+// 退出状态码 (EXIT_SUCCESS = 0, EXIT_FAILURE = 1)
+
+extern {
+    // 内存操作
+    c_void* memcpy(c_void* dest, c_void* src, size_t n);
+    c_void* memmove(c_void* dest, c_void* src, size_t n);
+    c_void* memset(c_void* s, c_int c, size_t n);
+    c_int memcmp(c_void* s1, c_void* s2, size_t n);
+    c_void* memchr(c_void* s, c_int c, size_t n);
+
+    // 字符串操作
+    c_char* strcpy(c_char* dest, c_string src);
+    c_char* strncpy(c_char* dest, c_string src, size_t n);
+    c_char* strcat(c_char* dest, c_string src);
+    c_char* strncat(c_char* dest, c_string src, size_t n);
+
+    // 字符串比较
+    c_int strcmp(c_string s1, c_string s2);
+    c_int strncmp(c_string s1, c_string s2, size_t n);
+
+    // 字符串查询
+    size_t strlen(c_string s);
+    c_char* strchr(c_string s, c_int c);
+    c_char* strrchr(c_string s, c_int c);
+    c_char* strstr(c_string haystack, c_string needle);
+    c_char* strtok(c_char* str, c_string delim);
+
+    // 错误字符串
+    c_string strerror(c_int errnum);
+}
+
+// ============================================
+// 标准 C 库函数 - ctype.h
+// ============================================
+
+extern {
+    c_int isalnum(c_int c);
+    c_int isalpha(c_int c);
+    c_int isdigit(c_int c);
+    c_int isspace(c_int c);
+    c_int islower(c_int c);
+    c_int isupper(c_int c);
+    c_int tolower(c_int c);
+    c_int toupper(c_int c);
+}
+
+// ============================================
+// 标准 C 库函数 - math.h
+// ============================================
+
+extern {
+    // 三角函数
+    c_double sin(c_double x);
+    c_double cos(c_double x);
+    c_double tan(c_double x);
+    c_double asin(c_double x);
+    c_double acos(c_double x);
+    c_double atan(c_double x);
+    c_double atan2(c_double y, c_double x);
+
+    // 双曲函数
+    c_double sinh(c_double x);
+    c_double cosh(c_double x);
+    c_double tanh(c_double x);
+
+    // 指数和对数
+    c_double exp(c_double x);
+    c_double log(c_double x);
+    c_double log10(c_double x);
+    c_double log2(c_double x);
+
+    // 幂函数
+    c_double pow(c_double base, c_double exp);
+    c_double sqrt(c_double x);
+    c_double cbrt(c_double x);
+
+    // 取整函数
+    c_double ceil(c_double x);
+    c_double floor(c_double x);
+    c_double round(c_double x);
+    c_double trunc(c_double x);
+
+    // 绝对值
+    c_double fabs(c_double x);
+
+    // 其他
+    c_double fmod(c_double x, c_double y);
+    c_double modf(c_double x, c_double* iptr);
+    c_double frexp(c_double x, c_int* exp);
+    c_double ldexp(c_double x, c_int exp);
+}
+
+// ============================================
+// 标准 C 库函数 - time.h
+// ============================================
+
+// 数学常量 (在代码中直接使用数值)
+
+extern {
+    c_int64_t time(c_int64_t* timer);
+    c_double difftime(c_int64_t end, c_int64_t start);
+    c_int64_t clock();
+    c_string ctime(c_int64_t* timer);
+}
+
+// 时钟每秒滴答数 (通常为 1000 或 1000000，平台相关)
