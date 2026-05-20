@@ -5,6 +5,15 @@
 use std::fs;
 use std::process::Command;
 
+/// 获取当前平台的可执行文件扩展名
+fn get_exe_extension() -> &'static str {
+    if cfg!(target_os = "windows") {
+        ".exe"
+    } else {
+        ""
+    }
+}
+
 /// 中型Cavvy测试程序 - 包含多种语言特性以生成足够的IR代码
 const TEST_PROGRAM: &str = r#"// 源映射测试程序 - 中型示例
 // 包含类、方法、控制流、表达式等多种特性
@@ -287,18 +296,20 @@ fn test_source_map_generation() {
     // 创建临时目录
     let temp_dir = std::env::temp_dir().join("cavvy_source_map_test");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
-    
+
     // 写入测试源文件
     let source_file = temp_dir.join("test_source_map.cay");
     fs::write(&source_file, TEST_PROGRAM).expect("Failed to write source file");
-    
+
     // 编译生成IR文件
     // IR文件与输出exe同名，只是扩展名为.ll
     let ir_file = temp_dir.join("test_output.ll");
+    let exe_ext = get_exe_extension();
+    let output_exe = temp_dir.join(format!("test_output{}", exe_ext));
     let output = Command::new("cargo")
-        .args(&["run", "--release", "--bin", "cayc", "--", 
+        .args(&["run", "--release", "--bin", "cayc", "--",
             source_file.to_str().unwrap(),
-            temp_dir.join("test_output.exe").to_str().unwrap(),
+            output_exe.to_str().unwrap(),
             "--keep-ir"
         ])
         .current_dir("e:\\spj\\EOL")
@@ -355,17 +366,19 @@ fn test_source_map_accuracy() {
     // 创建临时目录
     let temp_dir = std::env::temp_dir().join("cavvy_source_map_accuracy_test");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
-    
+
     // 写入测试源文件
     let source_file = temp_dir.join("test_accuracy.cay");
     fs::write(&source_file, TEST_PROGRAM).expect("Failed to write source file");
-    
+
     // 编译生成IR文件
     let ir_file = temp_dir.join("test_output.ll");
+    let exe_ext = get_exe_extension();
+    let output_exe = temp_dir.join(format!("test_output{}", exe_ext));
     let output = Command::new("cargo")
         .args(&["run", "--release", "--bin", "cayc", "--",
             source_file.to_str().unwrap(),
-            temp_dir.join("test_output.exe").to_str().unwrap(),
+            output_exe.to_str().unwrap(),
             "--keep-ir"
         ])
         .current_dir("e:\\spj\\EOL")
@@ -453,16 +466,18 @@ public class ErrorTest {
     // 创建临时目录
     let temp_dir = std::env::temp_dir().join("cavvy_error_map_test");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
-    
+
     // 写入测试源文件
     let source_file = temp_dir.join("test_error.cay");
     fs::write(&source_file, error_program).expect("Failed to write source file");
-    
+
     // 尝试编译 - 应该失败
+    let exe_ext = get_exe_extension();
+    let output_exe = temp_dir.join(format!("test_output{}", exe_ext));
     let output = Command::new("cargo")
         .args(&["run", "--release", "--bin", "cayc", "--",
             source_file.to_str().unwrap(),
-            temp_dir.join("test_output.exe").to_str().unwrap(),
+            output_exe.to_str().unwrap(),
             "--keep-ir"
         ])
         .current_dir("e:\\spj\\EOL")
@@ -513,21 +528,23 @@ fn test_source_map_comment_format() {
     }
 }
 "#;
-    
+
     // 创建临时目录
     let temp_dir = std::env::temp_dir().join("cavvy_format_test");
     fs::create_dir_all(&temp_dir).expect("Failed to create temp directory");
-    
+
     // 写入测试源文件
     let source_file = temp_dir.join("test_format.cay");
     fs::write(&source_file, simple_program).expect("Failed to write source file");
-    
+
     // 编译生成IR文件
     let ir_file = temp_dir.join("test_output.ll");
+    let exe_ext = get_exe_extension();
+    let output_exe = temp_dir.join(format!("test_output{}", exe_ext));
     let output = Command::new("cargo")
         .args(&["run", "--release", "--bin", "cayc", "--",
             source_file.to_str().unwrap(),
-            temp_dir.join("test_output.exe").to_str().unwrap(),
+            output_exe.to_str().unwrap(),
             "--keep-ir"
         ])
         .current_dir("e:\\spj\\EOL")

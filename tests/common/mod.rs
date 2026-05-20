@@ -7,6 +7,28 @@ use std::fs;
 use std::sync::Mutex;
 use std::time::Duration;
 
+/// 获取当前平台的 cayc 可执行文件路径
+/// Windows: ./target/release/cayc.exe
+/// Linux: ./target/release/cayc
+fn get_cayc_path() -> String {
+    if cfg!(target_os = "windows") {
+        "./target/release/cayc.exe".to_string()
+    } else {
+        "./target/release/cayc".to_string()
+    }
+}
+
+/// 获取当前平台的可执行文件扩展名
+/// Windows: .exe
+/// Linux: 空字符串
+fn get_exe_extension() -> &'static str {
+    if cfg!(target_os = "windows") {
+        ".exe"
+    } else {
+        ""
+    }
+}
+
 /// 全局测试锁，确保测试串行执行避免文件冲突
 static TEST_LOCK: Mutex<()> = Mutex::new(());
 
@@ -59,17 +81,19 @@ pub fn compile_and_run_eol(source_path: &str) -> Result<String, String> {
 pub fn compile_and_run_eol_with_features(source_path: &str, features: &[&str]) -> Result<String, String> {
     // 使用唯一ID生成输出文件名，避免测试冲突
     let unique_id = format!("{}_{:?}", std::process::id(), std::thread::current().id());
-    let exe_path = source_path.replace(".cay", &format!("_{}.exe", unique_id));
+    let exe_ext = get_exe_extension();
+    let exe_path = source_path.replace(".cay", &format!("_{}{}", unique_id, exe_ext));
     let ir_path = source_path.replace(".cay", &format!("_{}.ll", unique_id));
-    
+
     // 构建参数
     let mut args = vec![source_path, &exe_path];
     for feature in features {
         args.push(feature);
     }
-    
+
     // 1. 编译 EOL -> EXE (使用 release 版本)
-    let output = Command::new("./target/release/cayc.exe")
+    let cayc_path = get_cayc_path();
+    let output = Command::new(&cayc_path)
         .args(&args)
         .output()
         .map_err(|e| format!("Failed to execute cayc: {}", e))?;
@@ -119,11 +143,13 @@ pub fn compile_and_run_eol_with_features(source_path: &str, features: &[&str]) -
 pub fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
     // 使用唯一ID生成输出文件名，避免测试冲突
     let unique_id = format!("{}_{:?}", std::process::id(), std::thread::current().id());
-    let exe_path = source_path.replace(".cay", &format!("_{}.exe", unique_id));
+    let exe_ext = get_exe_extension();
+    let exe_path = source_path.replace(".cay", &format!("_{}{}", unique_id, exe_ext));
     let ir_path = source_path.replace(".cay", &format!("_{}.ll", unique_id));
-    
+
     // 1. 编译 EOL -> EXE (使用 release 版本)
-    let output = Command::new("./target/release/cayc.exe")
+    let cayc_path = get_cayc_path();
+    let output = Command::new(&cayc_path)
         .args(&[source_path, &exe_path])
         .output()
         .map_err(|e| format!("Failed to execute cayc: {}", e))?;
@@ -159,11 +185,13 @@ pub fn compile_eol_expect_error(source_path: &str) -> Result<String, String> {
 /// assert!(error.contains("division by zero"));
 /// ```
 pub fn compile_and_run_expect_error(source_path: &str) -> Result<String, String> {
-    let exe_path = source_path.replace(".cay", ".exe");
+    let exe_ext = get_exe_extension();
+    let exe_path = source_path.replace(".cay", exe_ext);
     let ir_path = source_path.replace(".cay", ".ll");
 
     // 1. 编译 EOL -> EXE (使用 release 版本)
-    let output = Command::new("./target/release/cayc.exe")
+    let cayc_path = get_cayc_path();
+    let output = Command::new(&cayc_path)
         .args(&[source_path, &exe_path])
         .output()
         .map_err(|e| format!("Failed to execute cayc: {}", e))?;
