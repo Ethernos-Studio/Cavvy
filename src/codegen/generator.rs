@@ -556,9 +556,11 @@ impl IRGenerator {
                                 ));
 
                                 // 存储到静态字段
+                                // cast_temp 是元素类型指针（如 i32*），field.name 是全局变量（如 @Test.data_s）
+                                // 生成: store i32* %t3, i32* @Test.data_s, align 8
                                 self.output.push_str(&format!(
                                     "  store {}* {}, {}* {}, align 8\n",
-                                    elem_llvm_type, cast_temp, field.llvm_type, field.name
+                                    elem_llvm_type, cast_temp, elem_llvm_type, field.name
                                 ));
                             }
                         }
