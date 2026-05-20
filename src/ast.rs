@@ -47,7 +47,8 @@ pub struct ExternDecl {
 /// 外部函数声明
 #[derive(Debug, Clone)]
 pub struct ExternFunction {
-    pub name: String,
+    pub name: String,           // 外部C函数名
+    pub alias: Option<String>,  // 别名（用于Cavvy代码中调用）
     pub return_type: Type,
     pub params: Vec<ParameterInfo>,
     pub loc: SourceLocation,

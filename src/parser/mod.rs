@@ -565,13 +565,14 @@ impl Parser {
     }
 
     /// 解析单个外部函数声明
+    /// 支持语法: type func(params); 或 type func(params) as alias;
     fn parse_extern_function(&mut self) -> cayResult<crate::ast::ExternFunction> {
         let loc = self.current_loc();
 
         // 解析返回类型
         let return_type = self.parse_type()?;
 
-        // 解析函数名
+        // 解析函数名（外部C函数名）
         let name = self.consume_identifier("Expected function name in extern declaration")?;
 
         // 解析参数列表
@@ -579,11 +580,20 @@ impl Parser {
         let params = self.parse_extern_parameters()?;
         self.consume(&crate::lexer::Token::RParen, "Expected ')' after extern function parameters")?;
 
+        // 解析可选的别名: as alias_name
+        let alias = if self.check(&crate::lexer::Token::As) {
+            self.advance(); // 消费 'as'
+            Some(self.consume_identifier("Expected alias name after 'as' in extern declaration")?)
+        } else {
+            None
+        };
+
         // 消费分号
         self.consume(&crate::lexer::Token::Semicolon, "Expected ';' after extern function declaration")?;
 
         Ok(crate::ast::ExternFunction {
             name,
+            alias,
             return_type,
             params,
             loc,

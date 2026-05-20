@@ -287,28 +287,45 @@ impl IRGenerator {
     }
 
     /// 设置 extern 声明并构建索引
+    /// 支持别名：如果extern函数有alias，则只能通过alias调用，原名不再识别
     pub fn set_extern_declarations(&mut self, extern_declarations: Vec<crate::ast::ExternDecl>) {
         self.extern_function_map.clear();
         for (decl_idx, extern_decl) in extern_declarations.iter().enumerate() {
             for func in &extern_decl.functions {
-                self.extern_function_map.insert(func.name.clone(), decl_idx);
+                // 如果函数有别名，使用别名作为映射键；否则使用原名
+                let key = func.alias.as_ref().unwrap_or(&func.name).clone();
+                self.extern_function_map.insert(key, decl_idx);
             }
         }
         self.extern_declarations = extern_declarations;
     }
 
     /// 检查函数是否是 extern 声明的（使用HashMap O(1)查找）
+    /// 注意：如果extern函数有别名，只能通过别名找到
     pub fn is_extern_function(&self, func_name: &str) -> bool {
         self.extern_function_map.contains_key(func_name)
     }
 
     /// 获取 extern 函数的信息（使用HashMap O(1)查找）
+    /// 注意：如果extern函数有别名，只能通过别名获取
     pub fn get_extern_function(&self, func_name: &str) -> Option<&crate::ast::ExternFunction> {
         self.extern_function_map.get(func_name).and_then(|&decl_idx| {
             self.extern_declarations.get(decl_idx).and_then(|decl| {
-                decl.functions.iter().find(|f| f.name == func_name)
+                // 查找匹配的函数：有别名的按别名匹配，没别名的按原名匹配
+                decl.functions.iter().find(|f| {
+                    match &f.alias {
+                        Some(alias) => alias == func_name,
+                        None => f.name == func_name,
+                    }
+                })
             })
         })
+    }
+
+    /// 获取extern函数的LLVM调用名（实际C函数名）
+    /// 用于代码生成时生成正确的call指令
+    pub fn get_extern_llvm_name(&self, func_name: &str) -> Option<String> {
+        self.get_extern_function(func_name).map(|f| f.name.clone())
     }
 
     /// 检查是否是顶层函数

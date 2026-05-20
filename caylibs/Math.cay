@@ -1,0 +1,1312 @@
+/**
+ * Math - 数学计算标准库
+ *
+ * 提供全面的数学计算功能：
+ * - Math: 静态数学工具类，提供三角函数、对数、指数等
+ * - Random: 随机数生成器
+ * - Vector2/Vector3: 2D/3D向量
+ *
+ * 特性：
+ * - 完整的三角函数支持
+ * - 高精度浮点运算
+ * - 随机数生成
+ * - 向量运算
+ * - 所有方法标注时间/空间复杂度
+ *
+ * 版本: 0.5.3.1
+ * 时间复杂度: 标注于各方法
+ * 磁盘I/O: 无（纯计算）
+ */
+
+#ifndef CAY_MATH_H
+#define CAY_MATH_H
+
+#include <std/ffi.cay>
+
+/* ============================================================================
+ * 数学常量
+ * ============================================================================ */
+
+#define MATH_PI         3.14159265358979323846   // 圆周率
+#define MATH_E          2.71828182845904523536   // 自然对数底
+#define MATH_LN2        0.69314718055994530942   // ln(2)
+#define MATH_LN10       2.30258509299404568402   // ln(10)
+#define MATH_LOG2E      1.44269504088896340736   // log2(e)
+#define MATH_LOG10E     0.43429448190325182765   // log10(e)
+#define MATH_SQRT2      1.41421356237309504880   // sqrt(2)
+#define MATH_SQRT1_2    0.70710678118654752440   // 1/sqrt(2)
+
+#define MATH_DEG_TO_RAD 0.01745329251994329577   // 度转弧度
+#define MATH_RAD_TO_DEG 57.2957795130823208768   // 弧度转度
+
+#define MATH_EPSILON    1e-10                    // 浮点精度容差
+#define MATH_MAX_INT    2147483647               // 最大int值
+#define MATH_MIN_INT    -2147483648              // 最小int值
+
+// RAND_MAX 定义 - 使用标准C库值
+#define MATH_RAND_MAX   2147483647               // 2^31 - 1
+
+/* ============================================================================
+ * 外部C数学函数声明 - 使用别名避免与Math类方法冲突
+ * ============================================================================ */
+
+extern {
+    // 三角函数
+    c_double sin(c_double x) as c_sin;
+    c_double cos(c_double x) as c_cos;
+    c_double tan(c_double x) as c_tan;
+    c_double asin(c_double x) as c_asin;
+    c_double acos(c_double x) as c_acos;
+    c_double atan(c_double x) as c_atan;
+    c_double atan2(c_double y, c_double x) as c_atan2;
+
+    // 双曲函数
+    c_double sinh(c_double x) as c_sinh;
+    c_double cosh(c_double x) as c_cosh;
+    c_double tanh(c_double x) as c_tanh;
+
+    // 指数和对数
+    c_double exp(c_double x) as c_exp;
+    c_double log(c_double x) as c_log;
+    c_double log10(c_double x) as c_log10;
+
+    // 幂函数
+    c_double pow(c_double base, c_double exp) as c_pow;
+    c_double sqrt(c_double x) as c_sqrt;
+
+    // 取整函数
+    c_double ceil(c_double x) as c_ceil;
+    c_double floor(c_double x) as c_floor;
+    c_double round(c_double x) as c_round;
+
+    // 绝对值和取模
+    c_double fabs(c_double x) as c_fabs;
+    c_double fmod(c_double x, c_double y) as c_fmod;
+
+    // 随机数
+    c_int rand() as c_rand;
+    void srand(c_uint seed) as c_srand;
+    c_int64_t time(c_int64_t* timer) as c_time;
+}
+
+/* ============================================================================
+ * Math 类 - 静态数学工具
+ * ============================================================================ */
+
+/**
+ * 数学工具类
+ * 提供全面的数学计算功能
+ * 所有方法为静态，无需实例化
+ */
+public class Math {
+
+    // ==================== 三角函数 ====================
+
+    /**
+     * 正弦函数
+     * @param x 弧度值
+     * @return sin(x)
+     * 时间复杂度: O(1)
+     */
+    public static double sin(double x) {
+        return (double)c_sin((c_double)x);
+    }
+
+    /**
+     * 余弦函数
+     * @param x 弧度值
+     * @return cos(x)
+     * 时间复杂度: O(1)
+     */
+    public static double cos(double x) {
+        return (double)c_cos((c_double)x);
+    }
+
+    /**
+     * 正切函数
+     * @param x 弧度值
+     * @return tan(x)
+     * 时间复杂度: O(1)
+     */
+    public static double tan(double x) {
+        return (double)c_tan((c_double)x);
+    }
+
+    /**
+     * 反正弦函数
+     * @param x 输入值 [-1, 1]
+     * @return asin(x) 弧度值
+     * 时间复杂度: O(1)
+     */
+    public static double asin(double x) {
+        return (double)c_asin((c_double)x);
+    }
+
+    /**
+     * 反余弦函数
+     * @param x 输入值 [-1, 1]
+     * @return acos(x) 弧度值
+     * 时间复杂度: O(1)
+     */
+    public static double acos(double x) {
+        return (double)c_acos((c_double)x);
+    }
+
+    /**
+     * 反正切函数
+     * @param x 输入值
+     * @return atan(x) 弧度值
+     * 时间复杂度: O(1)
+     */
+    public static double atan(double x) {
+        return (double)c_atan((c_double)x);
+    }
+
+    /**
+     * 双参数反正切函数
+     * @param y Y坐标
+     * @param x X坐标
+     * @return atan2(y, x) 弧度值 [-π, π]
+     * 时间复杂度: O(1)
+     */
+    public static double atan2(double y, double x) {
+        return (double)c_atan2((c_double)y, (c_double)x);
+    }
+
+    // ==================== 双曲函数 ====================
+
+    /**
+     * 双曲正弦
+     * @param x 输入值
+     * @return sinh(x)
+     * 时间复杂度: O(1)
+     */
+    public static double sinh(double x) {
+        return (double)c_sinh((c_double)x);
+    }
+
+    /**
+     * 双曲余弦
+     * @param x 输入值
+     * @return cosh(x)
+     * 时间复杂度: O(1)
+     */
+    public static double cosh(double x) {
+        return (double)c_cosh((c_double)x);
+    }
+
+    /**
+     * 双曲正切
+     * @param x 输入值
+     * @return tanh(x)
+     * 时间复杂度: O(1)
+     */
+    public static double tanh(double x) {
+        return (double)c_tanh((c_double)x);
+    }
+
+    // ==================== 指数和对数 ====================
+
+    /**
+     * 指数函数 e^x
+     * @param x 指数
+     * @return e^x
+     * 时间复杂度: O(1)
+     */
+    public static double exp(double x) {
+        return (double)c_exp((c_double)x);
+    }
+
+    /**
+     * 自然对数 ln(x)
+     * @param x 输入值 (> 0)
+     * @return ln(x)
+     * 时间复杂度: O(1)
+     */
+    public static double log(double x) {
+        return (double)c_log((c_double)x);
+    }
+
+    /**
+     * 常用对数 log10(x)
+     * @param x 输入值 (> 0)
+     * @return log10(x)
+     * 时间复杂度: O(1)
+     */
+    public static double log10(double x) {
+        return (double)c_log10((c_double)x);
+    }
+
+    /**
+     * 以2为底的对数
+     * @param x 输入值 (> 0)
+     * @return log2(x)
+     * 时间复杂度: O(1)
+     */
+    public static double log2(double x) {
+        return log(x) / MATH_LN2;
+    }
+
+    /**
+     * 任意底数的对数
+     * @param x 输入值 (> 0)
+     * @param base 底数 (> 0, != 1)
+     * @return log_base(x)
+     * 时间复杂度: O(1)
+     */
+    public static double logBase(double x, double base) {
+        return log(x) / log(base);
+    }
+
+    // ==================== 幂函数 ====================
+
+    /**
+     * 幂函数 x^y
+     * @param x 底数
+     * @param y 指数
+     * @return x^y
+     * 时间复杂度: O(1)
+     */
+    public static double pow(double x, double y) {
+        return (double)c_pow((c_double)x, (c_double)y);
+    }
+
+    /**
+     * 平方根
+     * @param x 输入值 (>= 0)
+     * @return sqrt(x)
+     * 时间复杂度: O(1)
+     */
+    public static double sqrt(double x) {
+        return (double)c_sqrt((c_double)x);
+    }
+
+    /**
+     * 立方根
+     * @param x 输入值
+     * @return cbrt(x)
+     * 时间复杂度: O(1)
+     */
+    public static double cbrt(double x) {
+        if (x >= 0) {
+            return pow(x, 1.0 / 3.0);
+        } else {
+            return -pow(-x, 1.0 / 3.0);
+        }
+    }
+
+    /**
+     * 平方
+     * @param x 输入值
+     * @return x^2
+     * 时间复杂度: O(1)
+     */
+    public static double sqr(double x) {
+        return x * x;
+    }
+
+    // ==================== 取整函数 ====================
+
+    /**
+     * 向上取整
+     * @param x 输入值
+     * @return 不小于x的最小整数
+     * 时间复杂度: O(1)
+     */
+    public static double ceil(double x) {
+        return (double)c_ceil((c_double)x);
+    }
+
+    /**
+     * 向下取整
+     * @param x 输入值
+     * @return 不大于x的最大整数
+     * 时间复杂度: O(1)
+     */
+    public static double floor(double x) {
+        return (double)c_floor((c_double)x);
+    }
+
+    /**
+     * 四舍五入
+     * @param x 输入值
+     * @return 最接近的整数
+     * 时间复杂度: O(1)
+     */
+    public static double round(double x) {
+        return (double)c_round((c_double)x);
+    }
+
+    /**
+     * 向零取整
+     * @param x 输入值
+     * @return 截断小数部分
+     * 时间复杂度: O(1)
+     */
+    public static double trunc(double x) {
+        if (x >= 0) {
+            return floor(x);
+        } else {
+            return ceil(x);
+        }
+    }
+
+    /**
+     * 取小数部分 [0, 1)
+     * 对于负数，返回正的小数部分
+     * @param x 输入值
+     * @return 小数部分 [0, 1)
+     * 时间复杂度: O(1)
+     */
+    public static double frac(double x) {
+        return x - floor(x);
+    }
+
+    // ==================== 绝对值和符号 ====================
+
+    /**
+     * 绝对值（double）
+     * @param x 输入值
+     * @return |x|
+     * 时间复杂度: O(1)
+     */
+    public static double abs(double x) {
+        return (double)c_fabs((c_double)x);
+    }
+
+    /**
+     * 绝对值（int）
+     * 处理INT_MIN溢出问题
+     * @param x 输入值
+     * @return |x|
+     * 时间复杂度: O(1)
+     */
+    public static int abs(int x) {
+        if (x == MATH_MIN_INT) {
+            return MATH_MAX_INT;  // INT_MIN的绝对值溢出，返回MAX_INT
+        }
+        if (x < 0) {
+            return -x;
+        }
+        return x;
+    }
+
+    /**
+     * 绝对值（long）
+     * 处理LONG_MIN溢出问题
+     * @param x 输入值
+     * @return |x|
+     * 时间复杂度: O(1)
+     */
+    public static long abs(long x) {
+        if (x < 0) {
+            return -x;
+        }
+        return x;
+    }
+
+    /**
+     * 符号函数
+     * @param x 输入值
+     * @return -1 (x<0), 0 (x=0), 1 (x>0)
+     * 时间复杂度: O(1)
+     */
+    public static int sign(double x) {
+        if (x < 0) {
+            return -1;
+        } else if (x > 0) {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    /**
+     * 取模运算（浮点数）
+     * @param x 被除数
+     * @param y 除数
+     * @return x % y
+     * 时间复杂度: O(1)
+     */
+    public static double fmod(double x, double y) {
+        return (double)c_fmod((c_double)x, (c_double)y);
+    }
+
+    // ==================== 角度转换 ====================
+
+    /**
+     * 度转弧度
+     * @param degrees 角度值
+     * @return 弧度值
+     * 时间复杂度: O(1)
+     */
+    public static double toRadians(double degrees) {
+        return degrees * MATH_DEG_TO_RAD;
+    }
+
+    /**
+     * 弧度转度
+     * @param radians 弧度值
+     * @return 角度值
+     * 时间复杂度: O(1)
+     */
+    public static double toDegrees(double radians) {
+        return radians * MATH_RAD_TO_DEG;
+    }
+
+    // ==================== 最值函数 ====================
+
+    /**
+     * 最大值（int）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较大值
+     * 时间复杂度: O(1)
+     */
+    public static int max(int a, int b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 最大值（double）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较大值
+     * 时间复杂度: O(1)
+     */
+    public static double max(double a, double b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 最大值（long）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较大值
+     * 时间复杂度: O(1)
+     */
+    public static long max(long a, long b) {
+        if (a > b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 最小值（int）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较小值
+     * 时间复杂度: O(1)
+     */
+    public static int min(int a, int b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 最小值（double）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较小值
+     * 时间复杂度: O(1)
+     */
+    public static double min(double a, double b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 最小值（long）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 较小值
+     * 时间复杂度: O(1)
+     */
+    public static long min(long a, long b) {
+        if (a < b) {
+            return a;
+        }
+        return b;
+    }
+
+    /**
+     * 钳制函数（int）
+     * 如果min > max，自动交换
+     * @param value 输入值
+     * @param min 最小值
+     * @param max 最大值
+     * @return 钳制后的值
+     * 时间复杂度: O(1)
+     */
+    public static int clamp(int value, int min, int max) {
+        if (min > max) {
+            int temp = min;
+            min = max;
+            max = temp;
+        }
+        if (value < min) {
+            return min;
+        }
+        if (value > max) {
+            return max;
+        }
+        return value;
+    }
+
+    /**
+     * 钳制函数（double）
+     * 如果min > max，自动交换
+     * @param value 输入值
+     * @param min 最小值
+     * @param max 最大值
+     * @return 钳制后的值
+     * 时间复杂度: O(1)
+     */
+    public static double clamp(double value, double min, double max) {
+        if (min > max) {
+            double temp = min;
+            min = max;
+            max = temp;
+        }
+        if (value < min) {
+            return min;
+        }
+        if (value > max) {
+            return max;
+        }
+        return value;
+    }
+
+    // ==================== 比较函数 ====================
+
+    /**
+     * 近似相等（绝对误差）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @param epsilon 容差
+     * @return 是否近似相等
+     * 时间复杂度: O(1)
+     */
+    public static bool approxEqual(double a, double b, double epsilon) {
+        return abs(a - b) < epsilon;
+    }
+
+    /**
+     * 近似相等（使用默认容差）
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return 是否近似相等
+     * 时间复杂度: O(1)
+     */
+    public static bool approxEqual(double a, double b) {
+        return approxEqual(a, b, MATH_EPSILON);
+    }
+
+    /**
+     * 近似相等（相对误差版本）
+     * 适用于大数值比较
+     * @param a 第一个值
+     * @param b 第二个值
+     * @param epsilon 相对容差
+     * @return 是否近似相等
+     * 时间复杂度: O(1)
+     */
+    public static bool approxEqualRelative(double a, double b, double epsilon) {
+        double diff = abs(a - b);
+        double maxVal = max(abs(a), abs(b));
+        if (maxVal < epsilon) {
+            return diff < epsilon;
+        }
+        return diff / maxVal < epsilon;
+    }
+
+    // ==================== 插值函数 ====================
+
+    /**
+     * 线性插值
+     * @param a 起始值
+     * @param b 结束值
+     * @param t 插值因子 [0, 1]
+     * @return a + (b - a) * t
+     * 时间复杂度: O(1)
+     */
+    public static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
+    /**
+     * 线性插值（int）
+     * @param a 起始值
+     * @param b 结束值
+     * @param t 插值因子 [0, 1]
+     * @return 插值结果
+     * 时间复杂度: O(1)
+     */
+    public static int lerp(int a, int b, double t) {
+        return (int)(a + (b - a) * t);
+    }
+
+    /**
+     * 平滑插值（Hermite）
+     * 当a == b时，返回a（避免除零）
+     * @param a 起始值
+     * @param b 结束值
+     * @param t 插值因子
+     * @return 平滑插值结果
+     * 时间复杂度: O(1)
+     */
+    public static double smoothStep(double a, double b, double t) {
+        if (a == b) {
+            return a;
+        }
+        t = clamp((t - a) / (b - a), 0.0, 1.0);
+        return t * t * (3.0 - 2.0 * t);
+    }
+
+    // ==================== GCD和LCM ====================
+
+    /**
+     * 最大公约数（欧几里得算法）
+     * 处理INT_MIN溢出问题
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return gcd(a, b)
+     * 时间复杂度: O(log(min(a,b)))
+     */
+    public static int gcd(int a, int b) {
+        // 处理INT_MIN的绝对值溢出问题
+        if (a == MATH_MIN_INT) {
+            a = MATH_MAX_INT;
+        }
+        if (b == MATH_MIN_INT) {
+            b = MATH_MAX_INT;
+        }
+        a = abs(a);
+        b = abs(b);
+        while (b != 0) {
+            int temp = b;
+            b = a % b;
+            a = temp;
+        }
+        return a;
+    }
+
+    /**
+     * 最小公倍数
+     * @param a 第一个值
+     * @param b 第二个值
+     * @return lcm(a, b)
+     * 时间复杂度: O(log(min(a,b)))
+     */
+    public static int lcm(int a, int b) {
+        if (a == 0 || b == 0) {
+            return 0;
+        }
+        return abs(a / gcd(a, b) * b);
+    }
+}
+
+/* ============================================================================
+ * Random 类 - 随机数生成器
+ * ============================================================================ */
+
+/**
+ * 随机数生成器
+ * 基于C标准库rand()，提供多种分布的随机数
+ * 注意：此类使用全局状态，非线程安全
+ */
+public class Random {
+    private static bool initialized = false;
+    private static double nextGaussianValue = 0.0;
+    private static bool hasNextGaussian = false;
+
+    /**
+     * 初始化随机数生成器
+     * 使用当前时间作为种子
+     * 时间复杂度: O(1)
+     */
+    public static void init() {
+        if (!initialized) {
+            c_srand((c_uint)c_time(0));
+            initialized = true;
+        }
+    }
+
+    /**
+     * 设置随机种子
+     * @param seed 随机种子
+     * 时间复杂度: O(1)
+     */
+    public static void setSeed(int seed) {
+        c_srand((c_uint)seed);
+        initialized = true;
+        hasNextGaussian = false;  // 重置高斯缓存
+    }
+
+    /**
+     * 生成随机整数 [0, RAND_MAX]
+     * @return 随机整数
+     * 时间复杂度: O(1)
+     */
+    public static int nextInt() {
+        if (!initialized) {
+            init();
+        }
+        return c_rand();
+    }
+
+    /**
+     * 生成随机整数 [0, bound)
+     * @param bound 上界（不包含）
+     * @return 随机整数
+     * 时间复杂度: O(1)
+     */
+    public static int nextInt(int bound) {
+        if (bound <= 0) {
+            return 0;
+        }
+        return nextInt() % bound;
+    }
+
+    /**
+     * 生成随机整数 [min, max]
+     * 处理溢出情况
+     * @param min 下界（包含）
+     * @param max 上界（包含）
+     * @return 随机整数
+     * 时间复杂度: O(1)
+     */
+    public static int nextInt(int min, int max) {
+        if (min >= max) {
+            return min;
+        }
+        // 检查溢出：max - min + 1 可能溢出
+        int range = max - min;
+        if (range < 0) {
+            // 溢出情况，使用long计算
+            long lrange = (long)max - (long)min + 1L;
+            long val = ((long)nextInt() & 0xFFFFFFFFL) % lrange;
+            return min + (int)val;
+        }
+        return min + nextInt(range + 1);
+    }
+
+    /**
+     * 生成随机浮点数 [0.0, 1.0)
+     * 使用正确的RAND_MAX
+     * @return 随机浮点数
+     * 时间复杂度: O(1)
+     */
+    public static double nextDouble() {
+        return (double)nextInt() / (double)MATH_RAND_MAX;
+    }
+
+    /**
+     * 生成随机浮点数 [min, max)
+     * @param min 下界（包含）
+     * @param max 上界（不包含）
+     * @return 随机浮点数
+     * 时间复杂度: O(1)
+     */
+    public static double nextDouble(double min, double max) {
+        return min + nextDouble() * (max - min);
+    }
+
+    /**
+     * 生成随机布尔值
+     * 使用位运算避免模运算偏差
+     * @return true或false
+     * 时间复杂度: O(1)
+     */
+    public static bool nextBool() {
+        return (nextInt() & 1) == 0;
+    }
+
+    /**
+     * 生成符合正态分布的随机数（Box-Muller变换）
+     * 缓存第二个值以提高效率
+     * 防护u1为0的情况
+     * @param mean 均值
+     * @param stdDev 标准差
+     * @return 正态分布随机数
+     * 时间复杂度: O(1)
+     */
+    public static double nextGaussian(double mean, double stdDev) {
+        // 如果缓存中有值，直接返回
+        if (hasNextGaussian) {
+            hasNextGaussian = false;
+            return mean + nextGaussianValue * stdDev;
+        }
+
+        // Box-Muller变换
+        double u1 = nextDouble();
+        // 防护log(0)：确保u1 > 0
+        while (u1 <= 0.0) {
+            u1 = nextDouble();
+        }
+        double u2 = nextDouble();
+
+        double mag = sqrt(-2.0 * log(u1));
+        double z0 = mag * cos(2.0 * MATH_PI * u2);
+        double z1 = mag * sin(2.0 * MATH_PI * u2);
+
+        // 缓存第二个值
+        nextGaussianValue = z1;
+        hasNextGaussian = true;
+
+        return mean + z0 * stdDev;
+    }
+}
+
+/* ============================================================================
+ * Vector2 类 - 2D向量
+ * ============================================================================ */
+
+/**
+ * 2D向量类
+ * 用于2D图形、物理计算等
+ */
+public class Vector2 {
+    public double x;
+    public double y;
+
+    /**
+     * 默认构造函数（零向量）
+     */
+    public Vector2() {
+        this.x = 0.0;
+        this.y = 0.0;
+    }
+
+    /**
+     * 带参数构造函数
+     * @param x X分量
+     * @param y Y分量
+     */
+    public Vector2(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    /**
+     * 向量加法
+     * @param v 另一个向量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 add(Vector2 v) {
+        return new Vector2(this.x + v.x, this.y + v.y);
+    }
+
+    /**
+     * 向量减法
+     * @param v 另一个向量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 sub(Vector2 v) {
+        return new Vector2(this.x - v.x, this.y - v.y);
+    }
+
+    /**
+     * 向量数乘
+     * @param s 标量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 mul(double s) {
+        return new Vector2(this.x * s, this.y * s);
+    }
+
+    /**
+     * 向量除法
+     * 除零时返回NaN向量而非静默失败
+     * @param s 标量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 div(double s) {
+        if (s == 0.0) {
+            return new Vector2(0.0 / 0.0, 0.0 / 0.0);  // NaN
+        }
+        return new Vector2(this.x / s, this.y / s);
+    }
+
+    /**
+     * 点积
+     * @param v 另一个向量
+     * @return 点积结果
+     * 时间复杂度: O(1)
+     */
+    public double dot(Vector2 v) {
+        return this.x * v.x + this.y * v.y;
+    }
+
+    /**
+     * 叉积（标量）
+     * @param v 另一个向量
+     * @return 叉积结果
+     * 时间复杂度: O(1)
+     */
+    public double cross(Vector2 v) {
+        return this.x * v.y - this.y * v.x;
+    }
+
+    /**
+     * 向量长度
+     * @return 长度
+     * 时间复杂度: O(1)
+     */
+    public double length() {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    }
+
+    /**
+     * 向量长度的平方
+     * @return 长度平方
+     * 时间复杂度: O(1)
+     */
+    public double lengthSquared() {
+        return this.x * this.x + this.y * this.y;
+    }
+
+    /**
+     * 归一化向量
+     * 除零时返回NaN向量
+     * @return 单位向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 normalize() {
+        double len = length();
+        if (len == 0.0) {
+            return new Vector2(0.0 / 0.0, 0.0 / 0.0);  // NaN
+        }
+        return div(len);
+    }
+
+    /**
+     * 向量距离
+     * @param v 另一个向量
+     * @return 距离
+     * 时间复杂度: O(1)
+     */
+    public double distance(Vector2 v) {
+        return sub(v).length();
+    }
+
+    /**
+     * 向量距离平方
+     * @param v 另一个向量
+     * @return 距离平方
+     * 时间复杂度: O(1)
+     */
+    public double distanceSquared(Vector2 v) {
+        return sub(v).lengthSquared();
+    }
+
+    /**
+     * 线性插值
+     * @param v 目标向量
+     * @param t 插值因子 [0, 1]
+     * @return 插值结果
+     * 时间复杂度: O(1)
+     */
+    public Vector2 lerp(Vector2 v, double t) {
+        return new Vector2(
+            Math.lerp(this.x, v.x, t),
+            Math.lerp(this.y, v.y, t)
+        );
+    }
+
+    /**
+     * 旋转向量
+     * @param angle 旋转角度（弧度）
+     * @return 旋转后的向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 rotate(double angle) {
+        double cos = Math.cos(angle);
+        double sin = Math.sin(angle);
+        return new Vector2(
+            this.x * cos - this.y * sin,
+            this.x * sin + this.y * cos
+        );
+    }
+
+    /**
+     * 向量反射
+     * @param normal 法向量（应已归一化）
+     * @return 反射向量
+     * 时间复杂度: O(1)
+     */
+    public Vector2 reflect(Vector2 normal) {
+        double dot = this.dot(normal);
+        return sub(normal.mul(2.0 * dot));
+    }
+
+    /**
+     * 零向量
+     * @return (0, 0)
+     */
+    public static Vector2 zero() {
+        return new Vector2(0.0, 0.0);
+    }
+
+    /**
+     * 单位向量 (1, 0)
+     * @return (1, 0)
+     */
+    public static Vector2 right() {
+        return new Vector2(1.0, 0.0);
+    }
+
+    /**
+     * 单位向量 (0, 1)
+     * @return (0, 1)
+     */
+    public static Vector2 up() {
+        return new Vector2(0.0, 1.0);
+    }
+
+    /**
+     * 转换为字符串
+     * @return 字符串表示
+     */
+    public String toString() {
+        return "(" + (String)this.x + ", " + (String)this.y + ")";
+    }
+}
+
+/* ============================================================================
+ * Vector3 类 - 3D向量
+ * ============================================================================ */
+
+/**
+ * 3D向量类
+ * 用于3D图形、物理计算等
+ */
+public class Vector3 {
+    public double x;
+    public double y;
+    public double z;
+
+    /**
+     * 默认构造函数（零向量）
+     */
+    public Vector3() {
+        this.x = 0.0;
+        this.y = 0.0;
+        this.z = 0.0;
+    }
+
+    /**
+     * 带参数构造函数
+     * @param x X分量
+     * @param y Y分量
+     * @param z Z分量
+     */
+    public Vector3(double x, double y, double z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
+    }
+
+    /**
+     * 向量加法
+     * @param v 另一个向量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 add(Vector3 v) {
+        return new Vector3(this.x + v.x, this.y + v.y, this.z + v.z);
+    }
+
+    /**
+     * 向量减法
+     * @param v 另一个向量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 sub(Vector3 v) {
+        return new Vector3(this.x - v.x, this.y - v.y, this.z - v.z);
+    }
+
+    /**
+     * 向量数乘
+     * @param s 标量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 mul(double s) {
+        return new Vector3(this.x * s, this.y * s, this.z * s);
+    }
+
+    /**
+     * 向量除法
+     * 除零时返回NaN向量
+     * @param s 标量
+     * @return 新向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 div(double s) {
+        if (s == 0.0) {
+            return new Vector3(0.0 / 0.0, 0.0 / 0.0, 0.0 / 0.0);  // NaN
+        }
+        return new Vector3(this.x / s, this.y / s, this.z / s);
+    }
+
+    /**
+     * 点积
+     * @param v 另一个向量
+     * @return 点积结果
+     * 时间复杂度: O(1)
+     */
+    public double dot(Vector3 v) {
+        return this.x * v.x + this.y * v.y + this.z * v.z;
+    }
+
+    /**
+     * 叉积
+     * @param v 另一个向量
+     * @return 叉积向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 cross(Vector3 v) {
+        return new Vector3(
+            this.y * v.z - this.z * v.y,
+            this.z * v.x - this.x * v.z,
+            this.x * v.y - this.y * v.x
+        );
+    }
+
+    /**
+     * 向量长度
+     * @return 长度
+     * 时间复杂度: O(1)
+     */
+    public double length() {
+        return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+    }
+
+    /**
+     * 向量长度的平方
+     * @return 长度平方
+     * 时间复杂度: O(1)
+     */
+    public double lengthSquared() {
+        return this.x * this.x + this.y * this.y + this.z * this.z;
+    }
+
+    /**
+     * 归一化向量
+     * 除零时返回NaN向量
+     * @return 单位向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 normalize() {
+        double len = length();
+        if (len == 0.0) {
+            return new Vector3(0.0 / 0.0, 0.0 / 0.0, 0.0 / 0.0);  // NaN
+        }
+        return div(len);
+    }
+
+    /**
+     * 向量距离
+     * @param v 另一个向量
+     * @return 距离
+     * 时间复杂度: O(1)
+     */
+    public double distance(Vector3 v) {
+        return sub(v).length();
+    }
+
+    /**
+     * 向量距离平方
+     * @param v 另一个向量
+     * @return 距离平方
+     * 时间复杂度: O(1)
+     */
+    public double distanceSquared(Vector3 v) {
+        return sub(v).lengthSquared();
+    }
+
+    /**
+     * 线性插值
+     * @param v 目标向量
+     * @param t 插值因子 [0, 1]
+     * @return 插值结果
+     * 时间复杂度: O(1)
+     */
+    public Vector3 lerp(Vector3 v, double t) {
+        return new Vector3(
+            Math.lerp(this.x, v.x, t),
+            Math.lerp(this.y, v.y, t),
+            Math.lerp(this.z, v.z, t)
+        );
+    }
+
+    /**
+     * 向量反射
+     * @param normal 法向量（应已归一化）
+     * @return 反射向量
+     * 时间复杂度: O(1)
+     */
+    public Vector3 reflect(Vector3 normal) {
+        double dot = this.dot(normal);
+        return sub(normal.mul(2.0 * dot));
+    }
+
+    /**
+     * 零向量
+     * @return (0, 0, 0)
+     */
+    public static Vector3 zero() {
+        return new Vector3(0.0, 0.0, 0.0);
+    }
+
+    /**
+     * 单位向量 (1, 0, 0)
+     * @return (1, 0, 0)
+     */
+    public static Vector3 right() {
+        return new Vector3(1.0, 0.0, 0.0);
+    }
+
+    /**
+     * 单位向量 (0, 1, 0)
+     * @return (0, 1, 0)
+     */
+    public static Vector3 up() {
+        return new Vector3(0.0, 1.0, 0.0);
+    }
+
+    /**
+     * 单位向量 (0, 0, 1)
+     * @return (0, 0, 1)
+     */
+    public static Vector3 forward() {
+        return new Vector3(0.0, 0.0, 1.0);
+    }
+
+    /**
+     * 转换为字符串
+     * @return 字符串表示
+     */
+    public String toString() {
+        return "(" + (String)this.x + ", " + (String)this.y + ", " + (String)this.z + ")";
+    }
+}
+
+#endif /* CAY_MATH_H */

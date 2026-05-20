@@ -165,6 +165,10 @@ pub enum Token {
     #[token("fn")]
     Fn,
 
+    // extern 别名关键字
+    #[token("as")]
+    As,
+
     // 标识符
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
@@ -929,6 +933,7 @@ pub fn token_name(token: &Token) -> &'static str {
         Token::Win64 => "win64",
         Token::Alias => "alias",
         Token::Fn => "fn",
+        Token::As => "as",
         Token::Identifier(_) => "identifier",
         Token::IntegerLiteral(_) => "integer literal",
         Token::FloatLiteral(_) => "float literal",
@@ -996,7 +1001,7 @@ pub fn is_keyword(token: &Token) -> bool {
         Token::New | Token::This | Token::Super |
         Token::Extends | Token::Implements | Token::Interface | Token::InstanceOf |
         Token::Var | Token::Let | Token::Auto | Token::Extern | Token::Scope |
-        Token::InlineIr | Token::Alias | Token::Fn
+        Token::InlineIr | Token::Alias | Token::Fn | Token::As
     )
 }
 

@@ -884,6 +884,9 @@ impl IRGenerator {
             }
         };
 
+        // 使用实际的C函数名（而非别名）生成call指令
+        let llvm_func_name = &extern_func.name;
+
         // 生成参数
         let mut arg_results = Vec::new();
         for arg in args {
@@ -929,10 +932,10 @@ impl IRGenerator {
                     format!("({}, ...)", param_types.join(", "))
                 };
                 self.emit_line(&format!("  call void {} @{}({})",
-                    type_sig, func_name, processed_args.join(", ")));
+                    type_sig, llvm_func_name, processed_args.join(", ")));
             } else {
                 self.emit_line(&format!("  call void @{}({})",
-                    func_name, processed_args.join(", ")));
+                    llvm_func_name, processed_args.join(", ")));
             }
             Ok("void %dummy".to_string())
         } else {
@@ -949,10 +952,10 @@ impl IRGenerator {
                     format!("{} ({}, ...)", llvm_ret_type, param_types.join(", "))
                 };
                 self.emit_line(&format!("  {} = call {} @{}({})",
-                    temp, type_sig, func_name, processed_args.join(", ")));
+                    temp, type_sig, llvm_func_name, processed_args.join(", ")));
             } else {
                 self.emit_line(&format!("  {} = call {} @{}({})",
-                    temp, llvm_ret_type, func_name, processed_args.join(", ")));
+                    temp, llvm_ret_type, llvm_func_name, processed_args.join(", ")));
             }
             Ok(format!("{} {}", llvm_ret_type, temp))
         }
