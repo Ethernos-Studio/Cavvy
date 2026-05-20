@@ -1406,13 +1406,13 @@ fn compile_with_llc_lld(
         lld_cmd.arg("-m").arg("i386pep");  // PE+ 格式 (64-bit Windows)
         lld_cmd.arg("-o").arg(&output_file);
         
-        // 添加启动文件
-        let crt2 = exe_dir.join("lib/mingw64/x86_64-w64-mingw32/lib/crt2.o");
+        // 添加启动文件 - 使用 crt1.o (控制台程序) 而不是 crt2.o (GUI程序)
+        let crt1 = exe_dir.join("lib/mingw64/x86_64-w64-mingw32/lib/crt1.o");
         let crtbegin = exe_dir.join("lib/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o");
         let crtend = exe_dir.join("lib/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o");
         
-        if crt2.exists() {
-            lld_cmd.arg(&crt2);
+        if crt1.exists() {
+            lld_cmd.arg(&crt1);
         }
         if crtbegin.exists() {
             lld_cmd.arg(&crtbegin);

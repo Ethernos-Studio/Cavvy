@@ -84,6 +84,8 @@ struct CompileOptions {
     funroll_loops: bool,          // -funroll-loops
     fvectorize: bool,             // -fvectorize
     fslp_vectorize: bool,         // -fslp-vectorize
+    // 工具链选项
+    use_llc_lld: bool,            // --use-llc-lld
     // 语言特性
     features: Vec<String>,        // -F/--feature=<feature>
 }
@@ -143,6 +145,7 @@ impl Default for CompileOptions {
             funroll_loops: false,
             fvectorize: false,
             fslp_vectorize: false,
+            use_llc_lld: false,
             features: Vec::new(),
         }
     }
@@ -183,6 +186,7 @@ fn print_usage() {
     println!("  --cflags <flags>      传递额外的编译器标志");
     println!("  --static              静态链接");
     println!("  -fPIC                 生成位置无关代码");
+    println!("  --use-llc-lld         使用 llc+lld 工具链（不使用 clang）");
     println!("  -fno-exceptions       禁用异常处理");
     println!("  -fno-rtti             禁用运行时类型信息");
     println!("");
@@ -255,6 +259,9 @@ fn parse_args(args: &[String]) -> Result<(CompileOptions, String, String), Strin
             }
             "-fslp-vectorize" => {
                 options.fslp_vectorize = true;
+            }
+            "--use-llc-lld" => {
+                options.use_llc_lld = true;
             }
             "--mneon" => {
                 options.mneon = true;
@@ -517,6 +524,9 @@ fn main() {
     if options.funroll_loops {
         println!("循环展开: 启用");
     }
+    if options.use_llc_lld {
+        println!("工具链: llc+lld");
+    }
     if options.debug {
         println!("调试信息: 启用");
     }
@@ -711,6 +721,11 @@ fn main() {
     }
     if options.fslp_vectorize {
         ir2exe_args.push("-fslp-vectorize".to_string());
+    }
+
+    // 工具链选项
+    if options.use_llc_lld {
+        ir2exe_args.push("--use-llc-lld".to_string());
     }
 
     // 额外库路径
