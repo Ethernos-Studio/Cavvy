@@ -77,7 +77,8 @@ impl IRGenerator {
         // 处理普通函数调用（支持方法重载和可变参数）
         // 先确定方法信息（类名和方法名）
         // 对于实例方法调用，还需要保存对象表达式以获取 this 指针
-        let (class_name, method_name, obj_expr) = match call.callee.as_ref() {
+        // is_static_call 表示是否是类名.方法名() 形式的静态方法调用
+        let (class_name, method_name, obj_expr, is_static_call) = match call.callee.as_ref() {
             Expr::Identifier(name) => {
                 let name_str = name.as_ref();
                 // 检查是否是全局 extern 函数
@@ -93,11 +94,11 @@ impl IRGenerator {
                 // 检查是否是顶层函数
                 if self.is_top_level_function(name_str) {
                     // 顶层函数没有类名前缀
-                    (String::new(), name_str.to_string(), None)
+                    (String::new(), name_str.to_string(), None, false)
                 } else if !self.current_class.is_empty() {
-                    (self.current_class.clone(), name_str.to_string(), None)
+                    (self.current_class.clone(), name_str.to_string(), None, false)
                 } else {
-                    (String::new(), name_str.to_string(), None)
+                    (String::new(), name_str.to_string(), None, false)
                 }
             }
             Expr::MemberAccess(member) => {
@@ -110,7 +111,7 @@ impl IRGenerator {
                             // super.methodName() 调用父类的方法
                             let parent_class = self.get_parent_class(&self.current_class)
                                 .unwrap_or_else(|| self.current_class.clone());
-                            (parent_class, member.member.clone(), Some(member.object.clone()))
+                            (parent_class, member.member.clone(), Some(member.object.clone()), false)
                         } else if obj_name_str == "this" {
                             // this.methodName() - 首先检查是否是函数指针字段
                             if let Some(field_type) = self.get_field_type(&self.current_class, &member.member) {
@@ -120,24 +121,25 @@ impl IRGenerator {
                                 }
                             }
                             // 不是函数指针字段，按普通方法处理
-                            (self.current_class.clone(), member.member.clone(), Some(member.object.clone()))
+                            (self.current_class.clone(), member.member.clone(), Some(member.object.clone()), false)
                         } else {
                             // 首先检查是否是已知的类名
-                            let class_name = if let Some(ref registry) = self.type_registry {
+                            let (class_name, is_class) = if let Some(ref registry) = self.type_registry {
                                 if registry.class_exists(obj_name_str) {
-                                    obj_name_str.to_string()
+                                    (obj_name_str.to_string(), true)
                                 } else {
                                     // 不是类名，尝试从变量映射获取
-                                    self.var_class_map.get(obj_name_str)
+                                    (self.var_class_map.get(obj_name_str)
                                         .cloned()
-                                        .unwrap_or_else(|| obj_name_str.to_string())
+                                        .unwrap_or_else(|| obj_name_str.to_string()), false)
                                 }
                             } else {
-                                self.var_class_map.get(obj_name_str)
+                                (self.var_class_map.get(obj_name_str)
                                     .cloned()
-                                    .unwrap_or_else(|| obj_name_str.to_string())
+                                    .unwrap_or_else(|| obj_name_str.to_string()), false)
                             };
-                            (class_name, member.member.clone(), Some(member.object.clone()))
+                            // 如果是类名.方法名() 形式，标记为静态方法调用
+                            (class_name, member.member.clone(), Some(member.object.clone()), is_class)
                         }
                     }
                     _ => {
@@ -154,7 +156,7 @@ impl IRGenerator {
                                         }
                                     }
                                     // 不是函数指针字段，按普通方法处理
-                                    (class_name, member.member.clone(), Some(member.object.clone()))
+                                    (class_name, member.member.clone(), Some(member.object.clone()), false)
                                 }
                                 _ => {
                                     return Err(codegen_error(format!(
@@ -196,7 +198,12 @@ impl IRGenerator {
         };
 
         // 检查是否是实例方法（需要传递 this）
-        let is_instance_method = self.is_instance_method(&class_name, &method_name);
+        // 如果是 Class.method() 形式的静态方法调用，即使存在同名实例方法，也不传递 this
+        let is_instance_method = if is_static_call {
+            false
+        } else {
+            self.is_instance_method(&class_name, &method_name)
+        };
         
         // 为实例方法添加 this 参数
         let mut final_args = Vec::new();
@@ -206,7 +213,7 @@ impl IRGenerator {
             if let Some(obj) = &obj_expr {
                 // 检查是否是 super 标识符
                 if let Expr::Identifier(name) = obj.as_ref() {
-                    if name == "super" {
+                    if name.as_ref() == "super" {
                         // super.methodName() 使用 this 指针
                         if let Some(this_llvm_name) = self.scope_manager.get_llvm_name("this") {
                             let this_temp = self.new_temp();

@@ -1,0 +1,49 @@
+/**
+ * File.cay 调试测试5 - 比较静态方法和手动实现
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest5 {
+    
+    // 手动实现 writeAllText
+    public static bool myWriteAllText(String path, String content) {
+        File file = new File();
+        if (!file.open(path, FileMode.write())) {
+            return false;
+        }
+        bool result = file.writeAllText(content);
+        file.close();
+        return result;
+    }
+    
+    public static int main() {
+        println("=== File.cay 调试测试5 ===\n");
+        
+        // 测试1: 使用 File.writeAllText
+        println("测试1: File.writeAllText");
+        bool result1 = File.writeAllText("test_lib.txt", "Content from library");
+        println("结果: " + result1);
+        if (result1) {
+            String content = File.readAllText("test_lib.txt");
+            println("读取: '" + content + "'");
+        }
+        
+        // 测试2: 使用我的实现
+        println("\n测试2: myWriteAllText");
+        bool result2 = myWriteAllText("test_my.txt", "Content from my implementation");
+        println("结果: " + result2);
+        if (result2) {
+            String content = File.readAllText("test_my.txt");
+            println("读取: '" + content + "'");
+        }
+        
+        // 清理
+        File.delete("test_lib.txt");
+        File.delete("test_my.txt");
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

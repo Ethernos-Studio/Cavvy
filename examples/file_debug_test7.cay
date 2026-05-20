@@ -1,0 +1,50 @@
+/**
+ * File.cay 调试测试7 - 测试数组创建
+ */
+
+#include <std/ffi.cay>
+
+public class DebugTest7 {
+    
+    public static int main() {
+        println("=== File.cay 调试测试7 ===\n");
+        
+        // 测试数组创建
+        println("测试数组创建:");
+        
+        long fileSize = 13L;
+        println("fileSize = " + fileSize);
+        
+        int arraySize = (int)(fileSize + 1);
+        println("arraySize = " + arraySize);
+        
+        char[] buffer = new char[arraySize]();
+        println("数组创建成功");
+        
+        // 测试赋值
+        println("\n测试数组赋值:");
+        buffer[0] = 'H';
+        buffer[1] = 'e';
+        buffer[2] = 'l';
+        buffer[3] = 'l';
+        buffer[4] = 'o';
+        buffer[5] = '\0';
+        
+        println("buffer[0] = " + buffer[0]);
+        println("buffer[1] = " + buffer[1]);
+        println("buffer[5] = " + (int)buffer[5]);
+        
+        // 构建字符串
+        println("\n测试字符串构建:");
+        String content = "";
+        int j = 0;
+        while (j < 5) {
+            content = content + buffer[j];
+            j = j + 1;
+        }
+        println("content = '" + content + "'");
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

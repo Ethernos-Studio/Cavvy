@@ -1,0 +1,56 @@
+/**
+ * File.cay 调试测试8 - 直接测试实例方法 readAllText()
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest8 {
+    
+    public static int main() {
+        println("=== File.cay 调试测试8 ===\n");
+        
+        String path = "test8.txt";
+        String testContent = "ABC123";
+        
+        // 先写入文件
+        println("1. 写入文件");
+        File writeFile = new File();
+        if (writeFile.open(path, FileMode.write())) {
+            writeFile.writeString(testContent);
+            writeFile.close();
+            println("   写入完成");
+        }
+        
+        // 使用实例方法 readAllText()
+        println("\n2. 使用实例方法 readAllText()");
+        File readFile = new File();
+        if (readFile.open(path, FileMode.read())) {
+            println("   文件打开成功");
+            println("   isOpen: " + readFile.isOpened());
+            println("   handle null: " + (readFile.handle == null));
+            
+            long size = readFile.size();
+            println("   size(): " + size);
+            
+            // 直接调用实例方法
+            String content = readFile.readAllText();
+            if (content != null) {
+                println("   readAllText() 成功");
+                println("   内容: '" + content + "'");
+            } else {
+                println("   readAllText() 返回 null");
+            }
+            
+            readFile.close();
+        } else {
+            println("   文件打开失败");
+        }
+        
+        // 清理
+        File.delete(path);
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

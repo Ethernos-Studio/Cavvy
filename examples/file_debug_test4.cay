@@ -1,0 +1,51 @@
+/**
+ * File.cay 调试测试4 - 测试静态方法调用
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest4 {
+    
+    public static int main() {
+        println("=== File.cay 调试测试4 ===\n");
+        
+        // 测试直接在静态方法调用中创建 FileMode
+        println("测试1: 直接调用静态方法");
+        bool result1 = File.writeAllText("test1.txt", "Content1");
+        println("writeAllText 结果: " + result1);
+        
+        // 测试先创建 FileMode 再传递
+        println("\n测试2: 先创建 FileMode");
+        FileMode mode = FileMode.write();
+        println("FileMode: '" + mode.getMode() + "'");
+        
+        File file = new File();
+        bool opened = file.open("test2.txt", mode);
+        println("open 结果: " + opened);
+        if (opened) {
+            bool written = file.writeString("Content2");
+            println("writeString 结果: " + written);
+            file.close();
+        }
+        
+        // 测试直接在 open 中调用 FileMode.write()
+        println("\n测试3: 直接在 open 中调用 FileMode.write()");
+        File file2 = new File();
+        bool opened2 = file2.open("test3.txt", FileMode.write());
+        println("open 结果: " + opened2);
+        if (opened2) {
+            bool written = file2.writeString("Content3");
+            println("writeString 结果: " + written);
+            file2.close();
+        }
+        
+        // 清理
+        File.delete("test1.txt");
+        File.delete("test2.txt");
+        File.delete("test3.txt");
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

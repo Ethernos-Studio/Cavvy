@@ -31,7 +31,9 @@ temp_*
 *.o
 
 !/lib/mingw64/lib/gcc/x86_64-w64-mingw32/15.2.0/*.o
-!/mingw-minimal/bin/*.exe
+llvm-minimal/
+mingw-minimal/
+
 !/lib/mingw64/x86_64-w64-mingw32/lib/*.o
 
 target/

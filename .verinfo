@@ -27,7 +27,7 @@ version = "5.1.0-Alpha.2"
 build = 2
 
 [LLVM-MINIMAL]
-version = "21.1.8"
+version = "22.1.6"
 
 [MINGW-MINIMAL]
 version = "2.45.1"

@@ -1,0 +1,63 @@
+/**
+ * File.cay 调试测试9 - 模拟静态方法 readAllText
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest9 {
+    
+    // 模拟静态方法 readAllText
+    public static String myReadAllText(String path) {
+        File file = new File();
+        if (!file.open(path, FileMode.read())) {
+            println("   myReadAllText: 打开失败");
+            return null;
+        }
+        println("   myReadAllText: 打开成功");
+        String content = file.readAllText();
+        println("   myReadAllText: readAllText() 返回 " + (content == null ? "null" : "非null"));
+        file.close();
+        return content;
+    }
+    
+    public static int main() {
+        println("=== File.cay 调试测试9 ===\n");
+        
+        String path = "test9.txt";
+        String testContent = "Test9Content";
+        
+        // 先写入文件
+        println("1. 写入文件");
+        File writeFile = new File();
+        if (writeFile.open(path, FileMode.write())) {
+            writeFile.writeString(testContent);
+            writeFile.close();
+            println("   写入完成");
+        }
+        
+        // 使用我的模拟方法
+        println("\n2. 使用 myReadAllText");
+        String content1 = myReadAllText(path);
+        if (content1 != null) {
+            println("   内容: '" + content1 + "'");
+        } else {
+            println("   返回 null");
+        }
+        
+        // 使用库中的静态方法
+        println("\n3. 使用 File.readAllText");
+        String content2 = File.readAllText(path);
+        if (content2 != null) {
+            println("   内容: '" + content2 + "'");
+        } else {
+            println("   返回 null");
+        }
+        
+        // 清理
+        File.delete(path);
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

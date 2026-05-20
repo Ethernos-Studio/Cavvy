@@ -1,0 +1,84 @@
+/**
+ * File.cay 调试测试6 - 详细诊断 size() 和 readAllText()
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest6 {
+    
+    public static int main() {
+        println("=== File.cay 调试测试6 ===\n");
+        
+        String path = "test6.txt";
+        String testContent = "Hello, World!";
+        
+        // 写入文件
+        println("1. 写入文件");
+        File writeFile = new File();
+        bool opened = writeFile.open(path, FileMode.write());
+        println("   打开: " + opened);
+        
+        if (opened) {
+            println("   文件大小(写入前): " + writeFile.size());
+            
+            bool written = writeFile.writeString(testContent);
+            println("   写入: " + written);
+            
+            println("   文件大小(写入后，关闭前): " + writeFile.size());
+            
+            writeFile.close();
+            println("   已关闭");
+        }
+        
+        // 检查文件是否存在和大小
+        println("\n2. 检查文件信息");
+        bool exists = File.exists(path);
+        println("   文件存在: " + exists);
+        
+        if (exists) {
+            long size = File.getSize(path);
+            println("   文件大小: " + size);
+        }
+        
+        // 尝试读取
+        println("\n3. 读取文件");
+        File readFile = new File();
+        if (readFile.open(path, FileMode.read())) {
+            println("   打开成功");
+            println("   文件大小: " + readFile.size());
+            
+            // 使用 readChar 逐字符读取
+            println("   逐字符读取:");
+            String content = "";
+            int c;
+            int count = 0;
+            while ((c = readFile.readChar()) != -1 && count < 20) {
+                content = content + (char)c;
+                count = count + 1;
+            }
+            println("   内容: '" + content + "'");
+            println("   字符数: " + count);
+            
+            readFile.close();
+        } else {
+            println("   打开失败");
+        }
+        
+        // 使用 readAllText
+        println("\n4. 使用 readAllText");
+        String allContent = File.readAllText(path);
+        if (allContent != null) {
+            println("   内容: '" + allContent + "'");
+            println("   长度: " + allContent.length());
+        } else {
+            println("   返回 null");
+        }
+        
+        // 清理
+        File.delete(path);
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}

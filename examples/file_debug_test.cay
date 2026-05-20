@@ -1,0 +1,64 @@
+/**
+ * File.cay 调试测试
+ */
+
+#include <std/ffi.cay>
+#include <File.cay>
+
+public class DebugTest {
+    
+    public static int main() {
+        println("=== File.cay 调试测试 ===\n");
+        
+        // 测试1: 检查 FileMode
+        println("测试1: FileMode");
+        FileMode mode = FileMode.write();
+        println("模式字符串: '" + mode.getMode() + "'");
+        
+        // 测试2: 直接打开文件
+        println("\n测试2: 直接打开文件");
+        File file = new File();
+        println("创建File对象");
+        
+        bool opened = file.open("test_debug.txt", FileMode.write());
+        println("打开结果: " + opened);
+        println("是否打开: " + file.isOpened());
+        
+        if (opened) {
+            println("文件打开成功，尝试写入");
+            bool written = file.writeString("Test content");
+            println("写入结果: " + written);
+            file.close();
+            println("文件已关闭");
+        } else {
+            println("文件打开失败，错误码: " + file.getLastError());
+        }
+        
+        // 测试3: 检查文件是否存在
+        println("\n测试3: 检查文件存在性");
+        bool exists = File.exists("test_debug.txt");
+        println("test_debug.txt 存在: " + exists);
+        
+        // 测试4: 读取测试
+        println("\n测试4: 读取测试");
+        File readFile = new File();
+        if (readFile.open("test_debug.txt", FileMode.read())) {
+            println("文件打开成功用于读取");
+            String content = readFile.readAllText();
+            println("读取内容: '" + content + "'");
+            readFile.close();
+        } else {
+            println("文件打开失败用于读取");
+        }
+        
+        // 清理
+        println("\n清理测试文件");
+        if (File.exists("test_debug.txt")) {
+            File.delete("test_debug.txt");
+            println("删除成功");
+        }
+        
+        println("\n=== 测试完成 ===");
+        return 0;
+    }
+}
