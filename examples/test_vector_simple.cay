@@ -1,0 +1,12 @@
+// 简单的Vector2测试
+#include <Math.cay>
+
+@main
+public class Test {
+    public static int main(String[] args) {
+        Vector2 v1 = new Vector2(3.0, 4.0);
+        double lenSq = v1.lengthSquared();
+        println("lengthSquared = " + (String)lenSq);
+        return 0;
+    }
+}

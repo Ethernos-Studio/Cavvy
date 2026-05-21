@@ -450,8 +450,23 @@ impl IRGenerator {
     
     /// 从SourceLocation设置源位置
     /// 优先使用loc中的file字段，如果为None则使用传入的file参数
+    /// 使用预处理器源映射将预处理后的行号映射回原始源文件行号
     pub fn set_source_from_loc(&mut self, loc: &crate::error::SourceLocation, file: &str) {
-        self.source_file = loc.file.clone().unwrap_or_else(|| file.to_string());
+        let file_path = loc.file.clone().unwrap_or_else(|| file.to_string());
+        
+        // 使用预处理器源映射查找原始源位置
+        if let Some(ref source_map) = self.preprocessor_source_map {
+            // source_map的键是预处理后的行号，值是(原始文件路径, 原始行号)
+            if let Some((original_file, original_line)) = source_map.get(&loc.line) {
+                self.source_file = original_file.clone();
+                self.source_line = *original_line;
+                self.source_column = loc.column;
+                return;
+            }
+        }
+        
+        // 如果没有源映射或查找失败，使用原始位置
+        self.source_file = file_path;
         self.source_line = loc.line;
         self.source_column = loc.column;
     }
@@ -538,6 +553,18 @@ impl IRGenerator {
                     match obj_type {
                         Type::Array(_) if member.member == "length" => Some(Type::Int32),
                         Type::String if member.member == "length" => Some(Type::Int32),
+                        Type::Object(class_name) => {
+                            // 对于对象类型，从类型注册表查找字段类型
+                            if let Some(ref registry) = self.type_registry {
+                                if let Some(class_info) = registry.get_class(&class_name) {
+                                    // 查找字段
+                                    if let Some(field_info) = class_info.fields.get(&member.member) {
+                                        return Some(field_info.field_type.clone());
+                                    }
+                                }
+                            }
+                            None
+                        }
                         _ => None,
                     }
                 }).or_else(|| {
@@ -573,7 +600,11 @@ impl IRGenerator {
             Expr::New(new_expr) => {
                 // New 表达式返回对象类型
                 Some(Type::Object(new_expr.class_name.clone()))
-            },
+            }
+            Expr::Call(call) => {
+                // 对于函数调用，尝试推断返回类型
+                self.infer_call_return_type(call)
+            }
             _ => None,
         }
     }

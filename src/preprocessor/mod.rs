@@ -216,10 +216,21 @@ impl Preprocessor {
                                 // 包含文件返回多行，需要合并源映射
                                 // 记录当前输出行数，用于正确对齐包含文件的源映射
                                 let current_line_count = output_lines.len();
-                                for included_line in code.lines() {
+                                let code_lines: Vec<_> = code.lines().collect();
+                                // 修复：确保 code_lines 和 included_source_map.mappings 的长度一致
+                                // 如果 code_lines 比 mappings 少，添加空行
+                                let mut lines_to_add = code_lines.len();
+                                for included_line in code_lines {
                                     output_lines.push(included_line.to_string());
                                 }
+                                // 如果 code_lines 比 mappings 少，添加空行以保持对齐
+                                while lines_to_add < included_source_map.mappings.len() {
+                                    output_lines.push("".to_string());
+                                    lines_to_add += 1;
+                                }
                                 // 合并源映射 - 保持正确的行号对应关系
+                                // included_source_map.mappings 的索引对应包含文件中的行号
+                                // 需要将这些映射按顺序添加到 source_map 中
                                 for mapping in included_source_map.mappings.iter() {
                                     source_map.add_mapping(mapping.file.clone(), mapping.line);
                                 }
@@ -575,11 +586,8 @@ impl Preprocessor {
     /// 解析包含文件的完整路径
     fn resolve_include_path(&self, path: &str, is_system: bool, current_file: &str) -> cayResult<String> {
         if is_system {
-            eprintln!("DEBUG: 搜索系统路径 <{}>", path);
-            eprintln!("DEBUG: system_include_paths = {:?}", self.system_include_paths);
             for sys_path in &self.system_include_paths {
                 let sys_include_path = sys_path.join(path);
-                eprintln!("DEBUG: 检查 {:?} -> exists={}", sys_include_path, sys_include_path.exists());
                 if sys_include_path.exists() {
                     return Ok(sys_include_path.to_string_lossy().to_string());
                 }

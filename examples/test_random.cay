@@ -8,80 +8,81 @@
 #include <Math.cay>
 
 @main
-public static int main(String[] args) {
-    Console.println("=== Random Library Test Suite ===");
+public class RandomTest {
+    public static int main(String[] args) {
+    println("=== Random Library Test Suite ===");
     
     // 设置固定种子以便可重复测试
     Random.setSeed(12345);
     
     // 测试基本随机整数
-    Console.println("\n--- Basic Random Integers ---");
-    Console.println("nextInt() samples:");
+    println("\n--- Basic Random Integers ---");
+    println("nextInt() samples:");
     int i = 0;
     while (i < 5) {
-        Console.println("  " + (String)Random.nextInt());
+        println("  " + (String)Random.nextInt());
         i = i + 1;
     }
     
     // 测试有界随机整数
-    Console.println("\n--- Bounded Random Integers [0, 100) ---");
+    println("\n--- Bounded Random Integers [0, 100) ---");
     i = 0;
     while (i < 10) {
         int r = Random.nextInt(100);
         if (r < 0 || r >= 100) {
-            Console.println("ERROR: Value out of range: " + (String)r);
+            println("ERROR: Value out of range: " + (String)r);
             return 1;
         }
-        Console.println("  " + (String)r);
+        println("  " + (String)r);
         i = i + 1;
     }
     
     // 测试范围随机整数
-    Console.println("\n--- Range Random Integers [50, 60] ---");
+    println("\n--- Range Random Integers [50, 60] ---");
     i = 0;
     while (i < 10) {
         int r = Random.nextInt(50, 60);
         if (r < 50 || r > 60) {
-            Console.println("ERROR: Value out of range: " + (String)r);
+            println("ERROR: Value out of range: " + (String)r);
             return 1;
         }
-        Console.println("  " + (String)r);
+        println("  " + (String)r);
         i = i + 1;
     }
     
     // 测试溢出范围
-    Console.println("\n--- Overflow Range Test [MATH_MIN_INT, MATH_MAX_INT] ---");
+    println("\n--- Overflow Range Test [MATH_MIN_INT, MATH_MAX_INT] ---");
     int r1 = Random.nextInt(MATH_MIN_INT, MATH_MAX_INT);
-    Console.println("  Random value in full int range: " + (String)r1);
+    println("  Random value in full int range: " + (String)r1);
     
     // 测试随机浮点数
-    Console.println("\n--- Random Doubles [0.0, 1.0) ---");
+    println("\n--- Random Doubles [0.0, 1.0) ---");
     i = 0;
     while (i < 5) {
         double d = Random.nextDouble();
         if (d < 0.0 || d >= 1.0) {
-            Console.println("ERROR: Value out of range: " + (String)d);
+            println("ERROR: Value out of range: " + (String)d);
             return 1;
         }
-        Console.println("  " + (String)d);
+        println("  " + (String)d);
         i = i + 1;
     }
     
     // 测试范围随机浮点数
-    Console.println("\n--- Range Random Doubles [10.0, 20.0) ---");
+    println("\n--- Range Random Doubles [10.0, 20.0) ---");
     i = 0;
     while (i < 5) {
         double d = Random.nextDouble(10.0, 20.0);
         if (d < 10.0 || d >= 20.0) {
-            Console.println("ERROR: Value out of range: " + (String)d);
+            println("ERROR: Value out of range: " + (String)d);
             return 1;
         }
-        Console.println("  " + (String)d);
+        println("  " + (String)d);
         i = i + 1;
     }
     
     // 测试随机布尔值
-    Console.println("\n--- Random Booleans ---");
+    println("\n--- Random Booleans ---");
     int trueCount = 0;
     int falseCount = 0;
     i = 0;
@@ -93,15 +94,15 @@ public static int main(String[] args) {
         }
         i = i + 1;
     }
-    Console.println("  True count: " + (String)trueCount);
-    Console.println("  False count: " + (String)falseCount);
+    println("  True count: " + (String)trueCount);
+    println("  False count: " + (String)falseCount);
     // 检查分布是否大致均匀（允许30%偏差）
     if (trueCount < 35 || trueCount > 65) {
-        Console.println("WARNING: Boolean distribution may be biased");
+        println("WARNING: Boolean distribution may be biased");
     }
     
     // 测试正态分布
-    Console.println("\n--- Gaussian Distribution (mean=100, stdDev=15) ---");
+    println("\n--- Gaussian Distribution (mean=100, stdDev=15) ---");
     double sum = 0.0;
     double sumSq = 0.0;
     int count = 1000;
@@ -116,27 +117,28 @@ public static int main(String[] args) {
     double variance = sumSq / count - mean * mean;
     double stdDev = Math.sqrt(variance);
     
-    Console.println("  Sample mean: " + (String)mean);
-    Console.println("  Sample stdDev: " + (String)stdDev);
-    Console.println("  Expected mean: 100.0");
-    Console.println("  Expected stdDev: 15.0");
+    println("  Sample mean: " + (String)mean);
+    println("  Sample stdDev: " + (String)stdDev);
+    println("  Expected mean: 100.0");
+    println("  Expected stdDev: 15.0");
     
     // 验证正态分布参数在合理范围内
     if (Math.abs(mean - 100.0) > 5.0) {
-        Console.println("WARNING: Mean deviates significantly from expected");
+        println("WARNING: Mean deviates significantly from expected");
     }
     if (Math.abs(stdDev - 15.0) > 3.0) {
-        Console.println("WARNING: StdDev deviates significantly from expected");
+        println("WARNING: StdDev deviates significantly from expected");
     }
     
     // 测试高斯缓存（第二次调用应该使用缓存值）
-    Console.println("\n--- Gaussian Cache Test ---");
+    println("\n--- Gaussian Cache Test ---");
     Random.setSeed(99999);
     double g1 = Random.nextGaussian(0.0, 1.0);
     double g2 = Random.nextGaussian(0.0, 1.0);
     double g3 = Random.nextGaussian(0.0, 1.0);
-    Console.println("  Three consecutive gaussians: " + (String)g1 + ", " + (String)g2 + ", " + (String)g3);
+    println("  Three consecutive gaussians: " + (String)g1 + ", " + (String)g2 + ", " + (String)g3);
     
-    Console.println("\n=== All Random Tests Passed! ===");
+    println("\n=== All Random Tests Passed! ===");
     return 0;
+    }
 }

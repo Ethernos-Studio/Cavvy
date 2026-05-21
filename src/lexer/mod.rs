@@ -578,11 +578,14 @@ impl<'a> Lexer<'a> {
 
     pub fn tokenize(&mut self) -> cayResult<Vec<TokenWithLocation>> {
         let mut tokens = Vec::new();
+        let mut token_count = 0;
 
         while let Some(token_result) = self.inner.next() {
             match token_result {
                 Ok(token) => {
                     let span = self.inner.span();
+                    token_count += 1;
+                    
                     let loc = SourceLocation {
                         file: None,  // 将由source_map填充
                         line: self.line,
@@ -610,16 +613,18 @@ impl<'a> Lexer<'a> {
                     }
 
                     // 检查源映射 - 使用原始源位置
+                    // 注意：loc.line 保持为预处理后的行号，让语义分析器来映射
+                    // 这样可以避免双重映射问题
                     let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
                         (Some(file.clone()), Some(*line))
                     } else {
                         (self.current_source_file.clone(), Some(self.line))
                     };
 
-                    // 更新loc中的file和line字段 - 使用原始源位置
+                    // 更新loc中的file字段为原始文件路径，但保持line为预处理后的行号
                     let loc = SourceLocation {
                         file: source_file.clone(),
-                        line: source_line.unwrap_or(loc.line),
+                        line: self.line,  // 保持预处理后的行号，让语义分析器来映射
                         column: loc.column,
                     };
 
@@ -733,17 +738,18 @@ impl<'a> Lexer<'a> {
                     self.column += span.end - span.start;
                 }
 
-                // 检查源映射
+                // 检查源映射 - 使用原始源位置
+                // 注意：loc.line 保持为预处理后的行号，让语义分析器来映射
                 let (source_file, source_line) = if let Some((file, line)) = self.source_map.get(&self.line) {
                     (Some(file.clone()), Some(*line))
                 } else {
                     (self.current_source_file.clone(), Some(self.line))
                 };
 
-                // 更新loc中的file和line字段 - 使用原始源位置
+                // 更新loc中的file字段为原始文件路径，但保持line为预处理后的行号
                 let loc = SourceLocation {
                     file: source_file.clone(),
-                    line: source_line.unwrap_or(loc.line),
+                    line: self.line,  // 保持预处理后的行号，让语义分析器来映射
                     column: loc.column,
                 };
 

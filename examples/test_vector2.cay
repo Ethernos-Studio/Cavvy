@@ -8,147 +8,149 @@
 #include <Math.cay>
 
 @main
-public static int main(String[] args) {
-    Console.println("=== Vector2 Test Suite ===");
+public class Vector2Test {
+    public static int main(String[] args) {
+    println("=== Vector2 Test Suite ===");
     
     // 测试构造函数
-    Console.println("\n--- Construction ---");
+    println("\n--- Construction ---");
     Vector2 v1 = new Vector2(3.0, 4.0);
     Vector2 v2 = new Vector2(1.0, 2.0);
     Vector2 zero = Vector2.zero();
     
-    Console.println("v1 = " + v1.toString());
-    Console.println("v2 = " + v2.toString());
-    Console.println("zero = " + zero.toString());
-    Console.println("right = " + Vector2.right().toString());
-    Console.println("up = " + Vector2.up().toString());
+    println("v1 = " + v1.toString());
+    println("v2 = " + v2.toString());
+    println("zero = " + zero.toString());
+    println("right = " + Vector2.right().toString());
+    println("up = " + Vector2.up().toString());
     
     // 测试加法
-    Console.println("\n--- Addition ---");
+    println("\n--- Addition ---");
     Vector2 v3 = v1.add(v2);
-    Console.println("v1 + v2 = " + v3.toString());
+    println("v1 + v2 = " + v3.toString());
     
     // 测试减法
-    Console.println("\n--- Subtraction ---");
+    println("\n--- Subtraction ---");
     Vector2 v4 = v1.sub(v2);
-    Console.println("v1 - v2 = " + v4.toString());
+    println("v1 - v2 = " + v4.toString());
     
     // 测试数乘
-    Console.println("\n--- Scalar Multiplication ---");
+    println("\n--- Scalar Multiplication ---");
     Vector2 v5 = v1.mul(2.0);
-    Console.println("v1 * 2 = " + v5.toString());
+    println("v1 * 2 = " + v5.toString());
     
     // 测试除法
-    Console.println("\n--- Division ---");
+    println("\n--- Division ---");
     Vector2 v6 = v1.div(2.0);
-    Console.println("v1 / 2 = " + v6.toString());
+    println("v1 / 2 = " + v6.toString());
     
     // 测试除零
-    Console.println("\n--- Division by Zero ---");
+    println("\n--- Division by Zero ---");
     Vector2 vDivZero = v1.div(0.0);
-    Console.println("v1 / 0 = " + vDivZero.toString() + " (should be NaN)");
+    println("v1 / 0 = " + vDivZero.toString() + " (should be NaN)");
     
     // 测试点积
-    Console.println("\n--- Dot Product ---");
+    println("\n--- Dot Product ---");
     double dot = v1.dot(v2);
-    Console.println("v1 · v2 = " + (String)dot);
+    println("v1 · v2 = " + (String)dot);
     // 验证: 3*1 + 4*2 = 11
     if (!Math.approxEqual(dot, 11.0)) {
-        Console.println("ERROR: Dot product incorrect");
+        println("ERROR: Dot product incorrect");
         return 1;
     }
     
     // 测试叉积（标量）
-    Console.println("\n--- Cross Product ---");
+    println("\n--- Cross Product ---");
     double cross = v1.cross(v2);
-    Console.println("v1 × v2 = " + (String)cross);
+    println("v1 × v2 = " + (String)cross);
     // 验证: 3*2 - 4*1 = 2
     if (!Math.approxEqual(cross, 2.0)) {
-        Console.println("ERROR: Cross product incorrect");
+        println("ERROR: Cross product incorrect");
         return 1;
     }
     
     // 测试长度
-    Console.println("\n--- Length ---");
+    println("\n--- Length ---");
     double len = v1.length();
-    Console.println("|v1| = " + (String)len);
+    println("|v1| = " + (String)len);
     // 验证: sqrt(3^2 + 4^2) = 5
     if (!Math.approxEqual(len, 5.0)) {
-        Console.println("ERROR: Length incorrect");
+        println("ERROR: Length incorrect");
         return 1;
     }
     
     // 测试长度平方
-    Console.println("\n--- Length Squared ---");
+    println("\n--- Length Squared ---");
     double lenSq = v1.lengthSquared();
-    Console.println("|v1|^2 = " + (String)lenSq);
+    println("|v1|^2 = " + (String)lenSq);
     if (!Math.approxEqual(lenSq, 25.0)) {
-        Console.println("ERROR: Length squared incorrect");
+        println("ERROR: Length squared incorrect");
         return 1;
     }
     
     // 测试归一化
-    Console.println("\n--- Normalization ---");
+    println("\n--- Normalization ---");
     Vector2 v1Norm = v1.normalize();
-    Console.println("normalize(v1) = " + v1Norm.toString());
-    Console.println("|normalize(v1)| = " + (String)v1Norm.length());
+    println("normalize(v1) = " + v1Norm.toString());
+    println("|normalize(v1)| = " + (String)v1Norm.length());
     
     // 测试零向量归一化
-    Console.println("\n--- Zero Vector Normalization ---");
+    println("\n--- Zero Vector Normalization ---");
     Vector2 zeroNorm = zero.normalize();
-    Console.println("normalize(zero) = " + zeroNorm.toString() + " (should be NaN)");
+    println("normalize(zero) = " + zeroNorm.toString() + " (should be NaN)");
     
     // 测试距离
-    Console.println("\n--- Distance ---");
+    println("\n--- Distance ---");
     double dist = v1.distance(v2);
-    Console.println("distance(v1, v2) = " + (String)dist);
+    println("distance(v1, v2) = " + (String)dist);
     // 验证: sqrt((3-1)^2 + (4-2)^2) = sqrt(8) ≈ 2.828
     double expectedDist = Math.sqrt(8.0);
     if (!Math.approxEqual(dist, expectedDist)) {
-        Console.println("ERROR: Distance incorrect");
+        println("ERROR: Distance incorrect");
         return 1;
     }
     
     // 测试距离平方
-    Console.println("\n--- Distance Squared ---");
+    println("\n--- Distance Squared ---");
     double distSq = v1.distanceSquared(v2);
-    Console.println("distanceSquared(v1, v2) = " + (String)distSq);
+    println("distanceSquared(v1, v2) = " + (String)distSq);
     if (!Math.approxEqual(distSq, 8.0)) {
-        Console.println("ERROR: Distance squared incorrect");
+        println("ERROR: Distance squared incorrect");
         return 1;
     }
     
     // 测试线性插值
-    Console.println("\n--- Linear Interpolation ---");
+    println("\n--- Linear Interpolation ---");
     Vector2 vLerp = v1.lerp(v2, 0.5);
-    Console.println("lerp(v1, v2, 0.5) = " + vLerp.toString());
+    println("lerp(v1, v2, 0.5) = " + vLerp.toString());
     // 验证: (3+1)/2 = 2, (4+2)/2 = 3
     if (!Math.approxEqual(vLerp.x, 2.0) || !Math.approxEqual(vLerp.y, 3.0)) {
-        Console.println("ERROR: Lerp incorrect");
+        println("ERROR: Lerp incorrect");
         return 1;
     }
     
     // 测试旋转
-    Console.println("\n--- Rotation ---");
+    println("\n--- Rotation ---");
     Vector2 vRot = new Vector2(1.0, 0.0).rotate(Math.toRadians(90.0));
-    Console.println("rotate((1,0), 90°) = " + vRot.toString());
+    println("rotate((1,0), 90°) = " + vRot.toString());
     // 验证: 旋转90度后应该接近(0, 1)
     if (!Math.approxEqual(vRot.x, 0.0, 0.001) || !Math.approxEqual(vRot.y, 1.0, 0.001)) {
-        Console.println("WARNING: Rotation may be imprecise");
+        println("WARNING: Rotation may be imprecise");
     }
     
     // 测试反射
-    Console.println("\n--- Reflection ---");
+    println("\n--- Reflection ---");
     Vector2 incident = new Vector2(1.0, -1.0);
     Vector2 normal = new Vector2(0.0, 1.0);
     Vector2 reflected = incident.reflect(normal);
-    Console.println("reflect(" + incident.toString() + ", " + normal.toString() + ") = " + reflected.toString());
+    println("reflect(" + incident.toString() + ", " + normal.toString() + ") = " + reflected.toString());
     // 验证: 反射后应该接近(1, 1)
     if (!Math.approxEqual(reflected.x, 1.0) || !Math.approxEqual(reflected.y, 1.0)) {
-        Console.println("ERROR: Reflection incorrect");
+        println("ERROR: Reflection incorrect");
         return 1;
     }
     
-    Console.println("\n=== All Vector2 Tests Passed! ===");
+    println("\n=== All Vector2 Tests Passed! ===");
     return 0;
+    }
 }

@@ -14,14 +14,19 @@ impl IRGenerator {
     /// * `member` - 成员访问表达式
     /// * `args` - 参数列表
     pub fn try_generate_string_method_call(&mut self, member: &MemberAccessExpr, args: &[Expr]) -> cayResult<Option<String>> {
+        // 首先检查对象是否是 String 类型（使用 Cavvy 类型信息）
+        if let Some(obj_cay_type) = self.get_expression_type(&member.object) {
+            if !matches!(obj_cay_type, crate::types::Type::String) {
+                return Ok(None);
+            }
+        } else {
+            // 无法确定类型，保守处理，不认为是 String
+            return Ok(None);
+        }
+
         // 生成对象表达式（字符串）
         let obj_result = self.generate_expression(&member.object)?;
         let (obj_type, obj_val) = self.parse_typed_value(&obj_result);
-
-        // 检查对象是否是字符串类型 (i8*)
-        if obj_type != "i8*" {
-            return Ok(None);
-        }
 
         let method_name = member.member.as_str();
         let temp = self.new_temp();

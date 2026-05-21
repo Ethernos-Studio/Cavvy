@@ -83,9 +83,72 @@ impl ClassInfo {
 
     /// 根据方法名和参数类型查找方法（支持可变参数）
     pub fn find_method(&self, name: &str, arg_types: &[Type]) -> Option<&MethodInfo> {
-        self.methods.get(name)?.iter().find(|m| {
+        let methods = self.methods.get(name)?;
+        
+        // 第一遍：寻找精确匹配
+        for m in methods.iter() {
+            if Self::match_method_params_exact(&m.params, arg_types) {
+                return Some(m);
+            }
+        }
+        
+        // 第二遍：寻找兼容匹配（允许隐式转换）
+        methods.iter().find(|m| {
             Self::match_method_params(&m.params, arg_types)
         })
+    }
+    
+    /// 精确匹配方法参数（不考虑隐式转换）
+    fn match_method_params_exact(params: &[ParameterInfo], arg_types: &[Type]) -> bool {
+        if params.is_empty() {
+            return arg_types.is_empty();
+        }
+
+        // 检查最后一个参数是否是可变参数
+        let last_idx = params.len() - 1;
+        if params[last_idx].is_varargs {
+            // 可变参数：至少需要 params.len() - 1 个参数
+            if arg_types.len() < last_idx {
+                return false;
+            }
+            // 检查固定参数（精确匹配）
+            for i in 0..last_idx {
+                if params[i].param_type != arg_types[i] {
+                    return false;
+                }
+            }
+
+            // 检查可变参数（精确匹配）
+            let vararg_param_type = &params[last_idx].param_type;
+            let vararg_element_type = match vararg_param_type {
+                Type::Array(elem) => elem.as_ref(),
+                _ => vararg_param_type,
+            };
+
+            // 如果只有一个参数且类型匹配数组类型，直接接受
+            if arg_types.len() == last_idx + 1 {
+                if *vararg_param_type == arg_types[last_idx] {
+                    return true;
+                }
+            }
+
+            // 按元素类型检查每个参数（精确匹配）
+            for i in last_idx..arg_types.len() {
+                if *vararg_element_type != arg_types[i] {
+                    return false;
+                }
+            }
+            true
+        } else {
+            // 非可变参数：参数数量必须完全匹配
+            if params.len() != arg_types.len() {
+                return false;
+            }
+            // 精确匹配：类型必须完全相同
+            params.iter().zip(arg_types.iter()).all(|(p, a)| {
+                p.param_type == *a
+            })
+        }
     }
 
     /// 匹配方法参数（支持可变参数）

@@ -41,7 +41,7 @@
 
 #define MATH_EPSILON    1e-10                    // 浮点精度容差
 #define MATH_MAX_INT    2147483647               // 最大int值
-#define MATH_MIN_INT    -2147483648              // 最小int值
+#define MATH_MIN_INT    (-2147483647 - 1)        // 最小int值，避免字面量溢出
 
 // RAND_MAX 定义 - 使用标准C库值
 #define MATH_RAND_MAX   2147483647               // 2^31 - 1

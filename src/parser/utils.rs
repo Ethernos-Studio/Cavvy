@@ -37,7 +37,7 @@ pub fn current_loc(parser: &Parser) -> crate::error::SourceLocation {
     let token = &parser.tokens[parser.pos];
     crate::error::SourceLocation {
         file: token.source_file.clone(),
-        line: token.source_line.unwrap_or(token.loc.line),
+        line: token.loc.line,  // 使用预处理后的行号，让语义分析器来映射
         column: token.loc.column,
     }
 }

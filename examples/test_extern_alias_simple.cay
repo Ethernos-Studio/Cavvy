@@ -1,0 +1,15 @@
+// 简单的extern别名测试
+#include <std/ffi.cay>
+
+extern {
+    c_double sin(c_double x) as c_sin;
+}
+
+@main
+public class Test {
+    public static int main(String[] args) {
+        c_double result = c_sin((c_double)0.0);
+        println("c_sin(0) = " + (String)(double)result);
+        return 0;
+    }
+}

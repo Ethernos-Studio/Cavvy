@@ -72,10 +72,10 @@ fn test_include_system_angle_brackets() {
 fn test_error_line_number_with_nested_include() {
     let error = compile_eol_expect_error("examples/test_extreme_line_main.cay")
         .expect("nested include type error should fail to compile");
-    // 错误应在 test_extreme_line_c.cay 的第31行
+    // 错误应在 test_extreme_line_c.cay 的第29行 (int wrong = "string_not_int";)
     assert!(
-        error.contains("test_extreme_line_c.cay") && error.contains("31"),
-        "Should report error in test_extreme_line_c.cay at line 31, got: {}",
+        error.contains("test_extreme_line_c.cay") && error.contains("29"),
+        "Should report error in test_extreme_line_c.cay at line 29, got: {}",
         error
     );
 }

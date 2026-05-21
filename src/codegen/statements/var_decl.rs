@@ -85,9 +85,61 @@ impl IRGenerator {
             } else if let Expr::MemberAccess(member) = call.callee.as_ref() {
                 // obj.method() 形式
                 if let Expr::Identifier(obj_name) = &*member.object {
-                    if let Some(class_name) = self.var_class_map.get(obj_name.as_ref()) {
+                    let obj_name_str = obj_name.as_ref();
+                    // 首先检查是否是已知的类名（静态方法调用）
+                    if registry.class_exists(obj_name_str) {
+                        // 类名.方法名() 形式，如 Vector2.right()
+                        if let Some(method_info) = registry.get_method(obj_name_str, &member.member) {
+                            return Some(method_info.return_type.clone());
+                        }
+                    }
+                    // 否则尝试从变量映射获取
+                    if let Some(class_name) = self.var_class_map.get(obj_name_str) {
                         if let Some(method_info) = registry.get_method(class_name, &member.member) {
                             return Some(method_info.return_type.clone());
+                        }
+                    }
+                    // 检查是否是 String 类型变量
+                    if let Some(var_cay_type) = self.var_cay_types.get(obj_name_str) {
+                        if let crate::types::Type::String = var_cay_type {
+                            // String 类型特殊处理
+                            if member.member == "length" || member.member == "indexOf" || 
+                               member.member == "lastIndexOf" {
+                                return Some(crate::types::Type::Int32);
+                            } else if member.member == "substring" || 
+                                      member.member == "toString" || member.member == "replace" {
+                                return Some(crate::types::Type::String);
+                            } else if member.member == "equals" || member.member == "isEmpty" ||
+                                      member.member == "startsWith" || member.member == "endsWith" ||
+                                      member.member == "contains" {
+                                return Some(crate::types::Type::Bool);
+                            } else if member.member == "charAt" {
+                                return Some(crate::types::Type::Char);
+                            }
+                        }
+                    }
+                } else {
+                    // 处理链式调用：obj 不是 Identifier，递归推断其类型
+                    if let Some(obj_type) = self.get_expression_type(&member.object) {
+                        if let crate::types::Type::Object(class_name) = obj_type {
+                            if let Some(method_info) = registry.get_method(&class_name, &member.member) {
+                                return Some(method_info.return_type.clone());
+                            }
+                        } else if let crate::types::Type::String = obj_type {
+                            // String 类型特殊处理
+                            if member.member == "length" || member.member == "indexOf" || 
+                               member.member == "lastIndexOf" {
+                                return Some(crate::types::Type::Int32);
+                            } else if member.member == "substring" || 
+                                      member.member == "toString" || member.member == "replace" {
+                                return Some(crate::types::Type::String);
+                            } else if member.member == "equals" || member.member == "isEmpty" ||
+                                      member.member == "startsWith" || member.member == "endsWith" ||
+                                      member.member == "contains" {
+                                return Some(crate::types::Type::Bool);
+                            } else if member.member == "charAt" {
+                                return Some(crate::types::Type::Char);
+                            }
                         }
                     }
                 }

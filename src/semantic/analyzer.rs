@@ -233,6 +233,29 @@ impl SemanticAnalyzer {
             file,
         }
     }
+    
+    /// 创建语义分析错误信息（带文件路径）
+    pub fn create_error_info_with_file(&self, file: Option<String>, line: usize, column: usize, message: impl Into<String>) -> SemanticErrorInfo {
+        let (resolved_file, original_line) = if let Some(ref f) = file {
+            if let Some(ref map) = self.source_map {
+                if let Some((_, original_line)) = map.get(&line) {
+                    (Some(f.clone()), *original_line)
+                } else {
+                    (Some(f.clone()), line)
+                }
+            } else {
+                (Some(f.clone()), line)
+            }
+        } else {
+            self.resolve_file_and_line(line)
+        };
+        SemanticErrorInfo {
+            line: original_line,
+            column,
+            message: message.into(),
+            file: resolved_file,
+        }
+    }
 
     /// 根据预处理后的行号解析原始文件和原始行号
     fn resolve_file_and_line(&self, line: usize) -> (Option<String>, usize) {

@@ -129,14 +129,16 @@ impl IRGenerator {
                                     (obj_name_str.to_string(), true)
                                 } else {
                                     // 不是类名，尝试从变量映射获取
-                                    (self.var_class_map.get(obj_name_str)
+                                    let result = self.var_class_map.get(obj_name_str)
                                         .cloned()
-                                        .unwrap_or_else(|| obj_name_str.to_string()), false)
+                                        .unwrap_or_else(|| obj_name_str.to_string());
+                                    (result, false)
                                 }
                             } else {
-                                (self.var_class_map.get(obj_name_str)
+                                let result = self.var_class_map.get(obj_name_str)
                                     .cloned()
-                                    .unwrap_or_else(|| obj_name_str.to_string()), false)
+                                    .unwrap_or_else(|| obj_name_str.to_string());
+                                (result, false)
                             };
                             // 如果是类名.方法名() 形式，标记为静态方法调用
                             (class_name, member.member.clone(), Some(member.object.clone()), is_class)

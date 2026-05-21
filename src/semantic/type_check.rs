@@ -212,7 +212,8 @@ impl SemanticAnalyzer {
                 if let Some(init) = &var.initializer {
                     let init_type = self.infer_expr_type(init)?;
                     if !self.types_compatible(&init_type, &var_type) {
-                        self.errors.push(self.create_error_info(
+                        self.errors.push(self.create_error_info_with_file(
+                            var.loc.file.clone(),
                             var.loc.line,
                             var.loc.column,
                             format!(
