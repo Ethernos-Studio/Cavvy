@@ -5,7 +5,7 @@
  * 版本: 0.5.3.1
  */
 
-#include <caylibs/Math.cay>
+#include <Math.cay>
 
 @main
 public static int main(String[] args) {

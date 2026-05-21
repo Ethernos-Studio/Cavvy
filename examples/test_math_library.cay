@@ -5,113 +5,115 @@
  * 版本: 0.5.3.1
  */
 
-#include <caylibs/Math.cay>
+#include <Math.cay>
 
 @main
-public static int main(String[] args) {
-    Console.println("=== Math Library Test Suite ===");
-    
-    // 测试三角函数
-    Console.println("\n--- Trigonometric Functions ---");
-    double pi = MATH_PI;
-    Console.println("sin(0) = " + (String)Math.sin(0.0));
-    Console.println("sin(π/2) = " + (String)Math.sin(pi / 2.0));
-    Console.println("cos(0) = " + (String)Math.cos(0.0));
-    Console.println("cos(π) = " + (String)Math.cos(pi));
-    Console.println("tan(π/4) = " + (String)Math.tan(pi / 4.0));
-    
-    // 测试反三角函数
-    Console.println("\n--- Inverse Trigonometric Functions ---");
-    Console.println("asin(0) = " + (String)Math.asin(0.0));
-    Console.println("asin(1) = " + (String)Math.asin(1.0));
-    Console.println("acos(1) = " + (String)Math.acos(1.0));
-    Console.println("atan(1) = " + (String)Math.atan(1.0));
-    Console.println("atan2(1, 1) = " + (String)Math.atan2(1.0, 1.0));
-    
-    // 测试双曲函数
-    Console.println("\n--- Hyperbolic Functions ---");
-    Console.println("sinh(0) = " + (String)Math.sinh(0.0));
-    Console.println("cosh(0) = " + (String)Math.cosh(0.0));
-    Console.println("tanh(0) = " + (String)Math.tanh(0.0));
-    
-    // 测试指数和对数
-    Console.println("\n--- Exponential and Logarithmic ---");
-    Console.println("exp(1) = " + (String)Math.exp(1.0));
-    Console.println("log(E) = " + (String)Math.log(MATH_E));
-    Console.println("log10(100) = " + (String)Math.log10(100.0));
-    Console.println("log2(8) = " + (String)Math.log2(8.0));
-    Console.println("logBase(8, 2) = " + (String)Math.logBase(8.0, 2.0));
-    
-    // 测试幂函数
-    Console.println("\n--- Power Functions ---");
-    Console.println("pow(2, 10) = " + (String)Math.pow(2.0, 10.0));
-    Console.println("sqrt(16) = " + (String)Math.sqrt(16.0));
-    Console.println("cbrt(27) = " + (String)Math.cbrt(27.0));
-    Console.println("cbrt(-8) = " + (String)Math.cbrt(-8.0));
-    Console.println("sqr(5) = " + (String)Math.sqr(5.0));
-    
-    // 测试取整函数
-    Console.println("\n--- Rounding Functions ---");
-    Console.println("ceil(2.3) = " + (String)Math.ceil(2.3));
-    Console.println("floor(2.7) = " + (String)Math.floor(2.7));
-    Console.println("round(2.5) = " + (String)Math.round(2.5));
-    Console.println("trunc(-2.7) = " + (String)Math.trunc(-2.7));
-    Console.println("frac(3.14) = " + (String)Math.frac(3.14));
-    Console.println("frac(-3.14) = " + (String)Math.frac(-3.14));
-    
-    // 测试绝对值
-    Console.println("\n--- Absolute Value ---");
-    Console.println("abs(-5.5) = " + (String)Math.abs(-5.5));
-    Console.println("abs(-10) = " + (String)Math.abs(-10));
-    Console.println("abs(MATH_MIN_INT) = " + (String)Math.abs(MATH_MIN_INT));
-    Console.println("abs(-100L) = " + (String)Math.abs(-100L));
-    
-    // 测试符号函数
-    Console.println("\n--- Sign Function ---");
-    Console.println("sign(-5.5) = " + (String)Math.sign(-5.5));
-    Console.println("sign(0) = " + (String)Math.sign(0.0));
-    Console.println("sign(3.14) = " + (String)Math.sign(3.14));
-    
-    // 测试最值函数
-    Console.println("\n--- Min/Max Functions ---");
-    Console.println("max(3, 5) = " + (String)Math.max(3, 5));
-    Console.println("min(3.5, 2.5) = " + (String)Math.min(3.5, 2.5));
-    Console.println("max(100L, 200L) = " + (String)Math.max(100L, 200L));
-    
-    // 测试钳制函数
-    Console.println("\n--- Clamp Function ---");
-    Console.println("clamp(15, 0, 10) = " + (String)Math.clamp(15, 0, 10));
-    Console.println("clamp(-5, 0, 10) = " + (String)Math.clamp(-5, 0, 10));
-    Console.println("clamp(5, 0, 10) = " + (String)Math.clamp(5, 0, 10));
-    // 测试min > max自动交换
-    Console.println("clamp(5, 10, 0) = " + (String)Math.clamp(5, 10, 0));
-    
-    // 测试近似相等
-    Console.println("\n--- Approximate Equal ---");
-    Console.println("approxEqual(1.0, 1.0000000001) = " + (String)Math.approxEqual(1.0, 1.0000000001));
-    Console.println("approxEqual(1.0, 1.1) = " + (String)Math.approxEqual(1.0, 1.1));
-    Console.println("approxEqualRelative(1e9, 1e9+1, 1e-10) = " + (String)Math.approxEqualRelative(1e9, 1e9+1, 1e-10));
-    
-    // 测试插值函数
-    Console.println("\n--- Interpolation ---");
-    Console.println("lerp(0, 10, 0.5) = " + (String)Math.lerp(0.0, 10.0, 0.5));
-    Console.println("lerp(0, 100, 0.25) = " + (String)Math.lerp(0, 100, 0.25));
-    Console.println("smoothStep(0, 1, 0.5) = " + (String)Math.smoothStep(0.0, 1.0, 0.5));
-    // 测试a == b情况
-    Console.println("smoothStep(5, 5, 0.5) = " + (String)Math.smoothStep(5.0, 5.0, 0.5));
-    
-    // 测试GCD和LCM
-    Console.println("\n--- GCD and LCM ---");
-    Console.println("gcd(48, 18) = " + (String)Math.gcd(48, 18));
-    Console.println("gcd(-48, 18) = " + (String)Math.gcd(-48, 18));
-    Console.println("gcd(MATH_MIN_INT, 1) = " + (String)Math.gcd(MATH_MIN_INT, 1));
-    Console.println("lcm(4, 6) = " + (String)Math.lcm(4, 6));
-    
-    // 测试角度转换
-    Console.println("\n--- Angle Conversion ---");
-    Console.println("toRadians(180) = " + (String)Math.toRadians(180.0));
-    Console.println("toDegrees(π) = " + (String)Math.toDegrees(pi));
-    
-    Console.println("\n=== All Math Tests Passed! ===");
-    return 0;
+public class MathTest {
+    public static int main(String[] args) {
+        Console.println("=== Math Library Test Suite ===");
+        
+        // 测试三角函数
+        Console.println("\n--- Trigonometric Functions ---");
+        double pi = MATH_PI;
+        Console.println("sin(0) = " + (String)Math.sin(0.0));
+        Console.println("sin(π/2) = " + (String)Math.sin(pi / 2.0));
+        Console.println("cos(0) = " + (String)Math.cos(0.0));
+        Console.println("cos(π) = " + (String)Math.cos(pi));
+        Console.println("tan(π/4) = " + (String)Math.tan(pi / 4.0));
+        
+        // 测试反三角函数
+        Console.println("\n--- Inverse Trigonometric Functions ---");
+        Console.println("asin(0) = " + (String)Math.asin(0.0));
+        Console.println("asin(1) = " + (String)Math.asin(1.0));
+        Console.println("acos(1) = " + (String)Math.acos(1.0));
+        Console.println("atan(1) = " + (String)Math.atan(1.0));
+        Console.println("atan2(1, 1) = " + (String)Math.atan2(1.0, 1.0));
+        
+        // 测试双曲函数
+        Console.println("\n--- Hyperbolic Functions ---");
+        Console.println("sinh(0) = " + (String)Math.sinh(0.0));
+        Console.println("cosh(0) = " + (String)Math.cosh(0.0));
+        Console.println("tanh(0) = " + (String)Math.tanh(0.0));
+        
+        // 测试指数和对数
+        Console.println("\n--- Exponential and Logarithmic ---");
+        Console.println("exp(1) = " + (String)Math.exp(1.0));
+        Console.println("log(E) = " + (String)Math.log(MATH_E));
+        Console.println("log10(100) = " + (String)Math.log10(100.0));
+        Console.println("log2(8) = " + (String)Math.log2(8.0));
+        Console.println("logBase(8, 2) = " + (String)Math.logBase(8.0, 2.0));
+        
+        // 测试幂函数
+        Console.println("\n--- Power Functions ---");
+        Console.println("pow(2, 10) = " + (String)Math.pow(2.0, 10.0));
+        Console.println("sqrt(16) = " + (String)Math.sqrt(16.0));
+        Console.println("cbrt(27) = " + (String)Math.cbrt(27.0));
+        Console.println("cbrt(-8) = " + (String)Math.cbrt(-8.0));
+        Console.println("sqr(5) = " + (String)Math.sqr(5.0));
+        
+        // 测试取整函数
+        Console.println("\n--- Rounding Functions ---");
+        Console.println("ceil(2.3) = " + (String)Math.ceil(2.3));
+        Console.println("floor(2.7) = " + (String)Math.floor(2.7));
+        Console.println("round(2.5) = " + (String)Math.round(2.5));
+        Console.println("trunc(-2.7) = " + (String)Math.trunc(-2.7));
+        Console.println("frac(3.14) = " + (String)Math.frac(3.14));
+        Console.println("frac(-3.14) = " + (String)Math.frac(-3.14));
+        
+        // 测试绝对值
+        Console.println("\n--- Absolute Value ---");
+        Console.println("abs(-5.5) = " + (String)Math.abs(-5.5));
+        Console.println("abs(-10) = " + (String)Math.abs(-10));
+        Console.println("abs(MATH_MIN_INT) = " + (String)Math.abs(MATH_MIN_INT));
+        Console.println("abs(-100L) = " + (String)Math.abs(-100L));
+        
+        // 测试符号函数
+        Console.println("\n--- Sign Function ---");
+        Console.println("sign(-5.5) = " + (String)Math.sign(-5.5));
+        Console.println("sign(0) = " + (String)Math.sign(0.0));
+        Console.println("sign(3.14) = " + (String)Math.sign(3.14));
+        
+        // 测试最值函数
+        Console.println("\n--- Min/Max Functions ---");
+        Console.println("max(3, 5) = " + (String)Math.max(3, 5));
+        Console.println("min(3.5, 2.5) = " + (String)Math.min(3.5, 2.5));
+        Console.println("max(100L, 200L) = " + (String)Math.max(100L, 200L));
+        
+        // 测试钳制函数
+        Console.println("\n--- Clamp Function ---");
+        Console.println("clamp(15, 0, 10) = " + (String)Math.clamp(15, 0, 10));
+        Console.println("clamp(-5, 0, 10) = " + (String)Math.clamp(-5, 0, 10));
+        Console.println("clamp(5, 0, 10) = " + (String)Math.clamp(5, 0, 10));
+        // 测试min > max自动交换
+        Console.println("clamp(5, 10, 0) = " + (String)Math.clamp(5, 10, 0));
+        
+        // 测试近似相等
+        Console.println("\n--- Approximate Equal ---");
+        Console.println("approxEqual(1.0, 1.0000000001) = " + (String)Math.approxEqual(1.0, 1.0000000001));
+        Console.println("approxEqual(1.0, 1.1) = " + (String)Math.approxEqual(1.0, 1.1));
+        Console.println("approxEqualRelative(1e9, 1e9+1, 1e-10) = " + (String)Math.approxEqualRelative(1e9, 1e9+1, 1e-10));
+        
+        // 测试插值函数
+        Console.println("\n--- Interpolation ---");
+        Console.println("lerp(0, 10, 0.5) = " + (String)Math.lerp(0.0, 10.0, 0.5));
+        Console.println("lerp(0, 100, 0.25) = " + (String)Math.lerp(0, 100, 0.25));
+        Console.println("smoothStep(0, 1, 0.5) = " + (String)Math.smoothStep(0.0, 1.0, 0.5));
+        // 测试a == b情况
+        Console.println("smoothStep(5, 5, 0.5) = " + (String)Math.smoothStep(5.0, 5.0, 0.5));
+        
+        // 测试GCD和LCM
+        Console.println("\n--- GCD and LCM ---");
+        Console.println("gcd(48, 18) = " + (String)Math.gcd(48, 18));
+        Console.println("gcd(-48, 18) = " + (String)Math.gcd(-48, 18));
+        Console.println("gcd(MATH_MIN_INT, 1) = " + (String)Math.gcd(MATH_MIN_INT, 1));
+        Console.println("lcm(4, 6) = " + (String)Math.lcm(4, 6));
+        
+        // 测试角度转换
+        Console.println("\n--- Angle Conversion ---");
+        Console.println("toRadians(180) = " + (String)Math.toRadians(180.0));
+        Console.println("toDegrees(π) = " + (String)Math.toDegrees(pi));
+        
+        Console.println("\n=== All Math Tests Passed! ===");
+        return 0;
+    }
 }

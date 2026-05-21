@@ -220,7 +220,7 @@ impl Preprocessor {
                                     output_lines.push(included_line.to_string());
                                 }
                                 // 合并源映射 - 保持正确的行号对应关系
-                                for (idx, mapping) in included_source_map.mappings.iter().enumerate() {
+                                for mapping in included_source_map.mappings.iter() {
                                     source_map.add_mapping(mapping.file.clone(), mapping.line);
                                 }
                             }

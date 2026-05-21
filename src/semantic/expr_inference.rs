@@ -308,32 +308,28 @@ impl SemanticAnalyzer {
                 "__cay_read_ptr" => {
                     // 检查参数数量
                     if call.args.len() != 1 {
-                        return Err(semantic_error(call.loc.line, call.loc.column,
-                            format!("Function '__cay_read_ptr' requires 1 argument, but got {}", call.args.len())));
+                        return Err(semantic_error_at_loc(&call.loc, format!("Function '__cay_read_ptr' requires 1 argument, but got {}", call.args.len())));
                     }
                     return Ok(Type::Int64);
                 }
                 "__cay_ptr_to_string" => {
                     // 检查参数数量
                     if call.args.len() != 1 {
-                        return Err(semantic_error(call.loc.line, call.loc.column,
-                            format!("Function '__cay_ptr_to_string' requires 1 argument, but got {}", call.args.len())));
+                        return Err(semantic_error_at_loc(&call.loc, format!("Function '__cay_ptr_to_string' requires 1 argument, but got {}", call.args.len())));
                     }
                     return Ok(Type::String);
                 }
                 "__cay_write_ptr" => {
                     // 检查参数数量
                     if call.args.len() != 2 {
-                        return Err(semantic_error(call.loc.line, call.loc.column,
-                            format!("Function '__cay_write_ptr' requires 2 arguments, but got {}", call.args.len())));
+                        return Err(semantic_error_at_loc(&call.loc, format!("Function '__cay_write_ptr' requires 2 arguments, but got {}", call.args.len())));
                     }
                     return Ok(Type::Void);
                 }
                 "__cay_write_int" => {
                     // 检查参数数量
                     if call.args.len() != 2 {
-                        return Err(semantic_error(call.loc.line, call.loc.column,
-                            format!("Function '__cay_write_int' requires 2 arguments, but got {}", call.args.len())));
+                        return Err(semantic_error_at_loc(&call.loc, format!("Function '__cay_write_int' requires 2 arguments, but got {}", call.args.len())));
                     }
                     return Ok(Type::Void);
                 }
@@ -341,11 +337,18 @@ impl SemanticAnalyzer {
             }
 
             // 检查是否是 extern 函数（全局函数）
+            // 注意：如果extern函数有别名，只能通过别名调用
             let extern_func_info = if let Some(ref prog) = self.program {
                 let mut found_func = None;
                 for extern_decl in &prog.extern_declarations {
                     for extern_func in &extern_decl.functions {
-                        if extern_func.name == name.as_ref() {
+                        // 检查是否匹配：有别名的按别名匹配，没别名的按原名匹配
+                        let is_match = match &extern_func.alias {
+                            Some(alias) => alias == name.as_ref(),
+                            None => extern_func.name == name.as_ref(),
+                        };
+                        
+                        if is_match {
                             // 检查参数数量（不包括可变参数）
                             let fixed_param_count = extern_func.params.iter()
                                 .filter(|p| !p.is_varargs)
@@ -355,14 +358,14 @@ impl SemanticAnalyzer {
                             if has_varargs {
                                 // 可变参数函数：参数数量 >= 固定参数数量
                                 if call.args.len() < fixed_param_count {
-                                    return Err(semantic_error(call.loc.line, call.loc.column,
+                                    return Err(semantic_error_at_loc(&call.loc,
                                         format!("Function '{}' requires at least {} arguments, but got {}",
                                             name, fixed_param_count, call.args.len())));
                                 }
                             } else {
                                 // 非可变参数函数：参数数量必须匹配
                                 if call.args.len() != extern_func.params.len() {
-                                    return Err(semantic_error(call.loc.line, call.loc.column,
+                                    return Err(semantic_error_at_loc(&call.loc,
                                         format!("Function '{}' requires {} arguments, but got {}",
                                             name, extern_func.params.len(), call.args.len())));
                                 }
@@ -390,10 +393,7 @@ impl SemanticAnalyzer {
                     }
                     let arg_type = self.infer_expr_type(arg)?;
                     if !self.types_compatible(&arg_type, &param.param_type) {
-                        return Err(semantic_error(
-                            call.loc.line,
-                            call.loc.column,
-                            format!("Argument {} type mismatch: expected {}, got {}",
+                        return Err(semantic_error_at_loc(&call.loc, format!("Argument {} type mismatch: expected {}, got {}",
                                 i + 1, param.param_type, arg_type)
                         ));
                     }
@@ -415,7 +415,7 @@ impl SemanticAnalyzer {
                     let params = method_info.params.clone();
                     // 检查参数类型兼容性（支持可变参数）
                     if let Err(msg) = self.check_arguments_compatible(&call.args, &params, call.loc.line, call.loc.column) {
-                        return Err(semantic_error(call.loc.line, call.loc.column, msg));
+                        return Err(semantic_error_at_loc(&call.loc, msg));
                     }
 
                     return Ok(return_type);
@@ -435,7 +435,7 @@ impl SemanticAnalyzer {
             if let Some((params, return_type)) = top_level_func_info {
                 // 找到顶层函数，检查参数类型兼容性
                 if let Err(msg) = self.check_arguments_compatible(&call.args, &params, call.loc.line, call.loc.column) {
-                    return Err(semantic_error(call.loc.line, call.loc.column, msg));
+                    return Err(semantic_error_at_loc(&call.loc, msg));
                 }
                 return Ok(return_type);
             }
@@ -468,7 +468,7 @@ impl SemanticAnalyzer {
                             let params = method_info.params.clone();
                             // 检查参数类型兼容性（支持可变参数）
                             if let Err(msg) = self.check_arguments_compatible(&call.args, &params, call.loc.line, call.loc.column) {
-                                return Err(semantic_error(call.loc.line, call.loc.column, msg));
+                                return Err(semantic_error_at_loc(&call.loc, msg));
                             }
 
                             return Ok(return_type);
@@ -502,10 +502,7 @@ impl SemanticAnalyzer {
                             let params = func_type.params.clone();
                             // 检查参数数量
                             if call.args.len() != params.len() {
-                                return Err(semantic_error(
-                                    call.loc.line,
-                                    call.loc.column,
-                                    format!("Function pointer field '{}' requires {} arguments, but got {}",
+                                return Err(semantic_error_at_loc(&call.loc, format!("Function pointer field '{}' requires {} arguments, but got {}",
                                         member.member, params.len(), call.args.len())
                                 ));
                             }
@@ -513,10 +510,7 @@ impl SemanticAnalyzer {
                             for (i, (arg, expected_type)) in call.args.iter().zip(params.iter()).enumerate() {
                                 let arg_type = self.infer_expr_type(arg)?;
                                 if !self.types_compatible(&arg_type, expected_type) {
-                                    return Err(semantic_error(
-                                        call.loc.line,
-                                        call.loc.column,
-                                        format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                                    return Err(semantic_error_at_loc(&call.loc, format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
                                     ));
                                 }
                             }
@@ -531,15 +525,12 @@ impl SemanticAnalyzer {
                     let params = method_info.params.clone();
                     // 检查参数类型兼容性（支持可变参数）
                     if let Err(msg) = self.check_arguments_compatible(&call.args, &params, call.loc.line, call.loc.column) {
-                        return Err(semantic_error(call.loc.line, call.loc.column, msg));
+                        return Err(semantic_error_at_loc(&call.loc, msg));
                     }
 
                     return Ok(return_type);
                 } else {
-                    return Err(semantic_error(
-                        call.loc.line,
-                        call.loc.column,
-                        format!("Unknown method '{}' for class {}", member.member, class_name)
+                    return Err(semantic_error_at_loc(&call.loc, format!("Unknown method '{}' for class {}", member.member, class_name)
                     ));
                 }
             }
@@ -561,20 +552,14 @@ impl SemanticAnalyzer {
                 let expected_args = params.len();
                 let actual_args = call.args.len();
                 if actual_args != expected_args {
-                    return Err(semantic_error(
-                        call.loc.line,
-                        call.loc.column,
-                        format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
+                    return Err(semantic_error_at_loc(&call.loc, format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
                     ));
                 }
                 // 检查参数类型兼容性
                 for (i, (arg, expected_type)) in call.args.iter().zip(params.iter()).enumerate() {
                     let arg_type = self.infer_expr_type(arg)?;
                     if !self.types_compatible(&arg_type, expected_type) {
-                        return Err(semantic_error(
-                            call.loc.line,
-                            call.loc.column,
-                            format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                        return Err(semantic_error_at_loc(&call.loc, format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
                         ));
                     }
                 }
@@ -585,34 +570,24 @@ impl SemanticAnalyzer {
             if let Some(ref current_class) = self.current_class {
                 if let Some(class_info) = self.type_registry.get_class(current_class) {
                     if class_info.methods.contains_key(name.as_ref()) {
-                        return Err(semantic_error(
-                            call.loc.line,
-                            call.loc.column,
-                            format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", name, current_class)
+                        return Err(semantic_error_at_loc(&call.loc, format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", name, current_class)
                         ));
                     }
                 }
             }
-            return Err(semantic_error(
-                call.loc.line,
-                call.loc.column,
+            return Err(semantic_error_at_loc(
+                &call.loc,
                 format!("Cannot find method '{}'", name)
             ));
         }
 
         if let Expr::MemberAccess(member) = call.callee.as_ref() {
             if let Expr::Identifier(class_name) = &*member.object {
-                return Err(semantic_error(
-                    call.loc.line,
-                    call.loc.column,
-                    format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", member.member, class_name)
+                return Err(semantic_error_at_loc(&call.loc, format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", member.member, class_name)
                 ));
             }
             if let Type::Object(class_name) = self.infer_expr_type(&member.object)? {
-                return Err(semantic_error(
-                    call.loc.line,
-                    call.loc.column,
-                    format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", member.member, class_name)
+                return Err(semantic_error_at_loc(&call.loc, format!("Method '{}' in class '{}' cannot be applied to given types: argument mismatch", member.member, class_name)
                 ));
             }
         }
@@ -625,29 +600,21 @@ impl SemanticAnalyzer {
             let expected_args = func_type.params.len();
             let actual_args = call.args.len();
             if actual_args != expected_args {
-                return Err(semantic_error(
-                    call.loc.line,
-                    call.loc.column,
-                    format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
+                return Err(semantic_error_at_loc(&call.loc, format!("Function pointer call requires {} arguments, but got {}", expected_args, actual_args)
                 ));
             }
             // 检查参数类型兼容性
             for (i, (arg, expected_type)) in call.args.iter().zip(func_type.params.iter()).enumerate() {
                 let arg_type = self.infer_expr_type(arg)?;
                 if !self.types_compatible(&arg_type, expected_type) {
-                    return Err(semantic_error(
-                        call.loc.line,
-                        call.loc.column,
-                        format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
+                    return Err(semantic_error_at_loc(&call.loc, format!("Argument {} type mismatch: expected {}, got {}", i + 1, expected_type, arg_type)
                     ));
                 }
             }
             return Ok(*func_type.return_type.clone());
         }
 
-        Err(semantic_error(
-            call.loc.line,
-            call.loc.column,
+        Err(semantic_error_at_loc(&call.loc,
             "Cannot resolve method call".to_string()
         ))
     }
@@ -848,7 +815,8 @@ impl SemanticAnalyzer {
         if self.types_compatible(&value_type, &target_type) {
             Ok(target_type)
         } else {
-            Err(semantic_error(
+            Err(semantic_error_with_file(
+                assign.loc.file.clone(),
                 assign.loc.line,
                 assign.loc.column,
                 format!("Cannot assign {} to {}", value_type, target_type)

@@ -203,32 +203,15 @@ impl SemanticAnalyzer {
     /// 根据行号解析对应的源文件路径
     ///
     /// 逻辑：
-    /// 1. 遍历 source_map，查找原始行号匹配的文件
-    ///    source_map 结构: 预处理后的行号 -> (原始文件, 原始行号)
-    /// 2. 优先匹配 current_file（主文件），如果找到则返回
-    /// 3. 否则返回第一个匹配的文件
+    /// 1. source_map 结构: 预处理后的行号 -> (原始文件, 原始行号)
+    /// 2. 用预处理后的行号（line参数）查找对应的原始文件
+    /// 3. 如果找到，返回原始文件路径
     /// 4. 如果未找到，回退到 current_file
     fn resolve_file_for_line(&self, line: usize) -> Option<String> {
         if let Some(ref map) = self.source_map {
-            let mut first_match: Option<String> = None;
-            // 遍历 source_map，查找原始行号匹配的文件
-            for (_processed_line, (file, original_line)) in map.iter() {
-                if *original_line == line {
-                    // 优先匹配 current_file（主文件）
-                    if let Some(ref current) = self.current_file {
-                        if file == current {
-                            return Some(file.clone());
-                        }
-                    }
-                    // 保存第一个匹配，继续查找 current_file
-                    if first_match.is_none() {
-                        first_match = Some(file.clone());
-                    }
-                }
-            }
-            // 如果没有匹配到 current_file，返回第一个匹配
-            if first_match.is_some() {
-                return first_match;
+            // 用预处理后的行号查找对应的原始文件
+            if let Some((file, _original_line)) = map.get(&line) {
+                return Some(file.clone());
             }
         }
         self.current_file.clone()
@@ -242,13 +225,23 @@ impl SemanticAnalyzer {
 
     /// 创建语义分析错误信息（自动解析文件路径）
     pub fn create_error_info(&self, line: usize, column: usize, message: impl Into<String>) -> SemanticErrorInfo {
-        let file = self.resolve_file_for_line(line);
+        let (file, original_line) = self.resolve_file_and_line(line);
         SemanticErrorInfo {
-            line,
+            line: original_line,
             column,
             message: message.into(),
             file,
         }
+    }
+
+    /// 根据预处理后的行号解析原始文件和原始行号
+    fn resolve_file_and_line(&self, line: usize) -> (Option<String>, usize) {
+        if let Some(ref map) = self.source_map {
+            if let Some((file, original_line)) = map.get(&line) {
+                return (Some(file.clone()), *original_line);
+            }
+        }
+        (self.current_file.clone(), line)
     }
 
     /// 从表达式中提取源代码位置

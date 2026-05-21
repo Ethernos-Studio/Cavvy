@@ -86,9 +86,7 @@ impl Compiler {
         }
 
         // 2. 语法分析（传入源代码以支持内联IR解析）
-        eprintln!("DEBUG: About to call parser::parse");
         let ast = parser::parse_with_source(tokens, source.to_string())?;
-        eprintln!("DEBUG: parser::parse succeeded, top_level_functions: {}", ast.top_level_functions.len());
 
         // 3. 语义分析
         let mut analyzer = semantic::SemanticAnalyzer::with_features(self.options.features.clone());
@@ -253,6 +251,7 @@ impl Compiler {
             preprocessor::Preprocessor::with_include_paths(base_dir, system_paths)
         };
         let result = pp.process_with_source_map(&source, input_path)?;
+
         let source_map = Self::convert_source_map(&result.source_map);
 
         // 编译预处理后的代码（带源映射和主文件路径）

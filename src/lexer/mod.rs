@@ -206,7 +206,11 @@ pub enum Token {
     })]
     IntegerLiteral(Option<(i64, Option<char>)>),
     
-    #[regex(r"(?:[0-9][0-9_]*\.[0-9][0-9_]*|\.[0-9][0-9_]*|[0-9][0-9_]*\.)(?:[eE][+-]?[0-9][0-9_]*)?[FfDd]?", |lex| {
+    // 浮点数字面量 - 支持以下格式：
+    // 1. 标准小数: 3.14, .5, 2.
+    // 2. 科学计数法: 1e10, 1.5e-10, 2E+5
+    // 3. 带后缀: 3.14f, 1e10d
+    #[regex(r"(?:[0-9][0-9_]*\.[0-9][0-9_]*|\.[0-9][0-9_]*|[0-9][0-9_]*\.)(?:[eE][+-]?[0-9][0-9_]*)?[FfDd]?|[0-9][0-9_]*[eE][+-]?[0-9][0-9_]*[FfDd]?", |lex| {
         let slice = lex.slice();
         let (num_str, suffix) = if slice.ends_with('F') || slice.ends_with('f') {
             (&slice[..slice.len()-1], Some('f'))
@@ -736,10 +740,10 @@ impl<'a> Lexer<'a> {
                     (self.current_source_file.clone(), Some(self.line))
                 };
 
-                // 更新loc中的file字段
+                // 更新loc中的file和line字段 - 使用原始源位置
                 let loc = SourceLocation {
                     file: source_file.clone(),
-                    line: loc.line,
+                    line: source_line.unwrap_or(loc.line),
                     column: loc.column,
                 };
 
@@ -1244,5 +1248,46 @@ x"#;
         let tokens = tokenize_with_newlines(source).unwrap();
         // 应该能成功tokenize，不会报错
         assert!(tokens.len() > 0);
+    }
+
+    #[test]
+    fn test_scientific_notation() {
+        // 测试科学计数法
+        let source = r#"1e10 1e-10 1e+10 1.5e10 1.5e-10 2E5 3.14e0"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 7, "Should have 7 float literals");
+        
+        // 验证所有都是浮点数字面量
+        for token in &tokens {
+            assert!(matches!(token.token, Token::FloatLiteral(_)), 
+                "Expected FloatLiteral, got {:?}", token.token);
+        }
+        
+        // 验证具体值
+        if let Token::FloatLiteral(Some((val, _))) = &tokens[0].token {
+            assert!((*val - 1e10).abs() < 1e-5, "1e10 should be 10000000000, got {}", val);
+        }
+        if let Token::FloatLiteral(Some((val, _))) = &tokens[1].token {
+            assert!((*val - 1e-10).abs() < 1e-15, "1e-10 should be 0.0000000001, got {}", val);
+        }
+        if let Token::FloatLiteral(Some((val, _))) = &tokens[3].token {
+            assert!((*val - 1.5e10).abs() < 1e-5, "1.5e10 should be 15000000000, got {}", val);
+        }
+    }
+
+    #[test]
+    fn test_scientific_notation_with_suffix() {
+        // 测试带后缀的科学计数法
+        let source = r#"1e10f 1.5e-10d 2E5F"#;
+        let tokens = tokenize(source).unwrap();
+        assert_eq!(tokens.len(), 3, "Should have 3 float literals");
+        
+        // 验证后缀
+        if let Token::FloatLiteral(Some((_, suffix))) = &tokens[0].token {
+            assert_eq!(*suffix, Some('f'), "Should have 'f' suffix");
+        }
+        if let Token::FloatLiteral(Some((_, suffix))) = &tokens[1].token {
+            assert_eq!(*suffix, Some('d'), "Should have 'd' suffix");
+        }
     }
 }
